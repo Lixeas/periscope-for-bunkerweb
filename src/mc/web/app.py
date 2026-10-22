@@ -56,8 +56,9 @@ def create_app(run_migrations: bool = True) -> FastAPI:
             resp.headers["Cache-Control"] = "no-store"
         return resp
 
-    from mc.web import routes_auth, routes_pages
+    from mc.web import routes_account, routes_auth, routes_pages
 
     app.include_router(routes_auth.router)
+    app.include_router(routes_account.router)
     app.include_router(routes_pages.router)
     return app
