@@ -1,0 +1,22 @@
+services:
+  mission-control:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      FORWARDED_ALLOW_IPS: "${MC_TRUSTED_PROXY:-127.0.0.1}"
+    volumes:
+      - mc-data:/data
+    # Accès local uniquement par défaut. Pour exposer via BunkerWeb : retirer "ports" et
+    # rattacher ce service au réseau Docker de BunkerWeb (voir README).
+    ports:
+      - "127.0.0.1:8000:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  mc-data: {}
