@@ -86,6 +86,12 @@ async def probe_one(inst_id: int, probe_fn=probe) -> None:
             s.add(row)
 
 
+async def refresh_instance(inst_id: int) -> None:
+    """Collecte puis sonde immédiatement une instance (après ajout ou modification)."""
+    await collect_one(inst_id)
+    await probe_one(inst_id)
+
+
 def _enabled_ids() -> list[int]:
     with session_scope() as s:
         return [i for (i,) in s.query(Instance.id).filter_by(enabled=True)]
