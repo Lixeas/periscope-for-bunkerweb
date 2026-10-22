@@ -1,0 +1,21 @@
+{% macro instance_badge(status) -%}
+{%- set cls = {'ok': 'success', 'degraded': 'warning', 'down': 'danger'}[status] | default('secondary') -%}
+{%- set label = {'ok': 'OK', 'degraded': 'Dégradé', 'down': 'Injoignable', 'unknown': 'Inconnu'}[status] | default(status) -%}
+<span class="badge text-bg-{{ cls }}">{{ label }}</span>
+{%- endmacro %}
+
+{% macro cert_badge(status) -%}
+{%- set cls = {'ok': 'success', 'orange': 'warning', 'red': 'danger', 'expired': 'danger'}[status] | default('secondary') -%}
+{%- set label = {'ok': 'Valide', 'orange': 'Expire bientôt', 'red': 'Critique', 'expired': 'Expiré', 'none': 'Aucun'}[status] | default(status) -%}
+<span class="badge text-bg-{{ cls }}">{{ label }}</span>
+{%- endmacro %}
+
+{% macro mode_badge(mode) -%}
+{%- if mode == 'block' -%}<span class="badge text-bg-success">block</span>
+{%- elif mode == 'detect' -%}<span class="badge text-bg-warning">detect</span>
+{%- else -%}<span class="badge text-bg-secondary">inconnu</span>{%- endif -%}
+{%- endmacro %}
+
+{% macro missing(names) -%}
+{%- if names %}<div class="small text-warning-emphasis">⚠ absent sur : {{ names | join(', ') }}</div>{% endif -%}
+{%- endmacro %}
