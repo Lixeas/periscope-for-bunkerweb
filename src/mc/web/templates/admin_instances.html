@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_macros.html" import instance_badge %}
+{% block title %}Instances{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Instances BunkerWeb</h1>
+{% if msg %}<div class="alert alert-info" role="status">{{ msg }}</div>{% endif %}
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+
+<div class="table-responsive mb-5">
+<table class="table align-middle">
+  <thead><tr><th>Nom</th><th>URL de l'API</th><th>Sonde TLS</th><th>État</th><th>Dernière collecte</th><th></th></tr></thead>
+  <tbody>
+  {% for i in instances %}
+  <tr>
+    <td>{{ i.name }}</td>
+    <td>{{ i.base_url }}</td>
+    <td>{{ i.probe_target }}:{{ i.tls_port }}</td>
+    <td>{% if i.enabled %}{{ instance_badge(i.status) }}{% else %}<span class="badge text-bg-secondary">Désactivée</span>{% endif %}
+        {% if i.last_error %}<div class="small text-danger">{{ i.last_error }}</div>{% endif %}</td>
+    <td>{{ i.last_ok_at | ago }}</td>
+    <td class="text-nowrap">
+      <a class="btn btn-sm btn-outline-secondary" href="/admin/instances/{{ i.id }}">Modifier</a>
+      <form method="post" action="/admin/instances/{{ i.id }}/delete" class="d-inline">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-sm btn-outline-danger">Supprimer</button>
+      </form>
+    </td>
+  </tr>
+  {% else %}<tr><td colspan="6" class="text-secondary">Aucune instance.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2 class="h5">Ajouter une instance</h2>
+<form method="post" action="/admin/instances" class="col-lg-6">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="mb-3"><label class="form-label" for="name">Nom</label>
+    <input class="form-control" id="name" name="name" value="{{ form.name or '' }}" required></div>
+  <div class="mb-3"><label class="form-label" for="base_url">URL de l'API BunkerWeb</label>
+    <input class="form-control" id="base_url" name="base_url" placeholder="http://10.0.0.5:8888" value="{{ form.base_url or '' }}" required></div>
+  <div class="mb-3"><label class="form-label" for="token">Token d'API (lecture seule recommandé)</label>
+    <input class="form-control" id="token" name="token" type="password" autocomplete="off" required>
+    <div class="form-text">Chiffré en base, jamais réaffiché.</div></div>
+  <div class="row">
+    <div class="col-8 mb-3"><label class="form-label" for="probe_host">Hôte de la sonde TLS</label>
+      <input class="form-control" id="probe_host" name="probe_host" placeholder="vide = hôte de l'API" value="{{ form.probe_host or '' }}"></div>
+    <div class="col-4 mb-3"><label class="form-label" for="tls_port">Port TLS</label>
+      <input class="form-control" id="tls_port" name="tls_port" type="number" min="1" max="65535" value="{{ form.tls_port or 443 }}"></div>
+  </div>
+  <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="verify_tls" name="verify_tls" checked>
+    <label class="form-check-label" for="verify_tls">Vérifier le certificat de l'API (si HTTPS)</label></div>
+  {% if form.failed %}
+  <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="force" name="force">
+    <label class="form-check-label" for="force">Enregistrer malgré l'échec du test</label></div>
+  {% endif %}
+  <button class="btn btn-primary">Tester et ajouter</button>
+</form>
+{% endblock %}
