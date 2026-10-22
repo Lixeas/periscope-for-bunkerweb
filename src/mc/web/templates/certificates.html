@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import cert_badge %}
+{% block title %}Certificats{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="60">{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Certificats</h1>
+<div class="table-responsive">
+<table class="table align-middle" data-table>
+  <thead><tr><th data-sort>Domaine</th><th data-sort>Instance</th><th data-sort>Statut</th><th data-sort>Émetteur</th><th data-sort>Expiration</th><th data-sort>Jours restants</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.domain }}</td>
+    <td>{{ r.instance }}</td>
+    <td>{{ cert_badge(r.status) }}{% if r.error and not r.present %}<div class="small text-secondary">{{ r.error }}</div>{% endif %}</td>
+    <td>{% if r.present %}{{ r.issuer or '—' }}{% if r.letsencrypt %} <span class="badge text-bg-info">Let's Encrypt</span>{% endif %}{% else %}—{% endif %}</td>
+    <td>{{ r.not_after | dt }}</td>
+    <td data-v="{{ r.days if r.days is not none else '' }}">{{ r.days if r.days is not none else '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="6" class="text-secondary">Aucun certificat sondé pour l'instant.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="small text-secondary">Certificat réellement servi par chaque instance (sonde TLS directe, SNI = domaine du service). Rouge : moins de 7 jours ou expiré ; orange : moins de 21 jours.</p>
+{% endblock %}
