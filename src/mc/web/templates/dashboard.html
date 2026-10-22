@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Accueil{% endblock %}
+{% block content %}
+<h1 class="h4">Bonjour {{ user.username }}</h1>
+<p class="text-secondary">Connecté ({{ user.role }}).</p>
+{% endblock %}
