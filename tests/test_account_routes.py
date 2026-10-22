@@ -1,0 +1,96 @@
+import pytest
+
+from mc.auth.passwords import verify_password
+from mc.db import session_scope
+from mc.models import Credential, Session, User
+from tests.helpers import PW, csrf_of, full_login, make_client, make_user
+
+
+@pytest.fixture
+def client(fresh_db):
+    with make_client() as c:
+        yield c
+
+
+@pytest.fixture
+def logged(client):
+    secret = make_user()
+    assert full_login(client, secret).status_code == 303
+    page = client.get("/account")
+    return client, csrf_of(page.text)
+
+
+def test_account_page_shows_factors(logged):
+    client, _ = logged
+    page = client.get("/account")
+    assert page.status_code == 200 and "TOTP" in page.text and "Passkeys" in page.text
+
+
+def test_change_password(logged):
+    client, csrf = logged
+    new = "another long passphrase"
+    r = client.post("/account/password", follow_redirects=False,
+                    data={"csrf": csrf, "current": "wrong", "new": new, "confirm": new})
+    assert r.headers["location"] == "/account?m=pwd_bad"
+    r = client.post("/account/password", follow_redirects=False,
+                    data={"csrf": csrf, "current": PW, "new": "short", "confirm": "short"})
+    assert r.headers["location"] == "/account?m=pwd_short"
+    r = client.post("/account/password", follow_redirects=False,
+                    data={"csrf": csrf, "current": PW, "new": new, "confirm": "different one here"})
+    assert r.headers["location"] == "/account?m=pwd_mismatch"
+    r = client.post("/account/password", follow_redirects=False,
+                    data={"csrf": csrf, "current": PW, "new": new, "confirm": new})
+    assert r.headers["location"] == "/account?m=pwd_ok"
+    with session_scope() as s:
+        assert verify_password(s.query(User).one().password_hash, new)
+
+
+def test_change_password_revokes_other_sessions(logged):
+    client, csrf = logged
+    with session_scope() as s:
+        user = s.query(User).one()
+        from mc.auth import sessions
+        from mc.clock import utcnow
+        sessions.create(s, user, True, utcnow())  # une autre session
+        assert s.query(Session).count() == 2
+    new = "another long passphrase"
+    client.post("/account/password", data={"csrf": csrf, "current": PW, "new": new, "confirm": new})
+    with session_scope() as s:
+        assert s.query(Session).count() == 1
+
+
+def test_regenerate_backup_codes_requires_password(logged):
+    client, csrf = logged
+    r = client.post("/account/backup-codes", data={"csrf": csrf, "password": "wrong"}, follow_redirects=False)
+    assert r.headers["location"] == "/account?m=pwd_bad"
+    r = client.post("/account/backup-codes", data={"csrf": csrf, "password": PW})
+    assert r.status_code == 200 and "une seule fois" in r.text
+    with session_scope() as s:
+        assert len(s.query(User).one().backup_codes) == 10
+
+
+def test_cannot_remove_last_second_factor(logged):
+    client, csrf = logged
+    r = client.post("/account/totp/remove", data={"csrf": csrf, "password": PW}, follow_redirects=False)
+    assert r.headers["location"] == "/account?m=last_factor"
+    with session_scope() as s:
+        assert s.query(User).one().totp_confirmed is True
+
+
+def test_remove_totp_when_passkey_exists_and_delete_passkey_guard(logged):
+    client, csrf = logged
+    with session_scope() as s:
+        user = s.query(User).one()
+        user.credentials.append(Credential(credential_id=b"c1", public_key=b"k"))
+        s.flush()
+        cred_id = s.query(Credential).one().id
+    r = client.post("/account/totp/remove", data={"csrf": csrf, "password": PW}, follow_redirects=False)
+    assert r.headers["location"] == "/account?m=totp_removed"
+    r = client.post(f"/account/passkeys/{cred_id}/delete", data={"csrf": csrf}, follow_redirects=False)
+    assert r.headers["location"] == "/account?m=last_factor"  # c'est maintenant le dernier facteur
+    with session_scope() as s:
+        assert s.query(Credential).count() == 1
+
+
+def test_account_requires_login(client):
+    assert client.get("/account", follow_redirects=False).status_code == 303
