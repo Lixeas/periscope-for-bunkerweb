@@ -37,6 +37,8 @@ class IPLimiter:
 
     def hit(self, ip: str, now: float | None = None) -> bool:
         now = time.monotonic() if now is None else now
+        for k in [k for k, d in self._events.items() if now - d[-1] > self.window]:
+            del self._events[k]  # entrées entièrement expirées : évite la croissance sans borne
         q = self._events[ip]
         while q and now - q[0] > self.window:
             q.popleft()

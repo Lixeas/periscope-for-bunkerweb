@@ -126,6 +126,10 @@ async def passkey_auth_options(request: Request, user: User = Depends(pending_us
 
 @router.post("/webauthn/auth/verify")
 async def passkey_auth_verify(request: Request, user: User = Depends(pending_user), db=Depends(get_db)):
+    if ratelimit.is_locked(user, utcnow()):
+        audit(db, "login_locked", user.username, ip=ip_of(request))
+        db.commit()
+        return JSONResponse({"error": "Compte temporairement verrouillé."}, status_code=429)
     row = request.state.session
     body = await request.json()
     challenge, row.challenge = row.challenge, None

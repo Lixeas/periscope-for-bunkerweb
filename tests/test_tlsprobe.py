@@ -53,3 +53,26 @@ async def test_probe_closed_port_reports_error(tmp_path):
     await srv.wait_closed()
     info = await probe("127.0.0.1", port, "t.example", timeout=2)
     assert not info.present and info.error
+
+
+async def test_probe_invalid_der_reports_error(monkeypatch):
+    class SSLObj:
+        def getpeercert(self, binary_form=False):
+            return b"not a certificate"
+
+    class Writer:
+        def get_extra_info(self, name):
+            return SSLObj()
+
+        def close(self):
+            pass
+
+        async def wait_closed(self):
+            pass
+
+    async def fake_open(*a, **k):
+        return None, Writer()
+
+    monkeypatch.setattr(asyncio, "open_connection", fake_open)
+    info = await probe("127.0.0.1", 1, "t.example")
+    assert not info.present and "invalid certificate" in info.error
