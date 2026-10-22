@@ -17,6 +17,8 @@
       <span>{{ c.name }} <small class="text-secondary">· ajoutée le {{ c.created_at.strftime('%d/%m/%Y') }}</small></span>
       <form method="post" action="/account/passkeys/{{ c.id }}/delete" class="m-0">
         <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label class="visually-hidden" for="pk-pw-{{ c.id }}">Mot de passe</label>
+        <input class="form-control form-control-sm d-inline-block w-auto me-1" id="pk-pw-{{ c.id }}" name="password" type="password" autocomplete="current-password" placeholder="Mot de passe" required>
         <button class="btn btn-sm btn-outline-danger">Supprimer</button>
       </form>
     </li>

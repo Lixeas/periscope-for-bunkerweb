@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
-from mc.auth import mfa
+from mc.auth import mfa, ratelimit
 from mc.auth.audit import audit
 from mc.auth.passwords import MIN_LENGTH, hash_password, verify_password
+from mc.clock import utcnow
 from mc.db import get_db
 from mc.models import Credential, Session, User
 from mc.web.deps import current_user
@@ -15,6 +16,7 @@ router = APIRouter(prefix="/account")
 MESSAGES = {
     "pwd_ok": "Mot de passe modifié ; les autres sessions ont été fermées.",
     "pwd_bad": "Mot de passe actuel incorrect.",
+    "locked": "Trop d'échecs : compte temporairement verrouillé.",
     "pwd_short": f"Mot de passe trop court ({MIN_LENGTH} caractères minimum).",
     "pwd_mismatch": "La confirmation ne correspond pas.",
     "last_factor": "Impossible : c'est votre dernier second facteur.",
@@ -25,6 +27,20 @@ MESSAGES = {
 
 def back(code: str) -> RedirectResponse:
     return RedirectResponse(f"/account?m={code}", 303)
+
+
+def reauth(request: Request, db, user: User, password: str) -> str | None:
+    """Ré-authentification par mot de passe, avec le même verrouillage que la connexion.
+    Retourne un code de message d'erreur, ou None si le mot de passe est correct."""
+    now = utcnow()
+    if ratelimit.is_locked(user, now):
+        return "locked"
+    if verify_password(user.password_hash, password):
+        return None
+    ratelimit.register_failure(user, now)
+    audit(db, "reauth_failed", user.username, ip=ip_of(request))
+    db.commit()
+    return "pwd_bad"
 
 
 def factor_count(user: User) -> int:
@@ -40,8 +56,8 @@ async def account(request: Request, user: User = Depends(current_user)):
 @router.post("/password")
 async def change_password(request: Request, current: str = Form(...), new: str = Form(...),
                           confirm: str = Form(...), user: User = Depends(current_user), db=Depends(get_db)):
-    if not verify_password(user.password_hash, current):
-        return back("pwd_bad")
+    if err := reauth(request, db, user, current):
+        return back(err)
     if len(new) < MIN_LENGTH:
         return back("pwd_short")
     if new != confirm:
@@ -56,8 +72,8 @@ async def change_password(request: Request, current: str = Form(...), new: str =
 @router.post("/backup-codes")
 async def regenerate_codes(request: Request, password: str = Form(...), user: User = Depends(current_user),
                            db=Depends(get_db)):
-    if not verify_password(user.password_hash, password):
-        return back("pwd_bad")
+    if err := reauth(request, db, user, password):
+        return back(err)
     codes = mfa.reset_backup_codes(db, user)
     audit(db, "backup_codes_regenerated", user.username, ip=ip_of(request))
     db.commit()
@@ -67,8 +83,8 @@ async def regenerate_codes(request: Request, password: str = Form(...), user: Us
 @router.post("/totp/remove")
 async def remove_totp(request: Request, password: str = Form(...), user: User = Depends(current_user),
                       db=Depends(get_db)):
-    if not verify_password(user.password_hash, password):
-        return back("pwd_bad")
+    if err := reauth(request, db, user, password):
+        return back(err)
     if not user.credentials:
         return back("last_factor")
     user.totp_confirmed, user.totp_secret_enc = False, None
@@ -78,7 +94,10 @@ async def remove_totp(request: Request, password: str = Form(...), user: User = 
 
 
 @router.post("/passkeys/{cred_id}/delete")
-async def delete_passkey(request: Request, cred_id: int, user: User = Depends(current_user), db=Depends(get_db)):
+async def delete_passkey(request: Request, cred_id: int, password: str = Form(...),
+                         user: User = Depends(current_user), db=Depends(get_db)):
+    if err := reauth(request, db, user, password):
+        return back(err)
     cred = db.query(Credential).filter_by(id=cred_id, user_id=user.id).one_or_none()
     if cred is None:
         return back("pk_deleted")
