@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Utilisateurs{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Utilisateurs</h1>
+{% if msg %}<div class="alert alert-info" role="status">{{ msg }}</div>{% endif %}
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+
+<div class="table-responsive mb-5">
+<table class="table align-middle">
+  <thead><tr><th>Utilisateur</th><th>Rôle</th><th>2FA</th><th>Actions</th></tr></thead>
+  <tbody>
+  {% for u in users %}
+  <tr>
+    <td>{{ u.username }}{% if u.id == user.id %} <span class="badge text-bg-secondary">vous</span>{% endif %}</td>
+    <td>
+      <form method="post" action="/admin/users/{{ u.id }}/role" class="d-flex gap-2 m-0">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <label class="visually-hidden" for="role-{{ u.id }}">Rôle de {{ u.username }}</label>
+        <select class="form-select form-select-sm" id="role-{{ u.id }}" name="role">
+          <option value="reader" {% if u.role == 'reader' %}selected{% endif %}>lecteur</option>
+          <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>admin</option>
+        </select>
+        <button class="btn btn-sm btn-outline-secondary">OK</button>
+      </form>
+    </td>
+    <td>{% if u.totp_confirmed or u.credentials %}<span class="badge text-bg-success">actif</span>{% else %}<span class="badge text-bg-warning">à enrôler</span>{% endif %}</td>
+    <td>
+      {% if u.id != user.id %}
+      <div class="d-flex flex-wrap gap-2">
+        <form method="post" action="/admin/users/{{ u.id }}/reset-2fa" class="m-0">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-sm btn-outline-warning">Réinitialiser le 2FA</button></form>
+        <form method="post" action="/admin/users/{{ u.id }}/password" class="d-flex gap-1 m-0">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <label class="visually-hidden" for="pw-{{ u.id }}">Nouveau mot de passe pour {{ u.username }}</label>
+          <input class="form-control form-control-sm" id="pw-{{ u.id }}" name="password" type="password" autocomplete="new-password" placeholder="Nouveau mot de passe" minlength="12" required>
+          <button class="btn btn-sm btn-outline-secondary">Réinitialiser</button></form>
+        <form method="post" action="/admin/users/{{ u.id }}/delete" class="m-0">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-sm btn-outline-danger">Supprimer</button></form>
+      </div>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2 class="h5">Créer un utilisateur</h2>
+<form method="post" action="/admin/users" class="col-lg-5">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="mb-3"><label class="form-label" for="username">Nom d'utilisateur</label>
+    <input class="form-control" id="username" name="username" autocomplete="off" required></div>
+  <div class="mb-3"><label class="form-label" for="role">Rôle</label>
+    <select class="form-select" id="role" name="role"><option value="reader">lecteur</option><option value="admin">admin</option></select></div>
+  <div class="mb-3"><label class="form-label" for="password">Mot de passe initial (12 caractères minimum)</label>
+    <input class="form-control" id="password" name="password" type="password" autocomplete="new-password" minlength="12" required>
+    <div class="form-text">Communiquez-le par un canal sûr ; le second facteur sera exigé à la première connexion.</div></div>
+  <button class="btn btn-primary">Créer</button>
+</form>
+{% endblock %}
