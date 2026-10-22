@@ -4,8 +4,9 @@
 {% block head %}<meta http-equiv="refresh" content="60">{% endblock %}
 {% block content %}
 <h1 class="h4 mb-3">Certificats</h1>
+<div class="mb-2"><input class="form-control" type="search" placeholder="Rechercher…" aria-label="Rechercher" data-filter-for="t-certs"></div>
 <div class="table-responsive">
-<table class="table align-middle" data-table>
+<table class="table align-middle" id="t-certs" data-table>
   <thead><tr><th data-sort>Domaine</th><th data-sort>Instance</th><th data-sort>Statut</th><th data-sort>Émetteur</th><th data-sort>Expiration</th><th data-sort>Jours restants</th></tr></thead>
   <tbody>
   {% for r in rows %}
