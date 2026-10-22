@@ -16,6 +16,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(16), default="reader")  # admin | reader
     totp_secret_enc: Mapped[str | None] = mapped_column(String(255), default=None)
     totp_confirmed: Mapped[bool] = mapped_column(default=False)
+    totp_last_step: Mapped[int] = mapped_column(default=0)  # anti-rejeu TOTP
     failed_attempts: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
