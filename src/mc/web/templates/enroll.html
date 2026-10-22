@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Activer le second facteur{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-5"><div class="col-md-8 col-lg-5">
+  <h1 class="h4 mb-3">Activez l'authentification à deux facteurs</h1>
+  <p>Un second facteur est obligatoire. Scannez ce QR code avec une application TOTP (FreeOTP, Aegis, Google Authenticator…), puis saisissez le code affiché.</p>
+  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+  <img src="{{ qr }}" alt="QR code TOTP" width="200" height="200" class="mb-2">
+  <p class="small text-secondary">Saisie manuelle : <code class="secret">{{ secret }}</code></p>
+  <form method="post" action="/enroll">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="mb-3">
+      <label class="form-label" for="code">Code à 6 chiffres</label>
+      <input class="form-control" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" required autofocus>
+    </div>
+    <button class="btn btn-primary">Activer</button>
+  </form>
+</div></div>
+{% endblock %}
