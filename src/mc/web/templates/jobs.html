@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Jobs et plugins{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="60">{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Jobs planifiés</h1>
+<div class="table-responsive mb-5">
+<table class="table align-middle" data-table>
+  <thead><tr><th data-sort>Job</th><th data-sort>Plugin</th><th data-sort>Instance</th><th data-sort>Fréquence</th><th data-sort>Dernière exécution</th><th data-sort>Résultat</th></tr></thead>
+  <tbody>
+  {% for j in jobs %}
+  <tr>
+    <td>{{ j.name }}</td><td>{{ j.plugin or '—' }}</td><td>{{ j.instance }}</td><td>{{ j.every or '—' }}</td>
+    <td>{{ j.last_run or '—' }}</td>
+    <td>{% if j.success is true %}<span class="badge text-bg-success">Succès</span>
+        {% elif j.success is false %}<span class="badge text-bg-danger">Échec</span>
+        {% else %}<span class="badge text-bg-secondary">—</span>{% endif %}</td>
+  </tr>
+  {% else %}<tr><td colspan="6" class="text-secondary">Aucun job.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2 class="h4 mb-3">Plugins par instance</h2>
+<div class="table-responsive">
+<table class="table align-middle" data-table>
+  <thead><tr><th data-sort>Plugin</th>{% for n in names %}<th data-sort>{{ n }}</th>{% endfor %}</tr></thead>
+  <tbody>
+  {% for row in matrix %}
+  <tr class="{% if row.diff %}table-warning{% endif %}">
+    <td>{{ row.id }}{% if row.diff %} <span class="badge text-bg-warning">écart</span>{% endif %}</td>
+    {% for n in names %}<td>{{ row.cells[n] if row.cells[n] else '—' }}</td>{% endfor %}
+  </tr>
+  {% else %}<tr><td colspan="{{ names|length + 1 }}" class="text-secondary">Aucun plugin.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -42,3 +42,10 @@ def full_login(client, secret: str, username="alice"):
     page = client.get("/login/2fa")
     return client.post("/login/2fa", data={"code": pyotp.TOTP(secret).now(), "csrf": csrf_of(page.text)},
                        follow_redirects=False)
+
+
+def login_as(client, username="alice", role="admin") -> str:
+    """Crée l'utilisateur, se connecte (mot de passe + TOTP) ; retourne le jeton CSRF de la session."""
+    secret = make_user(username, role)
+    assert full_login(client, secret, username).status_code == 303
+    return csrf_of(client.get("/dashboard").text)

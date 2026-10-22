@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_macros.html" import mode_badge, missing %}
+{% block title %}Services{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="60">{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Services protégés</h1>
+<form method="get" class="row g-2 mb-3">
+  <div class="col-auto"><label class="visually-hidden" for="f-inst">Instance</label>
+    <select class="form-select" id="f-inst" name="instance">
+      <option value="">Toutes les instances</option>
+      {% for n in names %}<option value="{{ n }}" {% if n == instance %}selected{% endif %}>{{ n }}</option>{% endfor %}
+    </select></div>
+  <div class="col-auto"><label class="visually-hidden" for="f-mode">Mode</label>
+    <select class="form-select" id="f-mode" name="mode">
+      <option value="">Tous les modes</option>
+      <option value="block" {% if mode == 'block' %}selected{% endif %}>block</option>
+      <option value="detect" {% if mode == 'detect' %}selected{% endif %}>detect</option>
+    </select></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary">Filtrer</button></div>
+  <div class="col-auto ms-auto"><input class="form-control" type="search" placeholder="Rechercher…" aria-label="Rechercher" data-filter-for="t-services"></div>
+</form>
+<div class="table-responsive">
+<table class="table align-middle" id="t-services" data-table>
+  <thead><tr><th data-sort>Domaine</th><th data-sort>Instance</th><th data-sort>Mode</th><th data-sort>Statut</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.name }}{{ missing(r.missing_on) }}</td>
+    <td>{{ r.instance }}</td>
+    <td data-v="{{ r.mode or '' }}">{{ mode_badge(r.mode) }}</td>
+    <td>{% if r.draft %}<span class="badge text-bg-secondary">brouillon</span>{% else %}<span class="badge text-bg-success">actif</span>{% endif %}</td>
+  </tr>
+  {% else %}<tr><td colspan="4" class="text-secondary">Aucun service.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

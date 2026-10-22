@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import missing %}
+{% block title %}Bans{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="60">{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Bans actifs</h1>
+<form method="get" class="row g-2 mb-3">
+  <div class="col-auto"><label class="visually-hidden" for="q">IP</label>
+    <input class="form-control" id="q" name="q" value="{{ q }}" placeholder="Rechercher une IP"></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary">Rechercher</button></div>
+</form>
+<div class="table-responsive">
+<table class="table align-middle" data-table>
+  <thead><tr><th data-sort>IP</th><th data-sort>Raison</th><th data-sort>Service</th><th data-sort>Instance</th><th data-sort>Expiration</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.ip }}{{ missing(r.missing_on) }}</td>
+    <td>{{ r.reason or '—' }}</td>
+    <td>{{ r.service }}</td>
+    <td>{{ r.instance }}</td>
+    <td>{{ r.exp if r.exp is not none else '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="5" class="text-secondary">Aucun ban actif.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="small text-secondary">L'expiration est affichée telle que renvoyée par l'API BunkerWeb.</p>
+{% endblock %}

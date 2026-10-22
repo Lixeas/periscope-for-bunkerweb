@@ -1,6 +1,46 @@
 {% extends "base.html" %}
+{% from "_macros.html" import instance_badge %}
 {% block title %}Accueil{% endblock %}
 {% block content %}
-<h1 class="h4">Bonjour {{ user.username }}</h1>
-<p class="text-secondary">Connecté ({{ user.role }}).</p>
+<h1 class="h4 mb-3">Vue d'ensemble</h1>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card tile h-100"><div class="card-body">
+    <div class="text-secondary small">Instances OK</div>
+    <div class="value"><span data-summary="instances_ok">{{ s.instances_ok }}</span> / <span data-summary="instances_total">{{ s.instances_total }}</span></div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card tile h-100"><div class="card-body">
+    <div class="text-secondary small">Bans actifs (IP uniques)</div>
+    <div class="value" data-summary="bans_active">{{ s.bans_active }}</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card tile h-100"><div class="card-body">
+    <div class="text-secondary small">Certificats à surveiller</div>
+    <div class="value"><a href="/certificates" data-summary="certs_warn" class="text-reset">{{ s.certs_warn }}</a></div>
+    <div class="small text-secondary"><span data-summary="certs_none">{{ s.certs_none }}</span> sans certificat</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card tile h-100"><div class="card-body">
+    <div class="text-secondary small">Données périmées</div>
+    <div class="value" data-summary="instances_stale">{{ s.instances_stale }}</div>
+  </div></div></div>
+</div>
+
+{% if not cards %}
+<div class="alert alert-info">Aucune instance enregistrée.{% if user.role == 'admin' %} <a href="/admin/instances">Ajouter une instance</a>.{% endif %}</div>
+{% endif %}
+<div class="row g-3">
+  {% for c in cards %}
+  <div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-body">
+    <div class="d-flex justify-content-between align-items-start">
+      <h2 class="h6 mb-0">{{ c.name }}</h2>
+      {% if c.enabled %}{{ instance_badge(c.status) }}{% else %}<span class="badge text-bg-secondary">Désactivée</span>{% endif %}
+    </div>
+    <dl class="row small mb-0 mt-2">
+      <dt class="col-5">Version</dt><dd class="col-7">{{ c.version or '—' }}</dd>
+      <dt class="col-5">Latence</dt><dd class="col-7">{% if c.latency_ms is not none %}{{ '%.0f'|format(c.latency_ms) }} ms{% else %}—{% endif %}</dd>
+      <dt class="col-5">Dernière collecte</dt>
+      <dd class="col-7">{{ c.last_ok_at | ago }}{% if c.enabled and c.stale %} <span class="badge text-bg-warning">périmée</span>{% endif %}</dd>
+    </dl>
+    {% if c.last_error %}<div class="small text-danger mt-2">{{ c.last_error }}</div>{% endif %}
+  </div></div></div>
+  {% endfor %}
+</div>
 {% endblock %}
