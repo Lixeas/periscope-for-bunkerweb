@@ -10,8 +10,8 @@
   <div class="col-auto"><button class="btn btn-outline-secondary">Rechercher</button></div>
 </form>
 <div class="table-responsive">
-<table class="table align-middle" data-table>
-  <thead><tr><th data-sort>IP</th><th data-sort>Raison</th><th data-sort>Service</th><th data-sort>Instance</th><th data-sort>Expiration</th></tr></thead>
+<table class="table align-middle" id="t-bans" data-table>
+  <thead><tr><th data-sort>IP</th><th data-sort>Raison</th><th data-sort>Service</th><th data-sort>Instance</th><th data-sort>Date</th><th data-sort>Expiration</th></tr></thead>
   <tbody>
   {% for r in rows %}
   <tr>
@@ -19,9 +19,10 @@
     <td>{{ r.reason or '—' }}</td>
     <td>{{ r.service }}</td>
     <td>{{ r.instance }}</td>
+    <td>{{ r.date if r.date is not none else '—' }}</td>
     <td>{{ r.exp if r.exp is not none else '—' }}</td>
   </tr>
-  {% else %}<tr><td colspan="5" class="text-secondary">Aucun ban actif.</td></tr>
+  {% else %}<tr><td colspan="6" class="text-secondary">Aucun ban actif.</td></tr>
   {% endfor %}
   </tbody>
 </table>
