@@ -86,7 +86,7 @@ def test_remove_totp_when_passkey_exists_and_delete_passkey_guard(logged):
         cred_id = s.query(Credential).one().id
     r = client.post("/account/totp/remove", data={"csrf": csrf, "password": PW}, follow_redirects=False)
     assert r.headers["location"] == "/account?m=totp_removed"
-    r = client.post(f"/account/passkeys/{cred_id}/delete", data={"csrf": csrf}, follow_redirects=False)
+    r = client.post(f"/account/passkeys/{cred_id}/delete", data={"csrf": csrf, "password": PW}, follow_redirects=False)
     assert r.headers["location"] == "/account?m=last_factor"  # c'est maintenant le dernier facteur
     with session_scope() as s:
         assert s.query(Credential).count() == 1
@@ -94,3 +94,12 @@ def test_remove_totp_when_passkey_exists_and_delete_passkey_guard(logged):
 
 def test_account_requires_login(client):
     assert client.get("/account", follow_redirects=False).status_code == 303
+
+
+def test_reauth_failures_lock_the_account(logged):
+    client, csrf = logged
+    for _ in range(5):
+        r = client.post("/account/backup-codes", data={"csrf": csrf, "password": "wrong"}, follow_redirects=False)
+        assert r.headers["location"] == "/account?m=pwd_bad"
+    r = client.post("/account/backup-codes", data={"csrf": csrf, "password": PW}, follow_redirects=False)
+    assert r.headers["location"] == "/account?m=locked"
