@@ -6,11 +6,13 @@ from fastapi.responses import RedirectResponse
 
 from mc import collector
 from mc.auth.audit import audit
+from mc.auth.passwords import MIN_LENGTH, hash_password
+from mc.auth.users import create_user
 from mc.bw_client import BWClient, BWError
 from mc.config import get_settings
 from mc.crypto import encrypt
 from mc.db import get_db
-from mc.models import Instance, User
+from mc.models import AuditLog, Instance, Session, User
 from mc.web.deps import require_admin
 from mc.web.render import render
 from mc.web.routes_auth import ip_of
@@ -145,3 +147,117 @@ async def instance_delete(request: Request, inst_id: int, user: User = Depends(r
         db.delete(inst)
         db.commit()
     return RedirectResponse("/admin/instances?m=deleted", 303)
+
+
+# --- utilisateurs ----------------------------------------------------------
+
+USER_MESSAGES = {
+    "created": "Utilisateur créé. Il devra enregistrer un second facteur à sa première connexion.",
+    "deleted": "Utilisateur supprimé.",
+    "role_ok": "Rôle modifié.",
+    "reset_ok": "Second facteur réinitialisé : réenrôlement exigé à la prochaine connexion.",
+    "pwd_ok": "Mot de passe réinitialisé ; compte déverrouillé, sessions fermées.",
+    "pwd_short": f"Mot de passe trop court ({MIN_LENGTH} caractères minimum).",
+    "self": "Action impossible sur votre propre compte (utilisez la page Compte).",
+    "last_admin": "Il doit rester au moins un administrateur.",
+}
+
+
+def users_back(code: str) -> RedirectResponse:
+    return RedirectResponse(f"/admin/users?m={code}", 303)
+
+
+def users_page(request: Request, db, user: User, error=None, status=200):
+    return render(request, "admin_users.html", status=status, user=user, error=error,
+                  msg=USER_MESSAGES.get(request.query_params.get("m")),
+                  users=db.query(User).order_by(User.username).all())
+
+
+def admin_count(db) -> int:
+    return db.query(User).filter_by(role="admin").count()
+
+
+@router.get("/users")
+async def users_get(request: Request, user: User = Depends(require_admin), db=Depends(get_db)):
+    return users_page(request, db, user)
+
+
+@router.post("/users")
+async def users_create(request: Request, username: str = Form(""), role: str = Form("reader"),
+                       password: str = Form(""), user: User = Depends(require_admin), db=Depends(get_db)):
+    try:
+        create_user(db, username, password, role)
+    except ValueError as e:
+        return users_page(request, db, user, str(e).capitalize(), 400)
+    audit(db, "user_created", user.username, detail=f"{username} ({role})", ip=ip_of(request))
+    db.commit()
+    return users_back("created")
+
+
+@router.post("/users/{uid}/role")
+async def users_role(request: Request, uid: int, role: str = Form(...),
+                     user: User = Depends(require_admin), db=Depends(get_db)):
+    target = db.get(User, uid)
+    if target is None or role not in ("admin", "reader"):
+        return users_back("self")
+    if target.role == "admin" and role != "admin" and admin_count(db) <= 1:
+        return users_back("last_admin")
+    target.role = role
+    audit(db, "user_role_changed", user.username, detail=f"{target.username} -> {role}", ip=ip_of(request))
+    db.commit()
+    return users_back("role_ok")
+
+
+@router.post("/users/{uid}/delete")
+async def users_delete(request: Request, uid: int, user: User = Depends(require_admin), db=Depends(get_db)):
+    target = db.get(User, uid)
+    if target is None:
+        return users_back("deleted")
+    if target.id == user.id:
+        return users_back("self")
+    if target.role == "admin" and admin_count(db) <= 1:
+        return users_back("last_admin")
+    db.query(Session).filter_by(user_id=target.id).delete()
+    audit(db, "user_deleted", user.username, detail=target.username, ip=ip_of(request))
+    db.delete(target)
+    db.commit()
+    return users_back("deleted")
+
+
+@router.post("/users/{uid}/reset-2fa")
+async def users_reset_2fa(request: Request, uid: int, user: User = Depends(require_admin), db=Depends(get_db)):
+    target = db.get(User, uid)
+    if target is None or target.id == user.id:
+        return users_back("self")
+    target.totp_confirmed, target.totp_secret_enc, target.totp_last_step = False, None, 0
+    target.credentials.clear()
+    target.backup_codes.clear()
+    db.query(Session).filter_by(user_id=target.id).delete()
+    audit(db, "user_2fa_reset", user.username, detail=target.username, ip=ip_of(request))
+    db.commit()
+    return users_back("reset_ok")
+
+
+@router.post("/users/{uid}/password")
+async def users_password(request: Request, uid: int, password: str = Form(...),
+                         user: User = Depends(require_admin), db=Depends(get_db)):
+    target = db.get(User, uid)
+    if target is None or target.id == user.id:
+        return users_back("self")
+    try:
+        target.password_hash = hash_password(password)
+    except ValueError:
+        return users_back("pwd_short")
+    target.failed_attempts, target.locked_until = 0, None
+    db.query(Session).filter_by(user_id=target.id).delete()
+    audit(db, "user_password_reset", user.username, detail=target.username, ip=ip_of(request))
+    db.commit()
+    return users_back("pwd_ok")
+
+
+# --- audit -----------------------------------------------------------------
+
+@router.get("/audit")
+async def audit_get(request: Request, user: User = Depends(require_admin), db=Depends(get_db)):
+    rows = db.query(AuditLog).order_by(AuditLog.id.desc()).limit(200).all()
+    return render(request, "admin_audit.html", user=user, rows=rows)
