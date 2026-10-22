@@ -29,10 +29,12 @@ def _save_snapshot(s, inst_id: int, kind: str, payload: list, now) -> None:
 def _finish(inst_id, now, status, error, latency, version, results) -> None:
     with session_scope() as s:
         inst = s.get(Instance, inst_id)
+        if inst is None:  # supprimée pendant le cycle
+            return
         inst.status, inst.last_attempt_at, inst.last_error = status, now, error[:1024]
         if status != "down":
             inst.last_ok_at, inst.latency_ms = now, latency
-            inst.version = version or inst.version
+            inst.version = version[:32] if version else inst.version
         for kind, payload in results.items():
             _save_snapshot(s, inst_id, kind, payload, now)
 
@@ -75,6 +77,8 @@ async def probe_one(inst_id: int, probe_fn=probe) -> None:
     infos = dict(zip(domains, await asyncio.gather(*[probe_fn(target, port, d, timeout) for d in domains])))
     now = utcnow()
     with session_scope() as s:
+        if s.get(Instance, inst_id) is None:  # supprimée pendant la sonde
+            return
         for row in s.query(CertProbe).filter_by(instance_id=inst_id).all():
             if row.domain not in infos:
                 s.delete(row)

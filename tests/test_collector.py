@@ -103,3 +103,29 @@ async def test_probe_one_uses_non_draft_domains_and_prunes(fresh_db):
     with session_scope() as s:
         rows = s.query(CertProbe).all()
         assert [(r.domain, r.issuer, r.present) for r in rows] == [("a.example", "Let's Encrypt", True)]
+
+
+async def test_deleted_instance_mid_cycle_is_ignored(fresh_db):
+    iid = add_instance()
+    await collector.collect_one(iid, lambda inst: Fake())
+
+    async def deleting_probe(host, port, domain, timeout):
+        with session_scope() as s:
+            s.delete(s.get(Instance, iid))
+        return CertInfo(True, "X", datetime(2030, 1, 1))
+
+    await collector.probe_one(iid, deleting_probe)
+    with session_scope() as s:
+        assert s.query(CertProbe).count() == 0
+    collector._finish(iid, datetime(2026, 1, 1), "ok", "", 1.0, "1.0", {})  # ne lève pas
+
+
+async def test_version_truncated(fresh_db):
+    class LongVer(Fake):
+        async def ping(self):
+            return 1.0, "v" * 100
+
+    iid = add_instance()
+    await collector.collect_one(iid, lambda inst: LongVer())
+    with session_scope() as s:
+        assert s.get(Instance, iid).version == "v" * 32

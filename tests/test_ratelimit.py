@@ -28,3 +28,12 @@ def test_ip_limiter_window():
     assert [lim.hit("1.1.1.1", now=t) for t in (0, 1, 2, 3)] == [True, True, True, False]
     assert lim.hit("2.2.2.2", now=3) is True  # autre IP
     assert lim.hit("1.1.1.1", now=11.5) is True  # fenêtre écoulée
+
+
+def test_ip_limiter_drops_empty_entries():
+    lim = ratelimit.IPLimiter(max_events=3, window=10)
+    lim.hit("1.1.1.1", now=0)
+    assert lim.hit("2.2.2.2", now=20) is True
+    assert "1.1.1.1" not in lim._events
+    lim.hit("1.1.1.1", now=40)
+    assert len(lim._events["1.1.1.1"]) == 1

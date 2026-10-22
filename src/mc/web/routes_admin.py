@@ -94,6 +94,7 @@ async def instances_add(request: Request, background: BackgroundTasks,
     except ValueError as e:
         return instances_page(request, db, user, str(e), form, 400)
     if not force:
+        db.commit()  # libère le verrou d'écriture SQLite pendant l'appel réseau
         err = await check_instance(base_url, token.strip(), verify_tls)
         if err:
             return instances_page(request, db, user, f"Test de connexion échoué : {err}", {**form, "failed": True}, 400)
@@ -128,6 +129,9 @@ async def instance_edit_post(request: Request, inst_id: int, background: Backgro
         name, base_url = validate_fields(db, name, base_url, tls_port, exclude_id=inst_id)
     except ValueError as e:
         return render(request, "admin_instance_edit.html", status=400, user=user, inst=inst, error=str(e))
+    if base_url != inst.base_url and not token.strip():
+        return render(request, "admin_instance_edit.html", status=400, user=user, inst=inst,
+                      error="Changer l'URL exige de ressaisir le token")
     inst.name, inst.base_url, inst.probe_host = name, base_url, probe_host.strip()
     inst.tls_port, inst.verify_tls, inst.enabled = tls_port, verify_tls, enabled
     if token.strip():

@@ -96,13 +96,13 @@ def test_edit_keeps_token_when_blank_and_replaces_when_given(client, admin):
     post(client, csrf, **FORM)
     with session_scope() as s:
         iid = s.query(Instance).one().id
-    data = {"name": "bw1-renamed", "base_url": "http://10.0.0.6:8888", "token": "", "tls_port": "8443",
+    data = {"name": "bw1-renamed", "base_url": "http://10.0.0.5:8888", "token": "", "tls_port": "8443",
             "probe_host": "10.0.0.7", "enabled": "on"}
     r = post(client, csrf, f"/admin/instances/{iid}", **data)
     assert r.status_code == 303
     with session_scope() as s:
         i = s.get(Instance, iid)
-        assert (i.name, i.base_url, i.tls_port, i.probe_host) == ("bw1-renamed", "http://10.0.0.6:8888", 8443, "10.0.0.7")
+        assert (i.name, i.base_url, i.tls_port, i.probe_host) == ("bw1-renamed", "http://10.0.0.5:8888", 8443, "10.0.0.7")
         assert decrypt(i.token_enc) == "tok123" and i.verify_tls is False
     post(client, csrf, f"/admin/instances/{iid}", **{**data, "token": "newtok"})
     with session_scope() as s:
@@ -131,3 +131,17 @@ def test_reader_forbidden_and_csrf_required(client, admin):
     with make_client() as c2:
         login_as(c2, "bob", "reader")
         assert c2.get("/admin/instances").status_code == 403
+
+
+def test_edit_url_change_requires_token(client, admin):
+    csrf, _, _ = admin
+    post(client, csrf, **FORM)
+    with session_scope() as s:
+        iid = s.query(Instance).one().id
+    data = {"name": "bw1", "base_url": "http://evil.example:8888", "token": "", "tls_port": "443", "enabled": "on"}
+    r = client.post(f"/admin/instances/{iid}", data={"csrf": csrf, **data})
+    assert r.status_code == 400 and "ressaisir le token" in r.text.replace("&#39;", "'")
+    with session_scope() as s:
+        assert s.get(Instance, iid).base_url == "http://10.0.0.5:8888"
+    r = post(client, csrf, f"/admin/instances/{iid}", **{**data, "token": "newtok"})
+    assert r.status_code == 303

@@ -43,5 +43,8 @@ async def probe(host: str, port: int, domain: str, timeout: float = 5.0) -> Cert
             pass
     if not der:
         return CertInfo(False, error="no certificate")
-    cert = x509.load_der_x509_certificate(der)
+    try:
+        cert = x509.load_der_x509_certificate(der)
+    except ValueError as e:
+        return CertInfo(False, error=f"invalid certificate: {e}")
     return CertInfo(True, _label(cert.issuer), cert.not_valid_after_utc.replace(tzinfo=None))

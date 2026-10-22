@@ -29,6 +29,7 @@ Créez, côté BunkerWeb (voir la section API de la documentation), une identit�
 
 - Même application pour les deux accès. Listez toutes les URLs dans `MC_ORIGINS` (protection contre les requêtes inter-origines).
 - Les **passkeys sont liées au domaine** (`MC_RP_ID`) : elles fonctionnent via le domaine, pas via `localhost`/IP. En local, utilisez le TOTP.
+- **Attention** : un `MC_TRUSTED_PROXY` incorrect fait partager un seul compteur d'IP (limitation de débit) à tous les clients.
 - Derrière BunkerWeb : retirez `ports` du `docker-compose.yml`, rattachez le service au réseau de BunkerWeb, déclarez le service dans BunkerWeb avec `USE_REVERSE_PROXY=yes` et l'URL interne `http://mission-control:8000`, et renseignez `MC_TRUSTED_PROXY` avec l'IP de BunkerWeb sur ce réseau.
 
 ## Sécurité
