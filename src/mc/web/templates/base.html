@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Accueil{% endblock %} · BunkerWeb Mission Control</title>
+  <link rel="stylesheet" href="/static/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js"></script>
+</head>
+<body>
+{% if user %}
+<nav class="navbar border-bottom mb-4">
+  <div class="container d-flex flex-wrap gap-3 align-items-center">
+    <a class="navbar-brand fw-semibold" href="/dashboard">Mission Control</a>
+    <div class="d-flex flex-wrap gap-3 me-auto" id="main-nav">
+      <a href="/dashboard">Accueil</a>
+    </div>
+    <button type="button" id="theme-toggle" class="btn btn-sm btn-outline-secondary">Thème</button>
+    <a href="/account">{{ user.username }}</a>
+    <form method="post" action="/logout" class="m-0">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="btn btn-sm btn-outline-secondary">Déconnexion</button>
+    </form>
+  </div>
+</nav>
+{% endif %}
+<main class="container pb-5">
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>
