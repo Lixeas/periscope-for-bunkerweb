@@ -6,10 +6,10 @@ os.environ.setdefault("MC_SECRET_KEY", Fernet.generate_key().decode())
 os.environ.setdefault("MC_COOKIE_SECURE", "false")
 os.environ.setdefault("MC_COLLECTOR_ENABLED", "false")
 
-import pytest  # noqa: E402
+import pytest
 
-from mc import db as mcdb  # noqa: E402
-from mc import models  # noqa: E402,F401
+from mc import db as mcdb
+from mc import models  # noqa: F401
 
 
 @pytest.fixture

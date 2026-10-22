@@ -6,7 +6,7 @@ NOW = datetime(2026, 1, 1)
 
 
 def test_cert_status_thresholds():
-    d = lambda n: NOW + timedelta(days=n)  # noqa: E731
+    d = lambda n: NOW + timedelta(days=n)
     assert cert_status(False, None, NOW) == "none"
     assert cert_status(True, d(-1), NOW) == "expired"
     assert cert_status(True, d(6), NOW) == "red"

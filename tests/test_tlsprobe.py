@@ -1,6 +1,6 @@
 import asyncio
 import ssl
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -14,7 +14,7 @@ def make_cert(tmp_path, org: str, days: int):
     key = ec.generate_private_key(ec.SECP256R1())
     name = x509.Name([x509.NameAttribute(NameOID.ORGANIZATION_NAME, org),
                       x509.NameAttribute(NameOID.COMMON_NAME, "t.example")])
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name)
             .public_key(key.public_key()).serial_number(x509.random_serial_number())
             .not_valid_before(now - timedelta(days=1)).not_valid_after(now + timedelta(days=days))
@@ -42,7 +42,7 @@ async def test_probe_reads_issuer_and_expiry(tmp_path):
     async with srv:
         info = await probe("127.0.0.1", port, "t.example")
     assert info.present and info.issuer == "Let's Encrypt"
-    days = (info.not_after - datetime.now(timezone.utc).replace(tzinfo=None)).days
+    days = (info.not_after - datetime.now(UTC).replace(tzinfo=None)).days
     assert 28 <= days <= 30
     assert info.not_after.tzinfo is None
 

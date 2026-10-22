@@ -110,7 +110,7 @@ async def _every(fn, seconds: float, first_delay: float = 0) -> None:
     while True:
         try:
             await fn()
-        except Exception:  # noqa: BLE001
+        except Exception:
             log.exception("cycle failed")
         await asyncio.sleep(seconds)
 

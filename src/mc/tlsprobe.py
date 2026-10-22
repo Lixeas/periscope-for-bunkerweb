@@ -39,7 +39,7 @@ async def probe(host: str, port: int, domain: str, timeout: float = 5.0) -> Cert
         writer.close()
         try:
             await writer.wait_closed()
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110
             pass
     if not der:
         return CertInfo(False, error="no certificate")
