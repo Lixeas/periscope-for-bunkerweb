@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises: 
-Create Date: 2026-10-22 23:18:06.476800
+Create Date: 2026-10-22 23:22:11.049564
 """
 import sqlalchemy as sa
 from alembic import op
@@ -49,6 +49,7 @@ def upgrade() -> None:
     sa.Column('role', sa.String(length=16), nullable=False),
     sa.Column('totp_secret_enc', sa.String(length=255), nullable=True),
     sa.Column('totp_confirmed', sa.Boolean(), nullable=False),
+    sa.Column('totp_last_step', sa.Integer(), nullable=False),
     sa.Column('failed_attempts', sa.Integer(), nullable=False),
     sa.Column('locked_until', sa.DateTime(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
