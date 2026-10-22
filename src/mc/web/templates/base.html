@@ -7,6 +7,9 @@
   <link rel="stylesheet" href="/static/bootstrap.min.css">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/app.js"></script>
+  <script src="/static/table.js" defer></script>
+  <script src="/static/refresh.js" defer></script>
+  {% block head %}{% endblock %}
 </head>
 <body>
 {% if user %}
@@ -15,6 +18,15 @@
     <a class="navbar-brand fw-semibold" href="/dashboard">Mission Control</a>
     <div class="d-flex flex-wrap gap-3 me-auto" id="main-nav">
       <a href="/dashboard">Accueil</a>
+      <a href="/services">Services</a>
+      <a href="/bans">Bans</a>
+      <a href="/jobs">Jobs &amp; plugins</a>
+      <a href="/certificates">Certificats</a>
+      {% if user.role == 'admin' %}
+      <a href="/admin/instances">Instances</a>
+      <a href="/admin/users">Utilisateurs</a>
+      <a href="/admin/audit">Audit</a>
+      {% endif %}
     </div>
     <button type="button" id="theme-toggle" class="btn btn-sm btn-outline-secondary">Thème</button>
     <a href="/account">{{ user.username }}</a>
