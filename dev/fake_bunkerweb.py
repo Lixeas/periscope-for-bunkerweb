@@ -5,9 +5,16 @@
 
 Dans Periscope : URL http://127.0.0.1:9001 (token quelconque), hôte sonde vide, port TLS 9443.
 
-Authentification (optionnelle) : POST /auth en HTTP Basic (utilisateur `periscope`, mot de passe FAKE_PASSWORD,
-défaut `secret`) renvoie {"status":"success","token":...}. Avec FAKE_AUTH=1, tous les endpoints de données
-exigent un Bearer valide (401 sinon) ; le jeton expire après FAKE_TTL secondes (défaut 3600). /ping reste public.
+Les réponses reprennent les formes RÉELLES de l'API BunkerWeb v1.6.17, dérivées de la lecture du source
+(pas capturées sur une instance vivante) : /ping sans version, /services avec security_mode,
+/services/{id}?full=true avec `config`, /bans agrégé par instance nginx (2 instances nginx simulées qui
+rapportent le même ban ; `exp` = secondes restantes, 0 = permanent), /jobs en dict indexé par nom avec
+plugin_id et history triée par end_date décroissante, /plugins avec les clés supplémentaires.
+
+Authentification (optionnelle) : POST /auth (HTTP Basic, ou champs/JSON `username` + `password` ; utilisateur
+`periscope`, mot de passe FAKE_PASSWORD, défaut `secret`) renvoie {"token":...}. Avec FAKE_AUTH=1, tous les
+endpoints de données exigent un Bearer valide (401 sinon) ; le jeton expire après FAKE_TTL secondes
+(défaut 3600). /ping et /health restent publics.
   FAKE_AUTH=1 FAKE_TTL=8 uvicorn --app-dir dev fake_bunkerweb:app --port 9001
 """
 import asyncio
@@ -85,54 +92,88 @@ def require_token(request: Request) -> None:
 
 
 @app.post("/auth")
-def auth(request: Request):
+async def auth(request: Request):
     scheme, _, b64 = request.headers.get("authorization", "").partition(" ")
-    try:
-        user, _, pwd = base64.b64decode(b64).decode().partition(":")
-    except ValueError:
-        user, pwd = "", ""
-    ok = scheme.lower() == "basic" and hmac.compare_digest(user, "periscope") and hmac.compare_digest(pwd, PASSWORD)
-    if not ok:
-        raise HTTPException(401, "bad credentials")
+    user, pwd = "", ""
+    if scheme.lower() == "basic":
+        try:
+            user, _, pwd = base64.b64decode(b64).decode().partition(":")
+        except ValueError:
+            pass
+    else:
+        try:
+            body = await request.json()
+        except ValueError:
+            body = (await request.form()) if "form" in request.headers.get("content-type", "") else {}
+        if isinstance(body, dict) or hasattr(body, "get"):
+            user, pwd = str(body.get("username") or ""), str(body.get("password") or "")
+    if not (hmac.compare_digest(user, "periscope") and hmac.compare_digest(pwd, PASSWORD)):
+        raise HTTPException(401, "Invalid credentials")
     token = secrets.token_urlsafe(24)
     TOKENS[token] = time.monotonic() + TTL
-    return {"status": "success", "token": token}
+    return {"token": token}
 
 
 @app.get("/ping")
 def ping():
-    return {"status": "success", "message": "pong", "version": "1.6.0-fake"}
+    return {"status": "ok", "message": "pong"}
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 
 @app.get("/services", dependencies=[Depends(require_token)])
 def services():
-    return {"status": "success", "services": [{"id": s, "is_draft": False} for s in SERVICES]}
+    return {"status": "success", "services": [
+        {"id": s, "method": "ui", "is_draft": False, "creation_date": "2026-01-01T00:00:00+00:00",
+         "last_update": "2026-01-02T00:00:00+00:00", "template": None, "security_mode": m}
+        for s, m in SERVICES.items()]}
 
 
 @app.get("/services/{service}", dependencies=[Depends(require_token)])
 def service(service: str, full: bool = False):
-    return {f"{service}_SECURITY_MODE": SERVICES.get(service, "detect")}
+    return {"status": "success", "service": service, "config": {
+        "SECURITY_MODE": {"value": SERVICES.get(service, "detect"), "global": False, "method": "ui",
+                          "default": "detect", "template": None}}}
+
+
+def _ban(ip, reason, service, exp, kind="ban", scope="service", country="FR"):
+    return {"ip": ip, "reason": reason, "service": service, "date": int(time.time()) - 120, "country": country,
+            "ban_scope": scope, "exp": exp, "permanent": exp == 0, "kind": kind, "reason_data": {}}
 
 
 @app.get("/bans", dependencies=[Depends(require_token)])
 def bans():
-    out = [{"ip": "203.0.113.7", "reason": "antibot", "service": "www.example.test", "exp": 3600, "date": 1}]
+    """Agrégat par instance nginx ; le même ban remonte une fois par instance (exp légèrement différent)."""
+    shared = _ban("203.0.113.7", "antibot", "www.example.test", 3600)
+    nginx2 = [{**shared, "exp": 3590}]
+    nginx1 = [shared]
     if EXTRA:
-        out.append({"ip": "198.51.100.9", "reason": "modsecurity", "service": "global", "exp": 600, "date": 2})
-    return {"status": "success", "bans": out}
+        nginx1.append(_ban("198.51.100.9", "crowdsec", "global", 0, kind="crowdsec_lease", scope="global"))
+    return {"fake-nginx-1": {"status": "success", "msg": "success", "data": nginx1},
+            "fake-nginx-2": {"status": "success", "msg": "success", "data": nginx2}}
 
 
 @app.get("/jobs", dependencies=[Depends(require_token)])
 def jobs():
+    def hist(*runs):  # plus récent d'abord (end_date décroissante)
+        return [{"start_date": e, "end_date": e, "success": ok} for e, ok in runs]
     return {"status": "success", "jobs": {
-        "certbot-renew": {"plugin": "letsencrypt", "every": "day",
-                          "history": [{"success": True, "end_date": "2026-10-22 03:00:00"}]},
-        "blacklist-download": {"plugin": "blacklist", "every": "hour",
-                               "history": [{"success": not EXTRA, "end_date": "2026-10-22 10:00:00"}]}}}
+        "certbot-renew": {"plugin_id": "letsencrypt", "every": "day", "reload": True, "async": False,
+                          "history": hist(("2026-10-22T03:00:05+00:00", True), ("2026-10-21T03:00:05+00:00", True)),
+                          "cache": []},
+        "blacklist-download": {"plugin_id": "blacklist", "every": "hour", "reload": True, "async": True,
+                               "history": hist(("2026-10-22T10:00:05+00:00", not EXTRA),
+                                               ("2026-10-22T09:00:05+00:00", True)),
+                               "cache": []}}}
 
 
 @app.get("/plugins", dependencies=[Depends(require_token)])
 def plugins():
     return {"status": "success", "plugins": [
-        {"id": "antibot", "name": "Antibot", "version": "1.9" if EXTRA else "1.8", "type": "core"},
-        {"id": "letsencrypt", "name": "Let's Encrypt", "version": "1.8", "type": "core"}]}
+        {"id": "antibot", "stream": "partial", "name": "Antibot", "description": "Antibot", "version": "1.9" if EXTRA else "1.8",
+         "type": "core", "method": "manual", "page": False, "settings": {}, "checksum": "a"},
+        {"id": "letsencrypt", "stream": "no", "name": "Let's Encrypt", "description": "LE", "version": "1.8",
+         "type": "core", "method": "manual", "page": True, "settings": {}, "checksum": "b"}]}
