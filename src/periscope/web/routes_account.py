@@ -5,6 +5,7 @@ from periscope.auth import mfa
 from periscope.auth.audit import audit
 from periscope.auth.passwords import MIN_LENGTH, hash_password
 from periscope.db import get_db
+from periscope.i18n import N_, tr
 from periscope.models import Credential, User
 from periscope.web.deps import current_user
 from periscope.web.reauth import ERRORS, reauth, revoke_other_sessions
@@ -14,14 +15,15 @@ from periscope.web.routes_auth import ip_of
 router = APIRouter(prefix="/account")
 
 MESSAGES = {
-    "pwd_ok": "Mot de passe modifié ; les autres sessions ont été fermées.",
+    "pwd_ok": N_("Password changed; the other sessions have been closed."),
     **ERRORS,
-    "pwd_short": f"Mot de passe trop court ({MIN_LENGTH} caractères minimum).",
-    "pwd_mismatch": "La confirmation ne correspond pas.",
-    "last_factor": "Impossible : c'est votre dernier second facteur.",
-    "totp_removed": "TOTP désactivé.",
-    "pk_deleted": "Passkey supprimée.",
-    "codes_hint": "Passkey enregistrée. Pensez à générer vos codes de secours.",
+    "pwd_short": N_("Password too short ({min} characters minimum)."),
+    "pwd_mismatch": N_("The confirmation does not match."),
+    "last_factor": N_("Not possible: this is your last second factor."),
+    "totp_removed": N_("TOTP disabled."),
+    "pk_deleted": N_("Passkey deleted."),
+    "codes_hint": N_("Passkey registered. Remember to generate your backup codes."),
+    "lang_saved": N_("Language preference saved."),
 }
 
 
@@ -35,7 +37,9 @@ def factor_count(user: User) -> int:
 
 @router.get("")
 async def account(request: Request, user: User = Depends(current_user)):
-    return render(request, "account.html", user=user, msg=MESSAGES.get(request.query_params.get("m")),
+    code = MESSAGES.get(request.query_params.get("m"))
+    return render(request, "account.html", user=user,
+                  msg=tr(request, code, min=MIN_LENGTH) if code else None,
                   backup_left=sum(not b.used for b in user.backup_codes))
 
 

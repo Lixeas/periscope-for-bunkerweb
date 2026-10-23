@@ -3,6 +3,8 @@ import secrets
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 
+from periscope.i18n import N_, LocalizedError
+
 MIN_LENGTH = 12
 _ph = PasswordHasher()  # argon2id by default
 _DUMMY = _ph.hash(secrets.token_urlsafe(32))  # random secret: no password can match it
@@ -10,7 +12,7 @@ _DUMMY = _ph.hash(secrets.token_urlsafe(32))  # random secret: no password can m
 
 def hash_password(password: str) -> str:
     if len(password) < MIN_LENGTH:
-        raise ValueError(f"mot de passe trop court ({MIN_LENGTH} caractères minimum)")
+        raise LocalizedError(N_("Password too short ({min} characters minimum)"), min=MIN_LENGTH)
     return _ph.hash(password)
 
 
