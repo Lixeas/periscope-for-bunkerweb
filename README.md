@@ -232,7 +232,7 @@ Finally, in Periscope open **Instances**, enter the API URL, choose **API user**
 
 The resource-type keys (`instances`, `services`, `bans`, `jobs`, `plugins`, `global_config`, plus `cache` and `configs`), the permission names, the `/auth` credential fields (HTTP Basic, or form/JSON fields `username` and `password`) and its response (`{"token": "<biscuit>"}`, errors 401, 403 and 500) are **confirmed from the BunkerWeb v1.6.17 source code and documentation**. This comes from **reading the source, not from testing a live instance**. Other facts from the source: a non-admin user cannot use Basic auth on the other routes (only the Bearer token from `POST /auth` works), and the `cache_read` and `configs_read` permissions exist if you ever want to extend what is read.
 
-**No version data.** BunkerWeb's scheduler API exposes no version or info endpoint (`/ping` only answers `{"status": "ok", "message": "pong"}`), so an instance's version shows as "—" in Periscope. The `/openapi.json` route may return an error on some versions; Periscope does not need it.
+**Instance version.** Periscope reads the version from the `info.version` field of the API's OpenAPI document (`/openapi.json`, under the API root path if one is set), which is public (no token). If that route is disabled or fails, the version simply shows "—"; the instance status is unaffected. This was derived from the BunkerWeb v1.6.17 source (not yet confirmed live). A `500` on `/openapi.json` was observed on a real instance when the root-path prefix was missing, so use the full URL including the prefix, e.g. `curl -s http://IP:8888/bwapi/openapi.json`.
 
 ### "API token" mode (discouraged)
 
