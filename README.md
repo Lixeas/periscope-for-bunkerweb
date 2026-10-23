@@ -166,18 +166,23 @@ About plain-text passwords: you can use `"password": "..."` instead of a hash, b
 - Each line under `permissions` reads: *resource type*, then `"*"` (all resources), then *permission name* set to `true`. These six read permissions are exactly what Periscope needs (instances, global configuration, services, bans, jobs and plugins).
 - **Never** grant `*_update`, `*_create`, `*_delete`, `*_execute` or `config_update`: BunkerWeb documents configuration, service, plugin, global-settings and instance write permissions as admin-equivalent.
 
-**4. Give the file to the API container.** Mount it at the default path the API looks for, or point to any path with the `API_ACL_BOOTSTRAP_FILE` environment variable:
+**4. Give the file to the API container.** This takes **two** settings in the API service, and you need both: a **volume** that makes the file visible inside the container, and the `API_ACL_BOOTSTRAP_FILE` **environment variable** that tells the API where to find it. The variable holds a path **inside the container**, never a path on the host.
 
 ```yaml
 services:
   bw-api:
     image: bunkerity/bunkerweb-api:1.6.17
+    environment:
+      API_ACL_BOOTSTRAP_FILE: "/var/lib/bunkerweb/api_acl_bootstrap.json"
     volumes:
+      # host path : container path (must match the variable above)
       - ./api_acl_bootstrap.json:/var/lib/bunkerweb/api_acl_bootstrap.json:ro
-    # or, for another location:
-    # environment:
-    #   API_ACL_BOOTSTRAP_FILE: /custom/path/api_acl_bootstrap.json
 ```
+
+- If the service already has `volumes` or `environment` entries, add these lines to them instead of replacing them.
+- Setting only the variable with a host path (for example `/home/me/bunkerweb/api_acl_bootstrap.json`) fails with `API_ACL_BOOTSTRAP_FILE set but not found`, because that path does not exist inside the container.
+- Setting only the volume works only if you mount the file exactly at the default path `/var/lib/bunkerweb/api_acl_bootstrap.json`; setting the variable too makes the intent explicit and is the recommended setup.
+- The file must be readable by the container user (for example `chmod 644`).
 
 **5. Restart the API service and check the logs.** The file is read once at start-up.
 
@@ -225,6 +230,7 @@ Finally, in Periscope open **Instances**, enter the API URL, choose **API user**
 | One Periscope view is empty, or the instance is "Degraded" with a `403` | The matching read permission is missing (for example `ban_read` for Bans) |
 | `429` on `/auth` | Rate limit reached (10 requests per minute by default) |
 | Connection refused or timeout from Periscope | The API port is not reachable from where Periscope runs, or the IP allow-list blocks it (step 7) |
+| `API_ACL_BOOTSTRAP_FILE set but not found` in the API logs | The variable points to a host path, or the volume is missing: set both (step 4) |
 | "Instance unreachable" when adding an instance using `127.0.0.1` | `127.0.0.1` is Periscope's own container: use the host's private IP (step 7) |
 | `404` on every API call | The API root path is missing from the URL (for example `/bwapi`) |
 
@@ -232,7 +238,7 @@ Finally, in Periscope open **Instances**, enter the API URL, choose **API user**
 
 The resource-type keys (`instances`, `services`, `bans`, `jobs`, `plugins`, `global_config`, plus `cache` and `configs`), the permission names, the `/auth` credential fields (HTTP Basic, or form/JSON fields `username` and `password`) and its response (`{"token": "<biscuit>"}`, errors 401, 403 and 500) are **confirmed from the BunkerWeb v1.6.17 source code and documentation**. This comes from **reading the source, not from testing a live instance**. Other facts from the source: a non-admin user cannot use Basic auth on the other routes (only the Bearer token from `POST /auth` works), and the `cache_read` and `configs_read` permissions exist if you ever want to extend what is read.
 
-**Instance version.** Periscope reads the version from the `info.version` field of the API's OpenAPI document (`/openapi.json`, under the API root path if one is set), which is public (no token). If that route is disabled or fails, the version simply shows "—"; the instance status is unaffected. This was derived from the BunkerWeb v1.6.17 source (not yet confirmed live). A `500` on `/openapi.json` was observed on a real instance when the root-path prefix was missing, so use the full URL including the prefix, e.g. `curl -s http://IP:8888/bwapi/openapi.json`.
+**Instance version.** In "API user" mode, Periscope reads the BunkerWeb version from the `version` fact embedded in the Biscuit token issued by `/auth`; it is readable without any key (derived from the v1.6.17 source, to be confirmed on a live instance). It falls back to `info.version` of the public `/openapi.json` document (under the API root path if one is set), which currently returns HTTP 500 on at least one real 1.6.17 instance. In "API token" mode only the OpenAPI fallback is available. If neither works the version shows "—"; the instance status is unaffected.
 
 ### "API token" mode (discouraged)
 

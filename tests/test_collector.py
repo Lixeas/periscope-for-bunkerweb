@@ -256,3 +256,35 @@ async def test_collect_one_stores_token_back_in_cache(fresh_db):
     await collector.collect_one(iid, factory)
     with session_scope() as s:
         assert collector.default_client(s.get(Instance, iid)).token == "fresh"
+
+
+async def test_version_from_token_when_client_built_with_cached_token(fresh_db):
+    """Mode utilisateur, jeton venant du cache en processus : version() (lue dans le jeton) alimente instance.version."""
+    collector._TOKEN_CACHE.clear()
+    collector._VERSION_CHECKED.clear()
+    iid = add_user_instance()
+    with session_scope() as s:
+        inst = s.get(Instance, iid)
+        c = collector.default_client(inst)
+        c.token = "cached-biscuit"
+        collector.remember_token(inst, c)
+
+    class Cached(Fake):
+        def __init__(self):
+            super().__init__(ping_version=None)
+            self.token = None
+
+    seen = []
+
+    def factory(inst):
+        f = Cached()
+        f.token = collector.default_client(inst).token  # jeton déjà présent avant tout appel réseau
+        seen.append(f.token)
+
+        async def version():
+            return "1.6.17" if f.token == "cached-biscuit" else None
+        f.version = version
+        return f
+
+    await collector.collect_one(iid, factory)
+    assert seen == ["cached-biscuit"] and _version(iid) == "1.6.17"

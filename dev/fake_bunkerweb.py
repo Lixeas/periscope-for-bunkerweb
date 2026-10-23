@@ -14,7 +14,11 @@ plugin_id et history triée par end_date décroissante, /plugins avec les clés 
 Authentification (optionnelle) : POST /auth (HTTP Basic, ou champs/JSON `username` + `password` ; utilisateur
 `periscope`, mot de passe FAKE_PASSWORD, défaut `secret`) renvoie {"token":...}. Avec FAKE_AUTH=1, tous les
 endpoints de données exigent un Bearer valide (401 sinon) ; le jeton expire après FAKE_TTL secondes
-(défaut 3600). /ping, /health et /openapi.json restent publics.
+(défaut 3600). /ping et /health restent publics. Le jeton renvoyé imite un jeton Biscuit : un message protobuf
+(Biscuit{authority=2: SignedBlock{block=1: Block{symbols=1}}}) en base64 URL-safe dont les symboles sont
+l'utilisateur, 127.0.0.1, localhost:PORT, la version factice 1.6.17-fake, api_user et un identifiant aléatoire.
+/openapi.json renvoie HTTP 500 {"status":"error","message":"internal error"}, comme la vraie instance 1.6.17
+observée, sauf avec FAKE_OPENAPI=1 (document public avec info.version) : la version est alors lue dans le jeton.
   FAKE_AUTH=1 FAKE_TTL=8 uvicorn --app-dir dev fake_bunkerweb:app --port 9001
 """
 import asyncio
@@ -34,6 +38,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 DAYS = int(os.environ.get("FAKE_DAYS", "30"))
 TLS_PORT = int(os.environ.get("FAKE_TLS_PORT", "0"))
@@ -41,6 +46,8 @@ EXTRA = os.environ.get("FAKE_EXTRA") == "1"
 AUTH = os.environ.get("FAKE_AUTH") == "1"
 PASSWORD = os.environ.get("FAKE_PASSWORD", "secret")
 TTL = float(os.environ.get("FAKE_TTL", "3600"))
+OPENAPI = os.environ.get("FAKE_OPENAPI") == "1"
+VERSION = "1.6.17-fake"
 TOKENS: dict[str, float] = {}  # jeton -> expiration (time.monotonic)
 
 SERVICES = {"www.example.test": "block", "api.example.test": "detect"}
@@ -61,6 +68,25 @@ def _write_cert(directory: Path) -> tuple[Path, Path]:
     kf.write_bytes(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
                                      serialization.NoEncryption()))
     return cf, kf
+
+
+def _varint(n: int) -> bytes:
+    out = bytearray()
+    while True:
+        b, n = n & 0x7F, n >> 7
+        out.append(b | (0x80 if n else 0))
+        if not n:
+            return bytes(out)
+
+
+def _ld(num: int, data: bytes) -> bytes:
+    return _varint(num << 3 | 2) + _varint(len(data)) + data
+
+
+def _biscuit_like(user: str, token_id: str, port: str) -> str:
+    symbols = [user, "127.0.0.1", f"localhost:{port}", VERSION, "api_user", token_id]
+    block = b"".join(_ld(1, x.encode()) for x in symbols)
+    return base64.urlsafe_b64encode(_ld(2, _ld(1, block) + _ld(2, b"\0" * 64))).decode().rstrip("=")
 
 
 @asynccontextmanager
@@ -109,15 +135,17 @@ async def auth(request: Request):
             user, pwd = str(body.get("username") or ""), str(body.get("password") or "")
     if not (hmac.compare_digest(user, "periscope") and hmac.compare_digest(pwd, PASSWORD)):
         raise HTTPException(401, "Invalid credentials")
-    token = secrets.token_urlsafe(24)
+    token = _biscuit_like(user, secrets.token_hex(8), str(request.url.port or 80))
     TOKENS[token] = time.monotonic() + TTL
     return {"token": token}
 
 
 @app.get("/openapi.json")
 def openapi_doc():
-    # Public (hors garde d'auth), comme l'API réelle : la version vit dans info.version.
-    return {"openapi": "3.1.0", "info": {"title": "BunkerWeb API", "version": "1.6.17-fake"}, "paths": {}}
+    # Public (hors garde d'auth). Par défaut 500 comme la vraie instance 1.6.17 ; FAKE_OPENAPI=1 : document valide.
+    if not OPENAPI:
+        return JSONResponse({"status": "error", "message": "internal error"}, status_code=500)
+    return {"openapi": "3.1.0", "info": {"title": "BunkerWeb API", "version": VERSION}, "paths": {}}
 
 
 @app.get("/ping")
