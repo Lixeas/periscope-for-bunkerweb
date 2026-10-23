@@ -61,7 +61,7 @@ def _parse_ts(value) -> datetime | None:
             value = float(v)
         except ValueError:
             try:
-                d = datetime.fromisoformat(v.replace("Z", "+00:00"))
+                d = datetime.fromisoformat(v)
             except ValueError:
                 return None
             return d.astimezone(UTC).replace(tzinfo=None) if d.tzinfo else d
