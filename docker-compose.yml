@@ -7,10 +7,12 @@ services:
       FORWARDED_ALLOW_IPS: "${PERISCOPE_TRUSTED_PROXY:-127.0.0.1}"
     volumes:
       - periscope-data:/data
-    # Accès local uniquement par défaut. Pour exposer via BunkerWeb : retirer "ports" et
-    # rattacher ce service au réseau Docker de BunkerWeb (voir README).
+    # Port publié sur l'adresse PERISCOPE_BIND (127.0.0.1 par défaut = accès local uniquement).
+    # Pour qu'un reverse proxy (BunkerWeb) l'atteigne, que ce soit sur la même machine ou sur un
+    # autre serveur, mettre l'IP PRIVÉE de cette machine dans PERISCOPE_BIND (voir README) et
+    # n'autoriser que l'IP du proxy dans le pare-feu. Ne jamais publier sur une interface publique.
     ports:
-      - "127.0.0.1:8000:8000"
+      - "${PERISCOPE_BIND:-127.0.0.1}:${PERISCOPE_PORT:-8000}:8000"
     read_only: true
     tmpfs:
       - /tmp
