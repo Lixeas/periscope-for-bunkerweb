@@ -1,25 +1,25 @@
-"""Faux BunkerWeb pour la démo. Lancer deux instances :
+"""Fake BunkerWeb for the demo. Start two instances:
 
   FAKE_DAYS=15 FAKE_TLS_PORT=9443 uvicorn --app-dir dev fake_bunkerweb:app --port 9001
   FAKE_DAYS=60 FAKE_TLS_PORT=9444 FAKE_EXTRA=1 uvicorn --app-dir dev fake_bunkerweb:app --port 9002
 
-Dans Periscope : URL http://127.0.0.1:9001 (token quelconque), hôte sonde vide, port TLS 9443.
+In Periscope: URL http://127.0.0.1:9001 (any token), empty probe host, TLS port 9443.
 
-Les réponses reprennent les formes RÉELLES de l'API BunkerWeb v1.6.17, dérivées de la lecture du source
-(pas capturées sur une instance vivante) : /ping sans version, /services avec security_mode,
-/services/{id}?full=true avec `config`, /bans agrégé par instance nginx (2 instances nginx simulées qui
-rapportent le même ban ; `exp` = secondes restantes, 0 = permanent), /jobs en dict indexé par nom avec
-plugin_id et history triée par end_date décroissante, /plugins avec les clés supplémentaires, /instances
-avec les nœuds du scheduler (2 nœuds ; avec FAKE_EXTRA=1 le second est `down`, pour démontrer l'état dégradé).
+The responses reproduce the REAL shapes of the BunkerWeb v1.6.17 API, derived from reading the source
+(not captured from a live instance): /ping without version, /services with security_mode,
+/services/{id}?full=true with `config`, /bans aggregated per nginx instance (2 simulated nginx instances that
+report the same ban; `exp` = remaining seconds, 0 = permanent), /jobs as a dict indexed by name with
+plugin_id and history sorted by descending end_date, /plugins with the extra keys, /instances
+with the scheduler's nodes (2 nodes; with FAKE_EXTRA=1 the second is `down`, to demonstrate the degraded state).
 
-Authentification (optionnelle) : POST /auth (HTTP Basic, ou champs/JSON `username` + `password` ; utilisateur
-`periscope`, mot de passe FAKE_PASSWORD, défaut `secret`) renvoie {"token":...}. Avec FAKE_AUTH=1, tous les
-endpoints de données exigent un Bearer valide (401 sinon) ; le jeton expire après FAKE_TTL secondes
-(défaut 3600). /ping et /health restent publics. Le jeton renvoyé imite un jeton Biscuit : un message protobuf
-(Biscuit{authority=2: SignedBlock{block=1: Block{symbols=1}}}) en base64 URL-safe dont les symboles sont
-l'utilisateur, 127.0.0.1, localhost:PORT, la version factice 1.6.17-fake, api_user et un identifiant aléatoire.
-/openapi.json renvoie HTTP 500 {"status":"error","message":"internal error"}, comme la vraie instance 1.6.17
-observée, sauf avec FAKE_OPENAPI=1 (document public avec info.version) : la version est alors lue dans le jeton.
+Authentication (optional): POST /auth (HTTP Basic, or `username` + `password` fields/JSON; user
+`periscope`, password FAKE_PASSWORD, default `secret`) returns {"token":...}. With FAKE_AUTH=1, all
+data endpoints require a valid Bearer (401 otherwise); the token expires after FAKE_TTL seconds
+(default 3600). /ping and /health stay public. The returned token imitates a Biscuit token: a protobuf message
+(Biscuit{authority=2: SignedBlock{block=1: Block{symbols=1}}}) in URL-safe base64 whose symbols are
+the user, 127.0.0.1, localhost:PORT, the fake version 1.6.17-fake, api_user and a random identifier.
+/openapi.json returns HTTP 500 {"status":"error","message":"internal error"}, like the real 1.6.17 instance
+observed, except with FAKE_OPENAPI=1 (public document with info.version): the version is then read from the token.
   FAKE_AUTH=1 FAKE_TTL=8 uvicorn --app-dir dev fake_bunkerweb:app --port 9001
 """
 import asyncio
@@ -107,7 +107,7 @@ async def lifespan(_: FastAPI):
         server.close()
 
 
-app = FastAPI(lifespan=lifespan, openapi_url=None)  # /openapi.json ci-dessous (public, comme le vrai)
+app = FastAPI(lifespan=lifespan, openapi_url=None)  # /openapi.json below (public, like the real one)
 
 
 def require_token(request: Request) -> None:
@@ -143,7 +143,7 @@ async def auth(request: Request):
 
 @app.get("/openapi.json")
 def openapi_doc():
-    # Public (hors garde d'auth). Par défaut 500 comme la vraie instance 1.6.17 ; FAKE_OPENAPI=1 : document valide.
+    # Public (outside the auth guard). 500 by default like the real 1.6.17 instance; FAKE_OPENAPI=1: valid document.
     if not OPENAPI:
         return JSONResponse({"status": "error", "message": "internal error"}, status_code=500)
     return {"openapi": "3.1.0", "info": {"title": "BunkerWeb API", "version": VERSION}, "paths": {}}
@@ -181,7 +181,7 @@ def _ban(ip, reason, service, exp, kind="ban", scope="service", country="FR"):
 
 @app.get("/bans", dependencies=[Depends(require_token)])
 def bans():
-    """Agrégat par instance nginx ; le même ban remonte une fois par instance (exp légèrement différent)."""
+    """Aggregate per nginx instance; the same ban is reported once per instance (slightly different exp)."""
     shared = _ban("203.0.113.7", "antibot", "www.example.test", 3600)
     nginx2 = [{**shared, "exp": 3590}]
     nginx1 = [shared]
@@ -193,7 +193,7 @@ def bans():
 
 @app.get("/jobs", dependencies=[Depends(require_token)])
 def jobs():
-    def hist(*runs):  # plus récent d'abord (end_date décroissante)
+    def hist(*runs):  # most recent first (descending end_date)
         return [{"start_date": e, "end_date": e, "success": ok} for e, ok in runs]
     return {"status": "success", "jobs": {
         "certbot-renew": {"plugin_id": "letsencrypt", "every": "day", "reload": True, "async": False,
@@ -216,7 +216,7 @@ def plugins():
 
 @app.get("/instances", dependencies=[Depends(require_token)])
 def instances():
-    """Nœuds nginx gérés par ce scheduler (forme réelle) ; le 2e est `down` avec FAKE_EXTRA=1."""
+    """Nginx nodes managed by this scheduler (real shape); the 2nd is `down` with FAKE_EXTRA=1."""
     seen = datetime.now(UTC) - timedelta(seconds=5)
 
     def node(host, name, status, last_seen):

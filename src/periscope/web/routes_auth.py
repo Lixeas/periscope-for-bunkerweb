@@ -35,7 +35,7 @@ THROTTLED = "Trop de tentatives, réessayez plus tard."
 
 
 def throttle(request: Request, family: str) -> int:
-    """Compte une tentative pour (famille d'endpoints, IP) ; retourne les secondes de blocage (0 = OK)."""
+    """Count an attempt for (endpoint family, IP); return the blocking seconds (0 = OK)."""
     key = f"{family}:{ip_of(request)}"
     return 0 if limiter.hit(key) else max(1, limiter.retry_after(key))
 
@@ -53,7 +53,7 @@ def set_cookie(resp, token: str, *, final: bool):
 
 
 def finish_login(request: Request, db, user: User, method: str) -> str:
-    """Promeut la session en session pleine ; retourne le nouveau jeton."""
+    """Promote the session to a full session; return the new token."""
     ratelimit.register_success(user)
     login_failures.clear(user.username, ip_of(request))
     token = sessions.promote(db, request.state.session, user, utcnow())
@@ -79,7 +79,7 @@ LOGIN_CSRF = "periscope_login_csrf"
 
 
 def login_form(request: Request, status: int = 200, error: str | None = None):
-    """Formulaire de connexion avec CSRF pré-session (cookie + champ caché identiques)."""
+    """Login form with pre-session CSRF (identical cookie + hidden field)."""
     token = request.cookies.get(LOGIN_CSRF) or secrets.token_urlsafe(24)
     resp = render(request, "login.html", status=status, error=error, login_csrf=token)
     resp.set_cookie(LOGIN_CSRF, token, httponly=True, secure=get_settings().cookie_secure,
@@ -106,7 +106,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
         audit(db, "login_throttled", username, ip=ip)
         db.commit()
         return retry_after(login_form(request, 429, THROTTLED), wait)
-    # Verrou du mot de passe par (identifiant, IP) uniquement : jamais sur le compte réel (anti-DoS).
+    # Password lock by (username, IP) only: never on the real account (anti-DoS).
     user = db.query(User).filter_by(username=username).one_or_none()
     locked = bool(login_failures.retry_after(username, ip))
     if locked or not verify_password(user.password_hash if user else None, password):
@@ -189,7 +189,7 @@ async def passkey_auth_verify(request: Request, user: User = Depends(pending_use
     return set_cookie(JSONResponse({"ok": True, "redirect": "/"}), token, final=True)
 
 
-# --- enrôlement initial (TOTP) -------------------------------------------
+# --- initial enrollment (TOTP) -------------------------------------------
 
 def enroll_page(request: Request, db, user: User, error: str | None = None, status: int = 200):
     if not user.totp_secret_enc:
@@ -229,7 +229,7 @@ async def enroll_post(request: Request, code: str = Form(...), user: User = Depe
 
 
 def _enroll_denied(request: Request, db, user: User, detail: str):
-    """Réponse JSON d'erreur si l'enrôlement par passkey n'est pas permis, sinon None."""
+    """JSON error response if passkey enrollment is not allowed, otherwise None."""
     if mfa.has_second_factor(user):
         return JSONResponse({"error": "Un second facteur est déjà configuré."}, status_code=403)
     if wait := throttle(request, "enroll"):
@@ -268,7 +268,7 @@ async def passkey_enroll_verify(request: Request, user: User = Depends(pending_u
     return set_cookie(JSONResponse({"ok": True, "redirect": "/account?m=codes_hint"}), token, final=True)
 
 
-# --- déconnexion ----------------------------------------------------------
+# --- logout ----------------------------------------------------------
 
 @router.post("/logout")
 async def logout(request: Request, user: User = Depends(current_user), db=Depends(get_db)):
@@ -280,7 +280,7 @@ async def logout(request: Request, user: User = Depends(current_user), db=Depend
     return resp
 
 
-# --- enregistrement de passkey (utilisateur connecté) --------------------
+# --- passkey registration (logged-in user) --------------------
 
 @router.post("/webauthn/register/options")
 async def passkey_register_options(request: Request, user: User = Depends(current_user), db=Depends(get_db)):

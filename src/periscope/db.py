@@ -65,7 +65,7 @@ def session_scope():
 
 
 def get_db():
-    """Dépendance FastAPI."""
+    """FastAPI dependency."""
     with session_scope() as s:
         yield s
 

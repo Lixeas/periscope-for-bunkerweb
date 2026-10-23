@@ -1,64 +1,64 @@
-> Note : ce document est historique. Le projet s'appelait « BunkerWeb Mission Control » ; il a été renommé « Periscope for BunkerWeb » (paquet `periscope`, préfixe `PERISCOPE_`). Les noms ci-dessous sont ceux d'origine.
+> Note: this document is historical. The project was called "BunkerWeb Mission Control"; it has since been renamed "Periscope for BunkerWeb" (package `periscope`, prefix `PERISCOPE_`). The names below are the original ones.
 
-# BunkerWeb Mission Control — Plan 2/3 : Authentification et coque web
+# BunkerWeb Mission Control — Plan 2/3: Authentication and web shell
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal :** Authentification forte (mot de passe argon2id + TOTP/passkey/codes de secours obligatoires, sessions serveur, CSRF, anti-bruteforce, audit), application FastAPI avec en-têtes de sécurité, pages de connexion/enrôlement/compte, CLI de bootstrap du premier admin.
+**Goal:** Strong authentication (argon2id password + mandatory TOTP/passkey/backup codes, server-side sessions, CSRF, brute-force protection, audit), FastAPI application with security headers, login/enrollment/account pages, CLI to bootstrap the first admin.
 
-**Architecture :** Package `mc.auth` (logique pure + accès DB, testable sans web) et `mc.web` (FastAPI : dépendances de session, routes, templates Jinja2, statiques servis localement pour respecter une CSP `'self'`). Connexion en deux temps : le mot de passe crée une session « en attente » (`mfa_ok=False`, TTL court) ; le second facteur la remplace par une session pleine (rotation du jeton).
+**Architecture:** Package `mc.auth` (pure logic + DB access, testable without the web layer) and `mc.web` (FastAPI: session dependencies, routes, Jinja2 templates, static files served locally to comply with a `'self'` CSP). Two-step login: the password creates a "pending" session (`mfa_ok=False`, short TTL); the second factor replaces it with a full session (token rotation).
 
-**Tech Stack :** FastAPI, Jinja2, argon2-cffi, pyotp, py_webauthn (`webauthn`), segno (QR PNG), Bootstrap 5.3 (CSS seul, copie locale).
+**Tech Stack:** FastAPI, Jinja2, argon2-cffi, pyotp, py_webauthn (`webauthn`), segno (QR PNG), Bootstrap 5.3 (CSS seul, copie locale).
 
-**Prérequis :** Plan 1 terminé (`docs/superpowers/plans/2026-10-22-plan-1-core.md`).
+**Prerequisites:** Plan 1 completed (`docs/superpowers/plans/2026-10-22-plan-1-core.md`).
 
-**Hypothèse à vérifier (Task 5) :** API `webauthn` ≥ 2.2 (`generate_*_options`, `verify_*_response`, `options_to_json`). Si une signature diffère à l'installation, n'adapter que `src/mc/auth/webauthn_.py`.
+**Assumption to verify (Task 5):** `webauthn` API ≥ 2.2 (`generate_*_options`, `verify_*_response`, `options_to_json`). If a signature differs at install time, only adapt `src/mc/auth/webauthn_.py`.
 
-**Navigateurs :** le JS passkey utilise `PublicKeyCredential.parseCreationOptionsFromJSON` / `toJSON()` (Chrome ≥ 129, Safari ≥ 18.4, Firefox ≥ 119). Sinon le TOTP reste disponible.
+**Browsers:** the passkey JS uses `PublicKeyCredential.parseCreationOptionsFromJSON` / `toJSON()` (Chrome ≥ 129, Safari ≥ 18.4, Firefox ≥ 119). Otherwise TOTP remains available.
 
 ---
 
-## Structure des fichiers
+## File structure
 
 ```
 src/mc/auth/__init__.py
-src/mc/auth/passwords.py   argon2id, longueur minimale
-src/mc/auth/users.py       create_user (CLI + futur admin UI)
+src/mc/auth/passwords.py   argon2id, minimum length
+src/mc/auth/users.py       create_user (CLI + future admin UI)
 src/mc/auth/audit.py       audit()
-src/mc/auth/mfa.py         TOTP (anti-rejeu), codes de secours, has_second_factor
-src/mc/auth/ratelimit.py   verrouillage par compte, limiteur par IP
-src/mc/auth/sessions.py    sessions serveur, rotation
-src/mc/auth/webauthn_.py   enveloppe py_webauthn
+src/mc/auth/mfa.py         TOTP (replay protection), backup codes, has_second_factor
+src/mc/auth/ratelimit.py   per-account lockout, per-IP limiter
+src/mc/auth/sessions.py    server-side sessions, rotation
+src/mc/auth/webauthn_.py   py_webauthn wrapper
 src/mc/web/__init__.py
-src/mc/web/app.py          create_app(), middleware sécurité
-src/mc/web/deps.py         dépendances session/CSRF/rôle, Redirect
-src/mc/web/render.py       rendu des templates
-src/mc/web/routes_auth.py  login, 2FA, enrôlement, logout, passkeys
-src/mc/web/routes_account.py  page /account
-src/mc/web/routes_pages.py    "/" et "/dashboard" (remplacé au Plan 3)
+src/mc/web/app.py          create_app(), security middleware
+src/mc/web/deps.py         session/CSRF/role dependencies, Redirect
+src/mc/web/render.py       template rendering
+src/mc/web/routes_auth.py  login, 2FA, enrollment, logout, passkeys
+src/mc/web/routes_account.py  /account page
+src/mc/web/routes_pages.py    "/" and "/dashboard" (replaced in Plan 3)
 src/mc/web/templates/*.html
 src/mc/web/static/{app.js,app.css,bootstrap.min.css}
 src/mc/cli.py              bootstrap-admin, migrate
 ```
 
-Ajout au Plan 1 : colonne `User.totp_last_step` (Task 1 ci-dessous).
+Addition to Plan 1: `User.totp_last_step` column (Task 1 below).
 
 ---
 
-### Task 1 : Mots de passe, utilisateurs, audit
+### Task 1: Passwords, users, audit
 
 **Files:**
-- Modify: `src/mc/models.py` (colonne `totp_last_step`)
+- Modify: `src/mc/models.py` (`totp_last_step` column)
 - Create: `src/mc/auth/__init__.py`, `src/mc/auth/passwords.py`, `src/mc/auth/users.py`, `src/mc/auth/audit.py`
 - Test: `tests/test_passwords.py`, `tests/test_users.py`
 
-- [ ] **Step 1 : Ajouter la colonne et régénérer la migration**
+- [ ] **Step 1: Add the column and regenerate the migration**
 
-Dans `src/mc/models.py`, classe `User`, après `totp_confirmed` :
+In `src/mc/models.py`, class `User`, after `totp_confirmed`:
 ```python
-    totp_last_step: Mapped[int] = mapped_column(default=0)  # anti-rejeu TOTP
+    totp_last_step: Mapped[int] = mapped_column(default=0)  # TOTP replay protection
 ```
-Si la migration `0001` n'a pas été poussée en production (c'est le cas : aucun déploiement), la régénérer :
+If migration `0001` has not been pushed to production (true here: nothing deployed yet), regenerate it:
 ```bash
 rm src/mc/migrations/versions/0001_initial_schema.py
 mkdir -p data
@@ -66,11 +66,11 @@ alembic revision --autogenerate -m "initial schema" --rev-id 0001
 rm -f data/autogen.db
 python -m pytest tests/test_migrate.py -q
 ```
-Expected : 1 passed.
+Expected: 1 passed.
 
-- [ ] **Step 2 : Écrire les tests**
+- [ ] **Step 2: Write the tests**
 
-`tests/test_passwords.py` :
+`tests/test_passwords.py`:
 ```python
 import pytest
 
@@ -93,7 +93,7 @@ def test_unknown_user_hash_is_false_but_still_hashes():
     assert verify_password(None, "whatever password") is False
 ```
 
-`tests/test_users.py` :
+`tests/test_users.py`:
 ```python
 import pytest
 
@@ -116,14 +116,14 @@ def test_create_user_and_reject_duplicates_and_bad_input(fresh_db):
         assert s.query(User).count() == 1
 ```
 
-- [ ] **Step 3 : Lancer, vérifier l'échec**
+- [ ] **Step 3: Run, verify failure**
 
 Run: `python -m pytest tests/test_passwords.py tests/test_users.py -v`
 Expected: FAIL (`ModuleNotFoundError: mc.auth`).
 
-- [ ] **Step 4 : Implémenter**
+- [ ] **Step 4: Implement**
 
-`src/mc/auth/__init__.py` : fichier vide.
+`src/mc/auth/__init__.py`: empty file.
 
 `src/mc/auth/passwords.py` :
 ```python
@@ -131,7 +131,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 
 MIN_LENGTH = 12
-_ph = PasswordHasher()  # argon2id par défaut
+_ph = PasswordHasher()  # argon2id by default
 _DUMMY = _ph.hash("dummy-password-for-timing")
 
 
@@ -142,7 +142,7 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password_hash: str | None, password: str) -> bool:
-    """Utilisateur inconnu (None) : on vérifie quand même un faux hash pour égaliser le temps."""
+    """Unknown user (None): still verify a dummy hash to equalize timing."""
     try:
         _ph.verify(password_hash or _DUMMY, password)
     except (VerifyMismatchError, InvalidHashError):
@@ -185,12 +185,12 @@ def audit(db: Session, event: str, username: str = "", detail: str = "", ip: str
     db.add(AuditLog(event=event, username=username[:64], detail=detail[:512], ip=ip[:64]))
 ```
 
-- [ ] **Step 5 : Lancer, vérifier le succès**
+- [ ] **Step 5: Run, verify success**
 
 Run: `python -m pytest tests/test_passwords.py tests/test_users.py -v`
 Expected: 4 passed.
 
-- [ ] **Step 6 : Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/mc/models.py src/mc/migrations src/mc/auth tests/test_passwords.py tests/test_users.py
@@ -199,13 +199,13 @@ git commit -m "feat: password hashing, user creation, audit helper"
 
 ---
 
-### Task 2 : Second facteur (TOTP, codes de secours)
+### Task 2: Second factor (TOTP, backup codes)
 
 **Files:**
 - Create: `src/mc/auth/mfa.py`
 - Test: `tests/test_mfa.py`
 
-- [ ] **Step 1 : Écrire le test**
+- [ ] **Step 1: Write the test**
 
 ```python
 import time
@@ -223,9 +223,9 @@ def test_totp_accepts_valid_and_rejects_replay_and_wrong(fresh_db):
     code = pyotp.TOTP(secret).now()
     step = mfa.verify_totp(enc, code, last_step=0)
     assert step == int(time.time() // 30) or step in (int(time.time() // 30) - 1, int(time.time() // 30) + 1)
-    assert mfa.verify_totp(enc, code, last_step=step) is None  # rejeu
+    assert mfa.verify_totp(enc, code, last_step=step) is None  # replay
     assert mfa.verify_totp(enc, "000000" if code != "000000" else "111111", 0) is None
-    assert mfa.verify_totp(enc, " " + code[:3] + " " + code[3:], 0) == step  # espaces tolérés
+    assert mfa.verify_totp(enc, " " + code[:3] + " " + code[3:], 0) == step  # spaces tolerated
 
 
 def test_provisioning_uri_contains_issuer_and_user():
@@ -254,12 +254,12 @@ def test_has_second_factor(fresh_db):
         assert mfa.has_second_factor(user) is True
 ```
 
-- [ ] **Step 2 : Lancer, vérifier l'échec**
+- [ ] **Step 2: Run, verify failure**
 
 Run: `python -m pytest tests/test_mfa.py -v`
 Expected: FAIL (`ImportError`).
 
-- [ ] **Step 3 : Implémenter `src/mc/auth/mfa.py`**
+- [ ] **Step 3: Implement `src/mc/auth/mfa.py`**
 
 ```python
 import hashlib
@@ -291,8 +291,8 @@ def provisioning_uri(secret_enc: str, username: str, issuer: str) -> str:
 
 
 def verify_totp(secret_enc: str, code: str, last_step: int) -> int | None:
-    """Retourne le pas TOTP accepté (à mémoriser dans user.totp_last_step) ou None.
-    Fenêtre ±1 pas ; un pas déjà consommé est refusé (anti-rejeu)."""
+    """Return the accepted TOTP step (to be stored in user.totp_last_step) or None.
+    ±1 step window; an already consumed step is rejected (replay protection)."""
     totp = pyotp.TOTP(decrypt(secret_enc))
     code = code.strip().replace(" ", "")
     cur = int(time.time() // 30)
@@ -303,11 +303,11 @@ def verify_totp(secret_enc: str, code: str, last_step: int) -> int | None:
 
 
 def _hash(code: str) -> str:
-    return hashlib.sha256(code.encode()).hexdigest()  # codes à 96 bits d'entropie : SHA-256 suffit
+    return hashlib.sha256(code.encode()).hexdigest()  # codes have 96 bits of entropy: SHA-256 is enough
 
 
 def reset_backup_codes(db: Session, user: User, n: int = 10) -> list[str]:
-    """Remplace les codes ; retourne les codes en clair (à afficher une seule fois)."""
+    """Replace the codes; return the plaintext codes (to be shown only once)."""
     plain = [secrets.token_urlsafe(12) for _ in range(n)]
     user.backup_codes.clear()
     user.backup_codes.extend(BackupCode(code_hash=_hash(c)) for c in plain)
@@ -323,12 +323,12 @@ def consume_backup(user: User, code: str) -> bool:
     return False
 ```
 
-- [ ] **Step 4 : Lancer, vérifier le succès**
+- [ ] **Step 4: Run, verify success**
 
 Run: `python -m pytest tests/test_mfa.py -v`
 Expected: 4 passed.
 
-- [ ] **Step 5 : Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/mc/auth/mfa.py tests/test_mfa.py
@@ -337,13 +337,13 @@ git commit -m "feat: TOTP with replay protection and backup codes"
 
 ---
 
-### Task 3 : Anti-bruteforce
+### Task 3: Brute-force protection
 
 **Files:**
 - Create: `src/mc/auth/ratelimit.py`
 - Test: `tests/test_ratelimit.py`
 
-- [ ] **Step 1 : Écrire le test**
+- [ ] **Step 1: Write the test**
 
 ```python
 from datetime import datetime, timedelta
@@ -374,16 +374,16 @@ def test_account_lock_cycle():
 def test_ip_limiter_window():
     lim = ratelimit.IPLimiter(max_events=3, window=10)
     assert [lim.hit("1.1.1.1", now=t) for t in (0, 1, 2, 3)] == [True, True, True, False]
-    assert lim.hit("2.2.2.2", now=3) is True  # autre IP
-    assert lim.hit("1.1.1.1", now=11.5) is True  # fenêtre écoulée
+    assert lim.hit("2.2.2.2", now=3) is True  # other IP
+    assert lim.hit("1.1.1.1", now=11.5) is True  # window elapsed
 ```
 
-- [ ] **Step 2 : Lancer, vérifier l'échec**
+- [ ] **Step 2: Run, verify failure**
 
 Run: `python -m pytest tests/test_ratelimit.py -v`
 Expected: FAIL (`ImportError`).
 
-- [ ] **Step 3 : Implémenter `src/mc/auth/ratelimit.py`**
+- [ ] **Step 3: Implement `src/mc/auth/ratelimit.py`**
 
 ```python
 import time
@@ -396,7 +396,7 @@ LOCK_AFTER = 5
 
 
 def lock_seconds(failures: int) -> int:
-    """0 jusqu'à 4 échecs, puis 30 s doublant à chaque échec, plafonné à 15 min."""
+    """0 up to 4 failures, then 30 s doubling with each failure, capped at 15 min."""
     return 0 if failures < LOCK_AFTER else min(900, 30 * 2 ** (failures - LOCK_AFTER))
 
 
@@ -417,7 +417,7 @@ def register_success(user: User) -> None:
 
 
 class IPLimiter:
-    """Fenêtre glissante en mémoire (un seul processus) ; ponytail: Redis si on passe à plusieurs workers."""
+    """In-memory sliding window (single process); ponytail: Redis if we move to several workers."""
 
     def __init__(self, max_events: int = 20, window: float = 300):
         self.max, self.window = max_events, window
@@ -437,12 +437,12 @@ class IPLimiter:
         self._events.clear()
 ```
 
-- [ ] **Step 4 : Lancer, vérifier le succès**
+- [ ] **Step 4: Run, verify success**
 
 Run: `python -m pytest tests/test_ratelimit.py -v`
 Expected: 3 passed.
 
-- [ ] **Step 5 : Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/mc/auth/ratelimit.py tests/test_ratelimit.py
@@ -451,13 +451,13 @@ git commit -m "feat: account lockout and per-IP limiter"
 
 ---
 
-### Task 4 : Sessions serveur
+### Task 4: Server-side sessions
 
 **Files:**
 - Create: `src/mc/auth/sessions.py`
 - Test: `tests/test_sessions.py`
 
-- [ ] **Step 1 : Écrire le test**
+- [ ] **Step 1: Write the test**
 
 ```python
 from datetime import datetime, timedelta
@@ -490,7 +490,7 @@ def test_idle_and_absolute_expiry(fresh_db):
         token, _ = sessions.create(s, user, True, T0)
         assert sessions.lookup(s, token, T0 + timedelta(hours=9), IDLE, MAXAGE) is None
         token, _ = sessions.create(s, user, True, T0)
-        for h in (7, 14, 21):  # actif toutes les 7 h : idle OK mais plafond 24 h
+        for h in (7, 14, 21):  # active every 7 h: idle OK but 24 h cap
             assert sessions.lookup(s, token, T0 + timedelta(hours=h), IDLE, MAXAGE) is not None
         assert sessions.lookup(s, token, T0 + timedelta(hours=25), IDLE, MAXAGE) is None
 
@@ -520,16 +520,16 @@ def test_destroy_and_purge(fresh_db):
         sessions.destroy(s, token)
         assert s.query(Session).count() == 0
         sessions.create(s, user, True, T0)
-        sessions.create(s, user, True, T0 + timedelta(days=3))  # purge les sessions de plus de 24 h d'inactivité
+        sessions.create(s, user, True, T0 + timedelta(days=3))  # purges sessions idle for more than 24 h
         assert s.query(Session).count() == 1
 ```
 
-- [ ] **Step 2 : Lancer, vérifier l'échec**
+- [ ] **Step 2: Run, verify failure**
 
 Run: `python -m pytest tests/test_sessions.py -v`
 Expected: FAIL (`ImportError`).
 
-- [ ] **Step 3 : Implémenter `src/mc/auth/sessions.py`**
+- [ ] **Step 3: Implement `src/mc/auth/sessions.py`**
 
 ```python
 import hashlib
@@ -541,7 +541,7 @@ from sqlalchemy.orm import Session as DB
 from mc.models import Session, User
 
 COOKIE = "mc_session"
-PENDING_IDLE = 300  # session « mot de passe OK, 2FA en attente »
+PENDING_IDLE = 300  # "password OK, 2FA pending" session
 PENDING_MAX = 900
 
 
@@ -579,18 +579,18 @@ def destroy(db: DB, token: str) -> None:
 
 
 def promote(db: DB, row: Session, user: User, now: datetime) -> str:
-    """Après validation du 2FA : nouvelle session pleine, nouveau jeton (anti fixation)."""
+    """After 2FA validation: new full session, new token (session fixation protection)."""
     db.delete(row)
     token, _ = create(db, user, True, now)
     return token
 ```
 
-- [ ] **Step 4 : Lancer, vérifier le succès**
+- [ ] **Step 4: Run, verify success**
 
 Run: `python -m pytest tests/test_sessions.py -v`
 Expected: 5 passed.
 
-- [ ] **Step 5 : Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/mc/auth/sessions.py tests/test_sessions.py
@@ -599,13 +599,13 @@ git commit -m "feat: server-side sessions with rotation"
 
 ---
 
-### Task 5 : Enveloppe WebAuthn
+### Task 5: WebAuthn wrapper
 
 **Files:**
 - Create: `src/mc/auth/webauthn_.py`
 - Test: `tests/test_webauthn_wrapper.py`
 
-- [ ] **Step 1 : Écrire le test** (les vérifications cryptographiques sont celles de la bibliothèque ; on teste la forme des options et la propagation des paramètres)
+- [ ] **Step 1: Write the test** (the cryptographic checks are the library's; we test the shape of the options and the propagation of parameters)
 
 ```python
 from mc.auth import webauthn_ as wa
@@ -635,12 +635,12 @@ def test_authentication_options_list_allowed_credentials(fresh_db):
     assert isinstance(challenge, bytes)
 ```
 
-- [ ] **Step 2 : Lancer, vérifier l'échec**
+- [ ] **Step 2: Run, verify failure**
 
 Run: `python -m pytest tests/test_webauthn_wrapper.py -v`
 Expected: FAIL (`ImportError`).
 
-- [ ] **Step 3 : Implémenter `src/mc/auth/webauthn_.py`**
+- [ ] **Step 3: Implement `src/mc/auth/webauthn_.py`**
 
 ```python
 import json
@@ -693,7 +693,7 @@ def authentication_options(user: User) -> tuple[dict, bytes]:
 
 
 def verify_authentication(credential: dict, challenge: bytes, stored: Credential) -> int:
-    """Retourne le nouveau compteur de signatures."""
+    """Return the new signature counter."""
     cfg = get_settings()
     v = verify_authentication_response(
         credential=credential, expected_challenge=challenge,
@@ -702,12 +702,12 @@ def verify_authentication(credential: dict, challenge: bytes, stored: Credential
     return v.new_sign_count
 ```
 
-- [ ] **Step 4 : Lancer, vérifier le succès**
+- [ ] **Step 4: Run, verify success**
 
 Run: `python -m pytest tests/test_webauthn_wrapper.py -v`
-Expected: 2 passed. Si `ImportError`/`TypeError` sur la bibliothèque : consulter la doc de la version installée (`pip show webauthn`) et adapter ce fichier uniquement.
+Expected: 2 passed. If `ImportError`/`TypeError` from the library: check the docs of the installed version (`pip show webauthn`) and only adapt this file.
 
-- [ ] **Step 5 : Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/mc/auth/webauthn_.py tests/test_webauthn_wrapper.py
@@ -716,13 +716,13 @@ git commit -m "feat: WebAuthn wrapper"
 
 ---
 
-### Task 6 : Coque web (app, middleware, dépendances, statiques)
+### Task 6: Web shell (app, middleware, dependencies, static files)
 
 **Files:**
 - Create: `src/mc/web/__init__.py`, `app.py`, `deps.py`, `render.py`, `routes_pages.py`, `templates/base.html`, `templates/dashboard.html`, `static/app.js`, `static/app.css`, `static/bootstrap.min.css`
 - Test: `tests/test_web_shell.py`
 
-- [ ] **Step 1 : Écrire le test**
+- [ ] **Step 1: Write the test**
 
 ```python
 import pytest
@@ -761,7 +761,7 @@ def test_foreign_origin_rejected_on_unsafe_methods(client):
     r = client.post("/login", headers={"origin": "https://evil.example"})
     assert r.status_code == 403
     r = client.post("/login", headers={"origin": "http://localhost:8000"})
-    assert r.status_code != 403  # origine autorisée (la route n'existe pas encore : 404/405 attendu)
+    assert r.status_code != 403  # allowed origin (the route does not exist yet: 404/405 expected)
 
 
 def test_docs_disabled(client):
@@ -769,12 +769,12 @@ def test_docs_disabled(client):
     assert client.get("/openapi.json").status_code == 404
 ```
 
-- [ ] **Step 2 : Lancer, vérifier l'échec**
+- [ ] **Step 2: Run, verify failure**
 
 Run: `python -m pytest tests/test_web_shell.py -v`
 Expected: FAIL (`ModuleNotFoundError: mc.web`).
 
-- [ ] **Step 3 : Copier Bootstrap localement**
+- [ ] **Step 3: Copy Bootstrap locally**
 
 Run:
 ```bash
@@ -782,11 +782,11 @@ mkdir -p src/mc/web/static src/mc/web/templates
 curl -fsSL -o src/mc/web/static/bootstrap.min.css https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css
 ls -l src/mc/web/static/bootstrap.min.css
 ```
-Expected : fichier d'environ 160 Ko.
+Expected: a file of about 160 KB.
 
-- [ ] **Step 4 : Implémenter les fichiers Python**
+- [ ] **Step 4: Implement the Python files**
 
-`src/mc/web/__init__.py` : fichier vide.
+`src/mc/web/__init__.py`: empty file.
 
 `src/mc/web/render.py` :
 ```python
@@ -855,7 +855,7 @@ async def _user_for(request: Request, db, *, full: bool) -> User:
 
 
 async def pending_user(request: Request, db=Depends(get_db)) -> User:
-    """Mot de passe validé, second facteur en attente."""
+    """Password validated, second factor pending."""
     return await _user_for(request, db, full=False)
 
 
@@ -957,7 +957,7 @@ def create_app(run_migrations: bool = True) -> FastAPI:
     return app
 ```
 
-- [ ] **Step 5 : Écrire templates et statiques**
+- [ ] **Step 5: Write templates and static files**
 
 `src/mc/web/templates/base.html` :
 ```html
@@ -1018,7 +1018,7 @@ code.secret { word-break: break-all; }
   let t = "light";
   try {
     t = localStorage.getItem("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  } catch (e) { /* stockage bloqué : thème clair */ }
+  } catch (e) { /* storage blocked: light theme */ }
   document.documentElement.setAttribute("data-bs-theme", t);
 })();
 
@@ -1053,7 +1053,7 @@ document.addEventListener("DOMContentLoaded", () => {
     toggle.addEventListener("click", () => {
       const next = document.documentElement.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-bs-theme", next);
-      try { localStorage.setItem("theme", next); } catch (e) { /* ignoré */ }
+      try { localStorage.setItem("theme", next); } catch (e) { /* ignored */ }
     });
   }
   document.querySelectorAll("[data-passkey]").forEach((btn) => {
@@ -1071,12 +1071,12 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 ```
 
-- [ ] **Step 6 : Lancer, vérifier le succès**
+- [ ] **Step 6: Run, verify success**
 
 Run: `python -m pytest tests/test_web_shell.py -v`
 Expected: 5 passed.
 
-- [ ] **Step 7 : Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/mc/web tests/test_web_shell.py
@@ -1085,14 +1085,14 @@ git commit -m "feat: web shell with security headers, CSRF and session dependenc
 
 ---
 
-### Task 7 : Routes d'authentification (login, 2FA, enrôlement, logout, passkeys)
+### Task 7: Authentication routes (login, 2FA, enrollment, logout, passkeys)
 
 **Files:**
 - Create: `src/mc/web/routes_auth.py`, `templates/login.html`, `templates/login_2fa.html`, `templates/enroll.html`, `templates/backup_codes.html`
-- Modify: `src/mc/web/app.py` (inclure le routeur)
+- Modify: `src/mc/web/app.py` (include the router)
 - Test: `tests/helpers.py`, `tests/test_auth_routes.py`
 
-- [ ] **Step 1 : Écrire les helpers de test** — créer d'abord `tests/__init__.py` (fichier vide, pour que `from tests.helpers import …` fonctionne), puis `tests/helpers.py`
+- [ ] **Step 1: Write the test helpers** — first create `tests/__init__.py` (empty file, so that `from tests.helpers import …` works), then `tests/helpers.py`
 
 ```python
 import re
@@ -1115,7 +1115,7 @@ def make_client() -> TestClient:
 
 
 def make_user(username="alice", role="admin", totp=True) -> str | None:
-    """Crée un utilisateur ; retourne le secret TOTP en clair (ou None)."""
+    """Create a user; return the plaintext TOTP secret (or None)."""
     with session_scope() as s:
         user = create_user(s, username, PW, role)
         if not totp:
@@ -1134,14 +1134,14 @@ def post_login(client, username="alice", password=PW):
 
 
 def full_login(client, secret: str, username="alice"):
-    """Mot de passe + code TOTP ; retourne la réponse du POST /login/2fa."""
+    """Password + TOTP code; returns the POST /login/2fa response."""
     post_login(client, username)
     page = client.get("/login/2fa")
     return client.post("/login/2fa", data={"code": pyotp.TOTP(secret).now(), "csrf": csrf_of(page.text)},
                        follow_redirects=False)
 ```
 
-- [ ] **Step 2 : Écrire les tests** — `tests/test_auth_routes.py`
+- [ ] **Step 2: Write the tests** — `tests/test_auth_routes.py`
 
 ```python
 import base64
@@ -1176,7 +1176,7 @@ def test_full_login_with_totp_then_dashboard_then_logout(client):
     secret = make_user()
     r = post_login(client)
     assert r.status_code == 303 and r.headers["location"] == "/login/2fa"
-    assert client.get("/dashboard", follow_redirects=False).status_code == 303  # session en attente : pas d'accès
+    assert client.get("/dashboard", follow_redirects=False).status_code == 303  # pending session: no access
     page = client.get("/login/2fa")
     r = client.post("/login/2fa", data={"code": pyotp.TOTP(secret).now(), "csrf": csrf_of(page.text)},
                     follow_redirects=False)
@@ -1184,7 +1184,7 @@ def test_full_login_with_totp_then_dashboard_then_logout(client):
     dash = client.get("/dashboard")
     assert dash.status_code == 200 and "alice" in dash.text
     assert audit_events() == ["password_ok", "login"]
-    assert client.post("/logout", data={}, follow_redirects=False).status_code == 403  # sans CSRF
+    assert client.post("/logout", data={}, follow_redirects=False).status_code == 403  # without CSRF
     r = client.post("/logout", data={"csrf": csrf_of(dash.text)}, follow_redirects=False)
     assert r.status_code == 303
     assert client.get("/dashboard", follow_redirects=False).status_code == 303
@@ -1317,12 +1317,12 @@ def test_passkey_verify_failure_is_401(client, monkeypatch):
     assert client.get("/dashboard", follow_redirects=False).status_code == 303
 ```
 
-- [ ] **Step 3 : Lancer, vérifier l'échec**
+- [ ] **Step 3: Run, verify failure**
 
 Run: `python -m pytest tests/test_auth_routes.py -v`
-Expected: FAIL (404 sur `/login`, ou `ImportError: mc.web.routes_auth`).
+Expected: FAIL (404 on `/login`, or `ImportError: mc.web.routes_auth`).
 
-- [ ] **Step 4 : Implémenter `src/mc/web/routes_auth.py`**
+- [ ] **Step 4: Implement `src/mc/web/routes_auth.py`**
 
 ```python
 import logging
@@ -1362,7 +1362,7 @@ def set_cookie(resp, token: str, *, final: bool):
 
 
 def finish_login(request: Request, db, user: User, method: str) -> str:
-    """Promeut la session en session pleine ; retourne le nouveau jeton."""
+    """Promote the session to a full session; return the new token."""
     ratelimit.register_success(user)
     token = sessions.promote(db, request.state.session, user, utcnow())
     audit(db, "login", user.username, detail=method, ip=ip_of(request))
@@ -1381,7 +1381,7 @@ def twofa_page(request: Request, user: User, error: str | None = None, status: i
                   has_totp=user.totp_confirmed, has_passkey=bool(user.credentials))
 
 
-# --- mot de passe ---------------------------------------------------------
+# --- password ---------------------------------------------------------
 
 @router.get("/login")
 async def login_page(request: Request, db=Depends(get_db)):
@@ -1413,7 +1413,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     return set_cookie(RedirectResponse(dest, 303), token, final=False)
 
 
-# --- second facteur -------------------------------------------------------
+# --- second factor -------------------------------------------------------
 
 @router.get("/login/2fa")
 async def twofa_get(request: Request, user: User = Depends(pending_user)):
@@ -1460,7 +1460,7 @@ async def passkey_auth_verify(request: Request, user: User = Depends(pending_use
         stored = db.query(Credential).filter_by(
             user_id=user.id, credential_id=base64url_to_bytes(body["id"])).one()
         stored.sign_count = wa.verify_authentication(body, challenge, stored)
-    except Exception:  # noqa: BLE001  (toute erreur de vérification = échec d'authentification)
+    except Exception:  # noqa: BLE001  (any verification error = authentication failure)
         log.info("passkey verification failed for %s", user.username, exc_info=True)
         fail_2fa(request, db, user, "login_passkey_failed")
         return JSONResponse({"error": "Vérification de la passkey échouée"}, status_code=401)
@@ -1468,7 +1468,7 @@ async def passkey_auth_verify(request: Request, user: User = Depends(pending_use
     return set_cookie(JSONResponse({"ok": True, "redirect": "/"}), token, final=True)
 
 
-# --- enrôlement initial (TOTP) -------------------------------------------
+# --- initial enrollment (TOTP) -------------------------------------------
 
 def enroll_page(request: Request, db, user: User, error: str | None = None, status: int = 200):
     if not user.totp_secret_enc:
@@ -1499,11 +1499,11 @@ async def enroll_post(request: Request, code: str = Form(...), user: User = Depe
     codes = mfa.reset_backup_codes(db, user)
     audit(db, "totp_enrolled", user.username, ip=ip_of(request))
     token = finish_login(request, db, user, "enroll")
-    request.state.session = None  # l'ancienne session n'existe plus
+    request.state.session = None  # the old session no longer exists
     return set_cookie(render(request, "backup_codes.html", codes=codes), token, final=True)
 
 
-# --- déconnexion ----------------------------------------------------------
+# --- logout ----------------------------------------------------------
 
 @router.post("/logout")
 async def logout(request: Request, user: User = Depends(current_user), db=Depends(get_db)):
@@ -1515,7 +1515,7 @@ async def logout(request: Request, user: User = Depends(current_user), db=Depend
     return resp
 
 
-# --- enregistrement de passkey (utilisateur connecté) --------------------
+# --- passkey registration (logged-in user) --------------------
 
 @router.post("/webauthn/register/options")
 async def passkey_register_options(request: Request, user: User = Depends(current_user), db=Depends(get_db)):
@@ -1543,7 +1543,7 @@ async def passkey_register_verify(request: Request, user: User = Depends(current
     return {"ok": True}
 ```
 
-- [ ] **Step 5 : Inclure le routeur** — dans `src/mc/web/app.py`, remplacer le bloc d'imports de routes :
+- [ ] **Step 5: Include the router** — in `src/mc/web/app.py`, replace the route imports block:
 
 ```python
     from mc.web import routes_auth, routes_pages
@@ -1552,7 +1552,7 @@ async def passkey_register_verify(request: Request, user: User = Depends(current
     app.include_router(routes_pages.router)
 ```
 
-- [ ] **Step 6 : Écrire les templates**
+- [ ] **Step 6: Write the templates**
 
 `src/mc/web/templates/login.html` :
 ```html
@@ -1638,12 +1638,12 @@ async def passkey_register_verify(request: Request, user: User = Depends(current
 {% endblock %}
 ```
 
-- [ ] **Step 7 : Lancer, vérifier le succès**
+- [ ] **Step 7: Run, verify success**
 
 Run: `python -m pytest tests/test_auth_routes.py tests/test_web_shell.py -v`
-Expected: tous passent. Si `test_foreign_origin...` dans `test_web_shell.py` échoue car `/login` répond maintenant 422 : c'est `!= 403`, donc OK.
+Expected: all pass. If `test_foreign_origin...` in `test_web_shell.py` fails because `/login` now answers 422: that is `!= 403`, so it is fine.
 
-- [ ] **Step 8 : Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src/mc/web tests/__init__.py tests/helpers.py tests/test_auth_routes.py
@@ -1652,14 +1652,14 @@ git commit -m "feat: login, 2FA, forced enrollment, passkeys, logout"
 
 ---
 
-### Task 8 : Page Compte
+### Task 8: Account page
 
 **Files:**
 - Create: `src/mc/web/routes_account.py`, `templates/account.html`
 - Modify: `src/mc/web/app.py`
 - Test: `tests/test_account_routes.py`
 
-- [ ] **Step 1 : Écrire le test**
+- [ ] **Step 1: Write the test**
 
 ```python
 import pytest
@@ -1716,7 +1716,7 @@ def test_change_password_revokes_other_sessions(logged):
         user = s.query(User).one()
         from mc.auth import sessions
         from mc.clock import utcnow
-        sessions.create(s, user, True, utcnow())  # une autre session
+        sessions.create(s, user, True, utcnow())  # another session
         assert s.query(Session).count() == 2
     new = "another long passphrase"
     client.post("/account/password", data={"csrf": csrf, "current": PW, "new": new, "confirm": new})
@@ -1751,7 +1751,7 @@ def test_remove_totp_when_passkey_exists_and_delete_passkey_guard(logged):
     r = client.post("/account/totp/remove", data={"csrf": csrf, "password": PW}, follow_redirects=False)
     assert r.headers["location"] == "/account?m=totp_removed"
     r = client.post(f"/account/passkeys/{cred_id}/delete", data={"csrf": csrf}, follow_redirects=False)
-    assert r.headers["location"] == "/account?m=last_factor"  # c'est maintenant le dernier facteur
+    assert r.headers["location"] == "/account?m=last_factor"  # it is now the last factor
     with session_scope() as s:
         assert s.query(Credential).count() == 1
 
@@ -1760,12 +1760,12 @@ def test_account_requires_login(client):
     assert client.get("/account", follow_redirects=False).status_code == 303
 ```
 
-- [ ] **Step 2 : Lancer, vérifier l'échec**
+- [ ] **Step 2: Run, verify failure**
 
 Run: `python -m pytest tests/test_account_routes.py -v`
-Expected: FAIL (404 sur `/account`).
+Expected: FAIL (404 on `/account`).
 
-- [ ] **Step 3 : Implémenter `src/mc/web/routes_account.py`**
+- [ ] **Step 3: Implement `src/mc/web/routes_account.py`**
 
 ```python
 from fastapi import APIRouter, Depends, Form, Request
@@ -1860,7 +1860,7 @@ async def delete_passkey(request: Request, cred_id: int, user: User = Depends(cu
     return back("pk_deleted")
 ```
 
-- [ ] **Step 4 : Template** — `src/mc/web/templates/account.html`
+- [ ] **Step 4: Template** — `src/mc/web/templates/account.html`
 
 ```html
 {% extends "base.html" %}
@@ -1931,7 +1931,7 @@ async def delete_passkey(request: Request, cred_id: int, user: User = Depends(cu
 {% endblock %}
 ```
 
-- [ ] **Step 5 : Inclure le routeur** — dans `src/mc/web/app.py` :
+- [ ] **Step 5: Include the router** — in `src/mc/web/app.py`:
 
 ```python
     from mc.web import routes_account, routes_auth, routes_pages
@@ -1941,12 +1941,12 @@ async def delete_passkey(request: Request, cred_id: int, user: User = Depends(cu
     app.include_router(routes_pages.router)
 ```
 
-- [ ] **Step 6 : Lancer, vérifier le succès**
+- [ ] **Step 6: Run, verify success**
 
 Run: `python -m pytest tests/test_account_routes.py -v`
 Expected: 7 passed.
 
-- [ ] **Step 7 : Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/mc/web tests/test_account_routes.py
@@ -1955,13 +1955,13 @@ git commit -m "feat: account page (password, backup codes, passkeys, TOTP)"
 
 ---
 
-### Task 9 : CLI (bootstrap du premier admin, migrate)
+### Task 9: CLI (first admin bootstrap, migrate)
 
 **Files:**
 - Create: `src/mc/cli.py`
 - Test: `tests/test_cli.py`
 
-- [ ] **Step 1 : Écrire le test**
+- [ ] **Step 1: Write the test**
 
 ```python
 import getpass
@@ -1995,12 +1995,12 @@ def test_bootstrap_admin_rejects_mismatch_and_duplicates(fresh_db, monkeypatch, 
     assert "existant" in capsys.readouterr().err
 ```
 
-- [ ] **Step 2 : Lancer, vérifier l'échec**
+- [ ] **Step 2: Run, verify failure**
 
 Run: `python -m pytest tests/test_cli.py -v`
 Expected: FAIL (`ImportError: cli`).
 
-- [ ] **Step 3 : Implémenter `src/mc/cli.py`**
+- [ ] **Step 3: Implement `src/mc/cli.py`**
 
 ```python
 import argparse
@@ -2043,12 +2043,12 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-- [ ] **Step 4 : Lancer, vérifier le succès**
+- [ ] **Step 4: Run, verify success**
 
 Run: `python -m pytest tests/test_cli.py -v`
 Expected: 2 passed.
 
-- [ ] **Step 5 : Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/mc/cli.py tests/test_cli.py
@@ -2057,29 +2057,29 @@ git commit -m "feat: CLI to bootstrap first admin and run migrations"
 
 ---
 
-### Task 10 : Vérification globale de la partie 2
+### Task 10: Overall verification of part 2
 
-- [ ] **Step 1 : Suite complète + lint**
+- [ ] **Step 1: Full suite + lint**
 
 Run:
 ```bash
 python -m pytest -q
 ruff check src tests
 ```
-Expected : tous les tests passent, `All checks passed!`. Corriger tout avertissement ruff.
+Expected: all tests pass, `All checks passed!`. Fix any ruff warning.
 
-- [ ] **Step 2 : Essai manuel**
+- [ ] **Step 2: Manual test**
 
-Run (Git Bash) :
+Run (Git Bash):
 ```bash
 export MC_SECRET_KEY=$(python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())")
 export MC_COOKIE_SECURE=false MC_COLLECTOR_ENABLED=false
 mc bootstrap-admin --username admin
 uvicorn mc.web.app:create_app --factory --port 8000
 ```
-Ouvrir `http://localhost:8000` : connexion, enrôlement TOTP, codes de secours, page Compte. Arrêter avec Ctrl+C.
+Open `http://localhost:8000`: login, TOTP enrollment, backup codes, Account page. Stop with Ctrl+C.
 
-- [ ] **Step 3 : Pousser**
+- [ ] **Step 3: Push**
 
 ```bash
 git push

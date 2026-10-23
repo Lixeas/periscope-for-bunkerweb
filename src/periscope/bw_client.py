@@ -19,9 +19,9 @@ class BWError(Exception):
 
 
 class BWClient:
-    """Lecture seule : tout est lu par `_get` (GET). Seule autre requête émise : POST /auth,
-    qui échange l'identifiant/mot de passe de l'utilisateur d'API contre un jeton Biscuit.
-    Aucune méthode publique d'écriture n'existe. Ni mot de passe ni jeton dans les messages d'erreur."""
+    """Read-only: everything is read through `_get` (GET). The only other request sent is POST /auth,
+    which exchanges the API user's username/password for a Biscuit token.
+    No public write method exists. Neither password nor token in error messages."""
 
     def __init__(self, base_url: str, token: str | None = None, *,
                  credentials: tuple[str, str] | None = None, timeout: float = 5.0,
@@ -29,7 +29,7 @@ class BWClient:
         if not token and not credentials:
             raise ValueError("token ou credentials requis")
         self._credentials = credentials
-        self.token: str | None = token or None  # exposé pour que l'appelant le mette en cache
+        self.token: str | None = token or None  # exposed so the caller can cache it
         self._http = httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=timeout,
                                        verify=verify, transport=transport)
 
@@ -75,7 +75,7 @@ class BWClient:
             await self._authenticate()
         r = await self._send(path, params)
         if r.status_code == 401 and self._credentials:
-            # jeton expiré/révoqué : une seule ré-authentification, un seul nouvel essai
+            # expired/revoked token: a single re-authentication, a single retry
             self.token = None
             await self._authenticate()
             r = await self._send(path, params)
@@ -95,9 +95,9 @@ class BWClient:
         return (time.perf_counter() - t) * 1000, version
 
     async def version(self) -> str | None:
-        """Version : d'abord le fait `version` du jeton Biscuit détenu (lecture locale, aucune requête),
-        sinon `info.version` du document OpenAPI (GET /openapi.json, public : aucun jeton, donc pas
-        d'aller-retour /auth). Ne lève jamais : tout problème renvoie None."""
+        """Version: first the `version` fact of the held Biscuit token (local read, no request),
+        otherwise `info.version` of the OpenAPI document (GET /openapi.json, public: no token, so no
+        /auth round trip). Never raises: any problem returns None."""
         if self.token and (from_token := version_from_token(self.token)):
             return from_token
         try:
@@ -122,16 +122,16 @@ class BWClient:
         payload = await self._get("/services")
         items = N.services(payload)
         for s, raw in zip(items, N.service_items(payload), strict=True):
-            if "security_mode" in raw:  # le mode est fourni par la liste (repli sur le global côté BunkerWeb)
+            if "security_mode" in raw:  # the mode is provided by the list (BunkerWeb falls back to the global one)
                 continue
-            try:  # anciennes versions : une requête par service
+            try:  # older versions: one request per service
                 s["mode"] = N.security_mode(await self._get(f"/services/{quote(s['name'], safe='')}", full="true"))
             except BWError:
                 s["mode"] = None
         return items
 
     async def bans(self) -> list[dict]:
-        # 502 = au moins une instance nginx a échoué ; le corps reste le dict par instance (réponse partielle)
+        # 502 = at least one nginx instance failed; the body is still the per-instance dict (partial response)
         status, body = await self._get_status("/bans", (200, 502), {})
         if status == 502 and not (isinstance(body, dict) and any(isinstance(v, dict) for v in body.values())):
             raise BWError("http", "HTTP 502 on /bans")
@@ -144,7 +144,7 @@ class BWClient:
         return N.plugins(await self._get("/plugins"))
 
     async def instances(self) -> list[dict]:
-        """Nœuds nginx gérés par ce scheduler (GET /instances, permission instances_read)."""
+        """Nginx nodes managed by this scheduler (GET /instances, instances_read permission)."""
         return N.nodes(await self._get("/instances"))
 
     async def aclose(self) -> None:

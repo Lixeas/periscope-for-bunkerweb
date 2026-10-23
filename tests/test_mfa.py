@@ -15,7 +15,7 @@ def test_totp_accepts_valid_and_rejects_replay_and_wrong(fresh_db):
     assert step == int(time.time() // 30) or step in (int(time.time() // 30) - 1, int(time.time() // 30) + 1)
     assert mfa.verify_totp(enc, code, last_step=step) is None  # rejeu
     assert mfa.verify_totp(enc, "000000" if code != "000000" else "111111", 0) is None
-    assert mfa.verify_totp(enc, " " + code[:3] + " " + code[3:], 0) == step  # espaces tolérés
+    assert mfa.verify_totp(enc, " " + code[:3] + " " + code[3:], 0) == step  # spaces tolerated
 
 
 def test_provisioning_uri_contains_issuer_and_user():

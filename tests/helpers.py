@@ -19,7 +19,7 @@ def make_client() -> TestClient:
 
 
 def make_user(username="alice", role="admin", totp=True) -> str | None:
-    """Crée un utilisateur ; retourne le secret TOTP en clair (ou None)."""
+    """Create a user; return the plaintext TOTP secret (or None)."""
     with session_scope() as s:
         user = create_user(s, username, PW, role)
         if not totp:
@@ -40,7 +40,7 @@ def post_login(client, username="alice", password=PW):
 
 
 def full_login(client, secret: str, username="alice"):
-    """Mot de passe + code TOTP ; retourne la réponse du POST /login/2fa."""
+    """Password + TOTP code; return the response of POST /login/2fa."""
     post_login(client, username)
     page = client.get("/login/2fa")
     return client.post("/login/2fa", data={"code": pyotp.TOTP(secret).now(), "csrf": csrf_of(page.text)},
@@ -48,7 +48,7 @@ def full_login(client, secret: str, username="alice"):
 
 
 def login_as(client, username="alice", role="admin") -> str:
-    """Crée l'utilisateur, se connecte (mot de passe + TOTP) ; retourne le jeton CSRF de la session."""
+    """Create the user, log in (password + TOTP); return the session CSRF token."""
     secret = make_user(username, role)
     assert full_login(client, secret, username).status_code == 303
     return csrf_of(client.get("/dashboard").text)

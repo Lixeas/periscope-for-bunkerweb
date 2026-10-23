@@ -14,7 +14,7 @@ from periscope import models  # noqa: F401
 
 @pytest.fixture
 def fresh_db():
-    """Base SQLite en mémoire vierge ; les tests ouvrent leurs sessions avec session_scope()."""
+    """Blank in-memory SQLite database; tests open their sessions with session_scope()."""
     mcdb.init_engine("sqlite://")
     mcdb.Base.metadata.create_all(mcdb.engine())
     yield

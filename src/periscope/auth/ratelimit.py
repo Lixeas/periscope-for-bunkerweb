@@ -9,7 +9,7 @@ LOCK_AFTER = 5
 
 
 def lock_seconds(failures: int) -> int:
-    """0 jusqu'à 4 échecs, puis 30 s doublant à chaque échec, plafonné à 15 min."""
+    """0 up to 4 failures, then 30 s doubling with each failure, capped at 15 min."""
     return 0 if failures < LOCK_AFTER else min(900, 30 * 2 ** (failures - LOCK_AFTER))
 
 
@@ -30,10 +30,10 @@ def register_success(user: User) -> None:
 
 
 class IPLimiter:
-    """Fenêtre glissante en mémoire (un seul processus) ; ponytail: Redis si on passe à plusieurs workers.
+    """In-memory sliding window (single process); ponytail: Redis if we move to several workers.
 
-    Chaque dépassement de la fenêtre bloque la clé 60 s, puis 120 s, 240 s… (plafond 1 h).
-    Le compteur de dépassements est oublié après 1 h sans nouvelle violation."""
+    Each time the window is exceeded the key is blocked for 60 s, then 120 s, 240 s… (cap 1 h).
+    The overrun counter is forgotten after 1 h without a new violation."""
 
     BASE_BLOCK, MAX_BLOCK, FORGET = 60, 3600, 3600
 
@@ -44,14 +44,14 @@ class IPLimiter:
         self._violations: dict[str, int] = {}
 
     def retry_after(self, key: str, now: float | None = None) -> int:
-        """Secondes restantes de blocage (0 si non bloqué)."""
+        """Remaining blocking seconds (0 if not blocked)."""
         now = time.monotonic() if now is None else now
         return max(0, math.ceil(self._blocked_until.get(key, 0) - now))
 
     def hit(self, key: str, now: float | None = None) -> bool:
         now = time.monotonic() if now is None else now
         for k in [k for k, d in self._events.items() if not d or now - d[-1] > self.window]:
-            del self._events[k]  # entrées entièrement expirées : évite la croissance sans borne
+            del self._events[k]  # fully expired entries: avoids unbounded growth
         for k in [k for k, t in self._blocked_until.items() if now - t > self.FORGET]:
             del self._blocked_until[k]
             self._violations.pop(k, None)
@@ -75,16 +75,16 @@ class IPLimiter:
 
 
 class LoginFailures:
-    """Échecs de mot de passe par (identifiant en minuscules, IP), en mémoire (processus unique).
+    """Password failures per (lowercase username, IP), in memory (single process).
 
-    Même escalade que le verrou de compte (lock_seconds) mais sans jamais toucher au compte :
-    un attaquant ne peut pas verrouiller le vrai utilisateur depuis une autre IP.
-    Une entrée est oubliée après 1 h sans échec ; balayage à chaque appel pour borner la mémoire."""
+    Same escalation as the account lock (lock_seconds) but never touching the account:
+    an attacker cannot lock out the real user from another IP.
+    An entry is forgotten after 1 h without failure; swept on every call to bound memory."""
 
     FORGET = 3600
 
     def __init__(self):
-        self._state: dict[tuple[str, str], list[float]] = {}  # clé -> [échecs, verrouillé jusqu'à, dernier échec]
+        self._state: dict[tuple[str, str], list[float]] = {}  # key -> [failures, locked until, last failure]
 
     @staticmethod
     def _key(username: str, ip: str) -> tuple[str, str]:
@@ -95,7 +95,7 @@ class LoginFailures:
             del self._state[k]
 
     def retry_after(self, username: str, ip: str, now: float | None = None) -> int:
-        """Secondes de verrouillage restantes pour cette paire (0 = libre)."""
+        """Remaining lock seconds for this pair (0 = free)."""
         now = time.monotonic() if now is None else now
         self._sweep(now)
         st = self._state.get(self._key(username, ip))

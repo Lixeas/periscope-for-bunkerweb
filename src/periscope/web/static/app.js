@@ -2,7 +2,7 @@
   let t = "light";
   try {
     t = localStorage.getItem("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-  } catch (e) { /* stockage bloqué : thème clair */ }
+  } catch (e) { /* storage blocked: light theme */ }
   document.documentElement.setAttribute("data-bs-theme", t);
 })();
 
@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
     toggle.addEventListener("click", () => {
       const next = document.documentElement.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-bs-theme", next);
-      try { localStorage.setItem("theme", next); } catch (e) { /* ignoré */ }
+      try { localStorage.setItem("theme", next); } catch (e) { /* ignored */ }
     });
   }
   document.querySelectorAll("[data-passkey]").forEach((btn) => {

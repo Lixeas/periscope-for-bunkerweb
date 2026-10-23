@@ -1,7 +1,7 @@
-"""Normalisation tolérante. Les formes JSON de l'API BunkerWeb ne sont pas documentées : elles ont été
-dérivées de la lecture du SOURCE de BunkerWeb v1.6.17 (routers/*.py, Database.py, api.lua, banlease.lua),
-pas capturées sur une instance vivante. Les formes historiques supposées restent acceptées.
-Si l'API réelle diffère, n'ajuster que ce fichier + ses tests."""
+"""Lenient normalization. The JSON shapes of the BunkerWeb API are undocumented: they were
+derived from reading the BunkerWeb v1.6.17 SOURCE (routers/*.py, Database.py, api.lua, banlease.lua),
+not captured from a live instance. The historical assumed shapes remain accepted.
+If the real API differs, adjust only this file + its tests."""
 import math
 
 from periscope.diff import _parse_ts
@@ -15,13 +15,13 @@ def _pick(d: dict, *keys, default=None):
 
 
 def _s(d: dict, *keys, default: str = "") -> str:
-    """Champ identifiant : toujours un str (donc hashable), même si le nœud renvoie liste/dict/nombre."""
+    """Identifier field: always a str (hence hashable), even if the node returns a list/dict/number."""
     v = _pick(d, *keys)
     return default if v is None else str(v)
 
 
 def _items(payload, *keys) -> list[dict]:
-    """Liste de dicts depuis [..], {"cle": [..]} ou {"cle": {nom: {..}}}."""
+    """List of dicts from [..], {"cle": [..]} ou {"cle": {nom: {..}}}."""
     if isinstance(payload, dict):
         found = next((payload[k] for k in keys if k in payload), None)
         if found is None:
@@ -36,7 +36,7 @@ def _items(payload, *keys) -> list[dict]:
 
 
 def service_items(payload) -> list[dict]:
-    """Éléments bruts de GET /services (dans le même ordre que `services`)."""
+    """Raw items of GET /services (in the same order as `services`)."""
     return _items(payload, "services")
 
 
@@ -67,7 +67,7 @@ def _num(v):
 
 
 def _remaining(b: dict) -> float:
-    """Durée restante comparable : permanent = infini, inconnu = -1."""
+    """Comparable remaining duration: permanent = infinite, unknown = -1."""
     if b["permanent"]:
         return float("inf")
     n = _num(b["exp"])
@@ -76,7 +76,7 @@ def _remaining(b: dict) -> float:
 
 def _ban_items(payload) -> list[dict]:
     if isinstance(payload, dict) and "bans" not in payload:
-        # forme réelle : {"<instance nginx>": {"status", "msg", "data": [...]}, ...} (ou corps d'erreur)
+        # real shape: {"<nginx instance>": {"status", "msg", "data": [...]}, ...} (or error body)
         return [x for v in payload.values() if isinstance(v, dict) and isinstance(v.get("data"), list)
                 for x in v["data"] if isinstance(x, dict)]
     return _items(payload, "bans")
@@ -96,15 +96,15 @@ def bans(payload) -> list[dict]:
              "country": _s(i, "country"),
              "kind": _s(i, "kind")}
         key = (b["ip"], b["service"], b["ban_scope"], b["kind"])
-        # la même interdiction remonte une fois par instance nginx : on garde la plus longue
+        # the same ban is reported once per nginx instance: keep the longest
         if key not in uniq or _remaining(b) > _remaining(uniq[key]):
             uniq[key] = b
     return list(uniq.values())
 
 
 def _latest(history) -> dict | None:
-    """Entrée d'historique la plus récente (par end_date, sans supposer l'ordre) ; à défaut de date lisible,
-    la dernière de la liste (ancien ordre supposé)."""
+    """Most recent history entry (by end_date, without assuming order); failing a readable date,
+    the last one in the list (old assumed order)."""
     entries = [h for h in history if isinstance(h, dict)] if isinstance(history, list) else []
     if not entries:
         return None
@@ -137,8 +137,8 @@ def plugins(payload) -> list[dict]:
 
 
 def nodes(payload) -> list[dict]:
-    """Nœuds nginx d'un scheduler (GET /instances). Un élément sans hostname ni name est ignoré ;
-    le statut inconnu est conservé tel quel (str, minuscules)."""
+    """Nginx nodes of a scheduler (GET /instances). An item with neither hostname nor name is ignored;
+    an unknown status is kept as is (str, lowercase)."""
     out = []
     raw = payload.get("instances") if isinstance(payload, dict) else payload
     for i in raw if isinstance(raw, list) else []:

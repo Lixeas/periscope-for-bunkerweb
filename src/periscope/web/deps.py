@@ -46,7 +46,7 @@ async def _user_for(request: Request, db, *, full: bool) -> User:
 
 
 async def pending_user(request: Request, db=Depends(get_db)) -> User:
-    """Mot de passe validé, second facteur en attente."""
+    """Password validated, second factor pending."""
     return await _user_for(request, db, full=False)
 
 

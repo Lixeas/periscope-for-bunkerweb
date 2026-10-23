@@ -53,7 +53,7 @@ def test_full_login_with_totp_then_dashboard_then_logout(client):
     secret = make_user()
     r = post_login(client)
     assert r.status_code == 303 and r.headers["location"] == "/login/2fa"
-    assert client.get("/dashboard", follow_redirects=False).status_code == 303  # session en attente : pas d'accès
+    assert client.get("/dashboard", follow_redirects=False).status_code == 303  # pending session: no access
     page = client.get("/login/2fa")
     r = client.post("/login/2fa", data={"code": pyotp.TOTP(secret).now(), "csrf": csrf_of(page.text)},
                     follow_redirects=False)
@@ -61,7 +61,7 @@ def test_full_login_with_totp_then_dashboard_then_logout(client):
     dash = client.get("/dashboard")
     assert dash.status_code == 200 and "alice" in dash.text
     assert audit_events() == ["password_ok", "login"]
-    assert client.post("/logout", data={}, follow_redirects=False).status_code == 403  # sans CSRF
+    assert client.post("/logout", data={}, follow_redirects=False).status_code == 403  # without CSRF
     r = client.post("/logout", data={"csrf": csrf_of(dash.text)}, follow_redirects=False)
     assert r.status_code == 303
     assert client.get("/dashboard", follow_redirects=False).status_code == 303
@@ -94,9 +94,9 @@ def test_password_lock_is_per_ip(client, monkeypatch):
     monkeypatch.setattr(routes_auth, "ip_of", lambda request: "10.0.0.1")
     for _ in range(5):
         post_login(client, "alice", "wrong password here")
-    assert post_login(client).status_code == 401  # IP A verrouillée pour alice
+    assert post_login(client).status_code == 401  # IP A locked for alice
     monkeypatch.setattr(routes_auth, "ip_of", lambda request: "10.0.0.2")
-    r = post_login(client)  # IP B : le bon mot de passe passe
+    r = post_login(client)  # IP B: the correct password goes through
     assert r.status_code == 303 and r.headers["location"] == "/login/2fa"
 
 
@@ -330,7 +330,7 @@ def test_passkey_enroll_failure_keeps_session_pending(client, monkeypatch):
 
 
 def test_passkey_enroll_refused_when_user_has_second_factor(client):
-    make_user()  # TOTP déjà actif
+    make_user()  # TOTP already active
     post_login(client)
     h = {"X-CSRF-Token": csrf_of(client.get("/login/2fa").text)}
     assert client.post("/webauthn/enroll/options", headers=h, json={}).status_code == 403
@@ -341,4 +341,4 @@ def test_passkey_enroll_requires_pending_session_and_csrf(client):
     make_user(totp=False)
     assert client.post("/webauthn/enroll/options", json={}, follow_redirects=False).status_code == 303
     post_login(client)
-    assert client.post("/webauthn/enroll/options", json={}).status_code == 403  # pas de CSRF
+    assert client.post("/webauthn/enroll/options", json={}).status_code == 403  # no CSRF

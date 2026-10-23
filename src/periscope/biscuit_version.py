@@ -1,21 +1,21 @@
-"""Lecture de la version BunkerWeb dans le jeton Biscuit émis par POST /auth, sans dépendance.
+"""Read the BunkerWeb version from the Biscuit token issued by POST /auth, without dependencies.
 
-Le jeton n'est pas chiffré : la table de symboles du bloc d'autorité contient en clair les valeurs de texte
-(nom d'utilisateur, IP, Host, version...). Les noms des faits (user, time, client_ip, domain, version) font
-partie de la table par défaut de Biscuit et n'y figurent pas. Schéma Biscuit v3 (schema.proto) :
-Biscuit{rootKeyId=1, authority=2: SignedBlock{block=1: Block{symbols=1 (string répété), ...}}}.
-Ne lève jamais : toute anomalie renvoie None.
+The token is not encrypted: the symbol table of the authority block holds the text values in clear
+(username, IP, Host, version...). The fact names (user, time, client_ip, domain, version) are
+part of Biscuit's default table and do not appear there. Biscuit v3 schema (schema.proto):
+Biscuit{rootKeyId=1, authority=2: SignedBlock{block=1: Block{symbols=1 (repeated string), ...}}}.
+Never raises: any anomaly returns None.
 """
 import base64
 import binascii
 import re
 
 _MAX_DECODED = 64 * 1024
-_VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.\-+]*)?")  # 3 composantes : exclut une IPv4
+_VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.\-+]*)?")  # 3 components: excludes an IPv4
 
 
 def _fields(buf: bytes):
-    """Itère (numéro, type_fil, valeur) ; valeur = int ou bytes. Lève ValueError si malformé."""
+    """Iterate (number, wire_type, value); value = int or bytes. Raises ValueError if malformed."""
     i, n = 0, len(buf)
 
     def varint() -> int:

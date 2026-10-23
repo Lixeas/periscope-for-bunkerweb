@@ -54,7 +54,7 @@ def test_cannot_delete_self_or_last_admin_or_demote_last_admin(client, csrf):
         create_user(s, "carol", PW, "admin")
     carol = uid("carol")
     assert post(client, csrf, f"/admin/users/{carol}/role", role="reader").headers["location"] == "/admin/users?m=role_ok"
-    # alice redevient seule admin : ne peut plus se rétrograder
+    # alice is the only admin again: can no longer demote herself
     assert post(client, csrf, f"/admin/users/{me}/role", role="reader").headers["location"] == "/admin/users?m=last_admin"
 
 
