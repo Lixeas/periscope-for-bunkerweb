@@ -2,15 +2,15 @@ import asyncio
 import hashlib
 import logging
 
-from mc.bw_client import BWClient, BWError
-from mc.clock import utcnow
-from mc.config import get_settings
-from mc.crypto import decrypt
-from mc.db import session_scope
-from mc.models import CertProbe, Instance, Snapshot
-from mc.tlsprobe import probe
+from periscope.bw_client import BWClient, BWError
+from periscope.clock import utcnow
+from periscope.config import get_settings
+from periscope.crypto import decrypt
+from periscope.db import session_scope
+from periscope.models import CertProbe, Instance, Snapshot
+from periscope.tlsprobe import probe
 
-log = logging.getLogger("mc.collector")
+log = logging.getLogger("periscope.collector")
 KINDS = ("services", "bans", "jobs", "plugins")
 
 

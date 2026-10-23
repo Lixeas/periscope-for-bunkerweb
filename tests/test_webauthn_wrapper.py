@@ -1,7 +1,7 @@
-from mc.auth import webauthn_ as wa
-from mc.auth.users import create_user
-from mc.db import session_scope
-from mc.models import Credential
+from periscope.auth import webauthn_ as wa
+from periscope.auth.users import create_user
+from periscope.db import session_scope
+from periscope.models import Credential
 
 
 def test_registration_options_shape_and_exclusion(fresh_db):

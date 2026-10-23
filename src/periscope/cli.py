@@ -2,12 +2,12 @@ import argparse
 import getpass
 import sys
 
-from mc.auth.users import create_user
-from mc.db import migrate, session_scope
+from periscope.auth.users import create_user
+from periscope.db import migrate, session_scope
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="mc")
+    p = argparse.ArgumentParser(prog="periscope")
     sub = p.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("bootstrap-admin", help="créer le premier administrateur")
     b.add_argument("--username", required=True)

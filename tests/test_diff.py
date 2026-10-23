@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from mc.diff import cert_status, days_left, gaps, is_stale, next_run, plugin_matrix
+from periscope.diff import cert_status, days_left, gaps, is_stale, next_run, plugin_matrix
 
 NOW = datetime(2026, 1, 1)
 
@@ -64,6 +64,6 @@ def test_next_run_none_cases():
 
 
 def test_next_run_never_raises_on_hostile_values():
-    from mc.diff import next_run
+    from periscope.diff import next_run
     for bad in ("9999-12-31 23:59:59", "0001-01-01T00:00:00+05:00", "inf", "nan", 1e300, -1e300, 2**80):
         assert next_run(bad, "day") is None or next_run(bad, "day").year >= 1

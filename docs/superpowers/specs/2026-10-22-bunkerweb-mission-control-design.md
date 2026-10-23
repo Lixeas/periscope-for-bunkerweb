@@ -1,3 +1,5 @@
+> Note : ce document est historique. Le projet s'appelait « BunkerWeb Mission Control » ; il a été renommé « Periscope for BunkerWeb » (paquet `periscope`, préfixe `PERISCOPE_`). Les noms ci-dessous sont ceux d'origine.
+
 # BunkerWeb Mission Control — Design
 
 Date : 2026-10-22

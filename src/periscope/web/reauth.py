@@ -1,10 +1,10 @@
 from fastapi import Request
 
-from mc.auth import ratelimit
-from mc.auth.audit import audit
-from mc.auth.passwords import verify_password
-from mc.clock import utcnow
-from mc.models import Session, User
+from periscope.auth import ratelimit
+from periscope.auth.audit import audit
+from periscope.auth.passwords import verify_password
+from periscope.clock import utcnow
+from periscope.models import Session, User
 
 ERRORS = {
     "pwd_bad": "Mot de passe actuel incorrect.",

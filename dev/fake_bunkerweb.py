@@ -3,9 +3,9 @@
   FAKE_DAYS=15 FAKE_TLS_PORT=9443 uvicorn --app-dir dev fake_bunkerweb:app --port 9001
   FAKE_DAYS=60 FAKE_TLS_PORT=9444 FAKE_EXTRA=1 uvicorn --app-dir dev fake_bunkerweb:app --port 9002
 
-Dans Mission Control : URL http://127.0.0.1:9001 (token quelconque), hôte sonde vide, port TLS 9443.
+Dans Periscope : URL http://127.0.0.1:9001 (token quelconque), hôte sonde vide, port TLS 9443.
 
-Authentification (optionnelle) : POST /auth en HTTP Basic (utilisateur `mc`, mot de passe FAKE_PASSWORD,
+Authentification (optionnelle) : POST /auth en HTTP Basic (utilisateur `periscope`, mot de passe FAKE_PASSWORD,
 défaut `secret`) renvoie {"status":"success","token":...}. Avec FAKE_AUTH=1, tous les endpoints de données
 exigent un Bearer valide (401 sinon) ; le jeton expire après FAKE_TTL secondes (défaut 3600). /ping reste public.
   FAKE_AUTH=1 FAKE_TTL=8 uvicorn --app-dir dev fake_bunkerweb:app --port 9001
@@ -91,7 +91,7 @@ def auth(request: Request):
         user, _, pwd = base64.b64decode(b64).decode().partition(":")
     except ValueError:
         user, pwd = "", ""
-    ok = scheme.lower() == "basic" and hmac.compare_digest(user, "mc") and hmac.compare_digest(pwd, PASSWORD)
+    ok = scheme.lower() == "basic" and hmac.compare_digest(user, "periscope") and hmac.compare_digest(pwd, PASSWORD)
     if not ok:
         raise HTTPException(401, "bad credentials")
     token = secrets.token_urlsafe(24)

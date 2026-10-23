@@ -6,8 +6,8 @@ import time
 import pyotp
 from sqlalchemy.orm import Session
 
-from mc.crypto import decrypt, encrypt
-from mc.models import BackupCode, User
+from periscope.crypto import decrypt, encrypt
+from periscope.models import BackupCode, User
 
 
 def has_second_factor(user: User) -> bool:

@@ -2,11 +2,11 @@ import hmac
 
 from fastapi import Depends, HTTPException, Request
 
-from mc.auth import sessions
-from mc.clock import utcnow
-from mc.config import get_settings
-from mc.db import get_db
-from mc.models import Session, User
+from periscope.auth import sessions
+from periscope.clock import utcnow
+from periscope.config import get_settings
+from periscope.db import get_db
+from periscope.models import Session, User
 
 
 class Redirect(Exception):

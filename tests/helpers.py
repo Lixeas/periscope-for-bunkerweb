@@ -3,11 +3,11 @@ import re
 import pyotp
 from fastapi.testclient import TestClient
 
-from mc.auth import mfa
-from mc.auth.users import create_user
-from mc.db import session_scope
-from mc.web import routes_auth
-from mc.web.app import create_app
+from periscope.auth import mfa
+from periscope.auth.users import create_user
+from periscope.db import session_scope
+from periscope.web import routes_auth
+from periscope.web.app import create_app
 
 PW = "correct horse battery"
 

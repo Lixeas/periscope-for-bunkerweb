@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Accueil{% endblock %} · BunkerWeb Mission Control</title>
+  <title>{% block title %}Accueil{% endblock %} · Periscope for BunkerWeb</title>
   <link rel="stylesheet" href="/static/bootstrap.min.css">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/app.js"></script>
@@ -15,7 +15,7 @@
 {% if user %}
 <nav class="navbar border-bottom mb-4">
   <div class="container d-flex flex-wrap gap-3 align-items-center">
-    <a class="navbar-brand fw-semibold" href="/dashboard">Mission Control</a>
+    <a class="navbar-brand fw-semibold" href="/dashboard">Periscope</a>
     <div class="d-flex flex-wrap gap-3 me-auto" id="main-nav">
       <a href="/dashboard">Accueil</a>
       <a href="/services">Services</a>
@@ -40,5 +40,6 @@
 <main class="container pb-5">
 {% block content %}{% endblock %}
 </main>
+<footer class="container pb-4 text-center small text-muted">Projet indépendant, non affilié à Bunkerity.</footer>
 </body>
 </html>

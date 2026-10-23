@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "bunkerweb-mission-control"
+name = "periscope-for-bunkerweb"
 version = "0.1.0"
-description = "Supervision multi-instances BunkerWeb en lecture seule"
+description = "Periscope for BunkerWeb : supervision multi-instances BunkerWeb en lecture seule"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-or-later" }
 dependencies = [
@@ -28,13 +28,13 @@ dependencies = [
 dev = ["pytest>=8", "pytest-asyncio>=0.24", "respx>=0.21", "ruff>=0.6"]
 
 [project.scripts]
-mc = "mc.cli:main"
+periscope = "periscope.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-mc = ["migrations/*.mako", "web/templates/*.html", "web/static/*"]
+periscope = ["migrations/*.mako", "web/templates/*.html", "web/static/*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

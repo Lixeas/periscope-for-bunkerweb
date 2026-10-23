@@ -1,12 +1,12 @@
 services:
-  mission-control:
+  periscope:
     build: .
     restart: unless-stopped
     env_file: .env
     environment:
-      FORWARDED_ALLOW_IPS: "${MC_TRUSTED_PROXY:-127.0.0.1}"
+      FORWARDED_ALLOW_IPS: "${PERISCOPE_TRUSTED_PROXY:-127.0.0.1}"
     volumes:
-      - mc-data:/data
+      - periscope-data:/data
     # Accès local uniquement par défaut. Pour exposer via BunkerWeb : retirer "ports" et
     # rattacher ce service au réseau Docker de BunkerWeb (voir README).
     ports:
@@ -19,4 +19,4 @@ services:
       - no-new-privileges:true
 
 volumes:
-  mc-data: {}
+  periscope-data: {}

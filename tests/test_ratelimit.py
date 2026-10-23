@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
-from mc.auth import ratelimit
-from mc.models import User
+from periscope.auth import ratelimit
+from periscope.models import User
 
 NOW = datetime(2026, 1, 1)
 

@@ -6,9 +6,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from mc.config import get_settings
-from mc.db import migrate
-from mc.web.deps import Redirect
+from periscope.config import get_settings
+from periscope.db import migrate
+from periscope.web.deps import Redirect
 
 CSP = ("default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; "
        "frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
@@ -22,7 +22,7 @@ def create_app(run_migrations: bool = True) -> FastAPI:
             migrate()
         task = None
         if cfg.collector_enabled:
-            from mc import collector
+            from periscope import collector
 
             task = asyncio.create_task(collector.run_forever())
         try:
@@ -56,7 +56,7 @@ def create_app(run_migrations: bool = True) -> FastAPI:
             resp.headers["Cache-Control"] = "no-store"
         return resp
 
-    from mc.web import routes_account, routes_admin, routes_auth, routes_pages, routes_views
+    from periscope.web import routes_account, routes_admin, routes_auth, routes_pages, routes_views
 
     app.include_router(routes_auth.router)
     app.include_router(routes_account.router)

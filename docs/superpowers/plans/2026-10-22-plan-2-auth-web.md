@@ -1,3 +1,5 @@
+> Note : ce document est historique. Le projet s'appelait « BunkerWeb Mission Control » ; il a été renommé « Periscope for BunkerWeb » (paquet `periscope`, préfixe `PERISCOPE_`). Les noms ci-dessous sont ceux d'origine.
+
 # BunkerWeb Mission Control — Plan 2/3 : Authentification et coque web
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from mc.models import AuditLog
+from periscope.models import AuditLog
 
 
 def audit(db: Session, event: str, username: str = "", detail: str = "", ip: str = "") -> None:

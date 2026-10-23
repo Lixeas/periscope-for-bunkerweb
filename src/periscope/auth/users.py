@@ -2,8 +2,8 @@ import re
 
 from sqlalchemy.orm import Session
 
-from mc.auth.passwords import hash_password
-from mc.models import User
+from periscope.auth.passwords import hash_password
+from periscope.models import User
 
 
 def create_user(db: Session, username: str, password: str, role: str = "reader") -> User:

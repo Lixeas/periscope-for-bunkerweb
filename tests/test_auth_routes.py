@@ -3,10 +3,10 @@ import base64
 import pyotp
 import pytest
 
-from mc.auth import mfa
-from mc.auth import webauthn_ as wa
-from mc.db import session_scope
-from mc.models import AuditLog, BackupCode, Credential, User
+from periscope.auth import mfa
+from periscope.auth import webauthn_ as wa
+from periscope.db import session_scope
+from periscope.models import AuditLog, BackupCode, Credential, User
 from tests.helpers import PW, csrf_of, full_login, make_client, make_user, post_login
 
 
@@ -30,7 +30,7 @@ def test_login_page_sets_csrf_cookie_and_field(client):
     r = client.get("/login")
     token = csrf_of(r.text)
     cookie = r.headers["set-cookie"]
-    assert f"mc_login_csrf={token}" in cookie and "HttpOnly" in cookie and "SameSite=strict" in cookie
+    assert f"periscope_login_csrf={token}" in cookie and "HttpOnly" in cookie and "SameSite=strict" in cookie
 
 
 def test_login_post_without_csrf_cookie_is_403(client):
@@ -89,7 +89,7 @@ def test_password_failures_lock_the_username_ip_pair_not_the_account(client):
 
 
 def test_password_lock_is_per_ip(client, monkeypatch):
-    from mc.web import routes_auth
+    from periscope.web import routes_auth
     make_user()
     monkeypatch.setattr(routes_auth, "ip_of", lambda request: "10.0.0.1")
     for _ in range(5):
@@ -101,7 +101,7 @@ def test_password_lock_is_per_ip(client, monkeypatch):
 
 
 def test_attacker_failures_do_not_block_legitimate_user_elsewhere(client, monkeypatch):
-    from mc.web import routes_auth
+    from periscope.web import routes_auth
     make_user()
     monkeypatch.setattr(routes_auth, "ip_of", lambda request: "6.6.6.6")
     for _ in range(8):
@@ -135,14 +135,14 @@ def test_successful_login_clears_pair(client):
     for _ in range(3):
         post_login(client, "alice", "wrong password here")
     assert full_login(client, secret).status_code == 303
-    from mc.web import routes_auth
+    from periscope.web import routes_auth
     assert routes_auth.login_failures.retry_after("alice", "testclient") == 0
     assert not routes_auth.login_failures._state
 
 
 def test_ip_throttle(client):
     make_user()
-    from mc.web import routes_auth
+    from periscope.web import routes_auth
     routes_auth.limiter.max = 2
     try:
         codes = [post_login(client, "x", "y").status_code for _ in range(3)]
@@ -252,7 +252,7 @@ def test_passkey_verify_failure_is_401(client, monkeypatch):
 
 
 def test_ip_throttle_escalates_and_sets_retry_after(client):
-    from mc.web import routes_auth
+    from periscope.web import routes_auth
     make_user()
     routes_auth.limiter.max = 1
     try:
@@ -264,7 +264,7 @@ def test_ip_throttle_escalates_and_sets_retry_after(client):
 
 
 def test_2fa_ip_throttle_is_separate_bucket(client):
-    from mc.web import routes_auth
+    from periscope.web import routes_auth
     make_user()
     post_login(client)
     csrf = csrf_of(client.get("/login/2fa").text)
@@ -277,7 +277,7 @@ def test_2fa_ip_throttle_is_separate_bucket(client):
 
 
 def test_enroll_ip_throttle(client):
-    from mc.web import routes_auth
+    from periscope.web import routes_auth
     make_user(totp=False)
     post_login(client)
     page = client.get("/enroll")

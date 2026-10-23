@@ -2,9 +2,9 @@ import time
 
 import pyotp
 
-from mc.auth import mfa
-from mc.auth.users import create_user
-from mc.db import session_scope
+from periscope.auth import mfa
+from periscope.auth.users import create_user
+from periscope.db import session_scope
 
 
 def test_totp_accepts_valid_and_rejects_replay_and_wrong(fresh_db):
@@ -19,8 +19,8 @@ def test_totp_accepts_valid_and_rejects_replay_and_wrong(fresh_db):
 
 
 def test_provisioning_uri_contains_issuer_and_user():
-    uri = mfa.provisioning_uri(mfa.new_secret_enc(), "alice", "Mission Control")
-    assert uri.startswith("otpauth://totp/") and "alice" in uri and "Mission%20Control" in uri
+    uri = mfa.provisioning_uri(mfa.new_secret_enc(), "alice", "Periscope")
+    assert uri.startswith("otpauth://totp/") and "alice" in uri and "Periscope" in uri
 
 
 def test_backup_codes_single_use_and_stored_hashed(fresh_db):

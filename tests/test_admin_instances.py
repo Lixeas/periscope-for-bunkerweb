@@ -1,10 +1,10 @@
 import pytest
 
-from mc import collector
-from mc.crypto import decrypt
-from mc.db import session_scope
-from mc.models import AuditLog, CertProbe, Instance, Snapshot
-from mc.web import routes_admin
+from periscope import collector
+from periscope.crypto import decrypt
+from periscope.db import session_scope
+from periscope.models import AuditLog, CertProbe, Instance, Snapshot
+from periscope.web import routes_admin
 from tests.helpers import login_as, make_client
 
 FORM = {"name": "bw1", "base_url": "http://10.0.0.5:8888/", "token": "tok123", "tls_port": "443", "verify_tls": "on"}
@@ -148,7 +148,7 @@ def test_edit_url_change_requires_token(client, admin):
     assert r.status_code == 303
 
 
-USER_FORM = {"name": "bwu", "base_url": "http://10.0.0.5:8888", "auth_mode": "user", "api_username": "mc",
+USER_FORM = {"name": "bwu", "base_url": "http://10.0.0.5:8888", "auth_mode": "user", "api_username": "periscope",
              "api_password": "pw-secret", "tls_port": "443", "verify_tls": "on"}
 
 
@@ -161,10 +161,10 @@ def test_add_user_mode_encrypts_password_and_tests_with_credentials(client, admi
     csrf, calls, state = admin
     r = post(client, csrf, **USER_FORM)
     assert r.status_code == 303
-    assert state["checks"] == [{"token": None, "credentials": ("mc", "pw-secret")}]
+    assert state["checks"] == [{"token": None, "credentials": ("periscope", "pw-secret")}]
     with session_scope() as s:
         i = s.query(Instance).one()
-        assert (i.auth_mode, i.api_username, i.token_enc) == ("user", "mc", "")
+        assert (i.auth_mode, i.api_username, i.token_enc) == ("user", "periscope", "")
         assert i.api_password_enc != "pw-secret" and decrypt(i.api_password_enc) == "pw-secret"
         assert calls == [i.id]
     page = client.get("/admin/instances").text
@@ -195,7 +195,7 @@ def test_check_instance_user_mode_exercises_auth(monkeypatch):
     with respx.mock:
         auth = respx.post("http://bw:8888/auth").mock(return_value=Response(401))
         respx.get("http://bw:8888/ping").respond(json={})
-        msg = asyncio.run(routes_admin.check_instance("http://bw:8888", True, credentials=("mc", "bad")))
+        msg = asyncio.run(routes_admin.check_instance("http://bw:8888", True, credentials=("periscope", "bad")))
     assert auth.called and "Authentification refusée" in msg and "bad" not in msg
 
 
@@ -203,7 +203,7 @@ def test_edit_user_mode_blank_password_keeps_and_new_replaces(client, admin):
     csrf, _, _ = admin
     post(client, csrf, **USER_FORM)
     iid = only_instance()
-    data = {"name": "bwu", "base_url": "http://10.0.0.5:8888", "auth_mode": "user", "api_username": "mc",
+    data = {"name": "bwu", "base_url": "http://10.0.0.5:8888", "auth_mode": "user", "api_username": "periscope",
             "api_password": "", "tls_port": "443", "enabled": "on"}
     assert post(client, csrf, f"/admin/instances/{iid}", **data).status_code == 303
     with session_scope() as s:
@@ -212,14 +212,14 @@ def test_edit_user_mode_blank_password_keeps_and_new_replaces(client, admin):
     with session_scope() as s:
         assert decrypt(s.get(Instance, iid).api_password_enc) == "new-pw"
     page = client.get(f"/admin/instances/{iid}").text
-    assert "new-pw" not in page and 'value="mc"' in page
+    assert "new-pw" not in page and 'value="periscope"' in page
 
 
 def test_edit_user_mode_url_or_username_change_requires_password(client, admin):
     csrf, _, _ = admin
     post(client, csrf, **USER_FORM)
     iid = only_instance()
-    base = {"name": "bwu", "base_url": "http://10.0.0.5:8888", "auth_mode": "user", "api_username": "mc",
+    base = {"name": "bwu", "base_url": "http://10.0.0.5:8888", "auth_mode": "user", "api_username": "periscope",
             "api_password": "", "tls_port": "443", "enabled": "on"}
     for override in ({"base_url": "http://evil:8888"}, {"api_username": "other"}):
         r = client.post(f"/admin/instances/{iid}", data={"csrf": csrf, **base, **override})
@@ -233,7 +233,7 @@ def test_edit_switch_mode_requires_new_secrets_and_clears_old(client, admin):
     post(client, csrf, **FORM)  # mode token
     iid = only_instance()
     base = {"name": "bw1", "base_url": "http://10.0.0.5:8888", "tls_port": "443", "enabled": "on",
-            "auth_mode": "user", "api_username": "mc", "api_password": ""}
+            "auth_mode": "user", "api_username": "periscope", "api_password": ""}
     r = client.post(f"/admin/instances/{iid}", data={"csrf": csrf, **base})
     assert r.status_code == 400 and "Changer le mode" in r.text
     assert post(client, csrf, f"/admin/instances/{iid}", **{**base, "api_password": "pw"}).status_code == 303

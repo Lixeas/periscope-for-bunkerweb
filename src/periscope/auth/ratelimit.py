@@ -3,7 +3,7 @@ import time
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
 
-from mc.models import User
+from periscope.models import User
 
 LOCK_AFTER = 5
 

@@ -1,12 +1,12 @@
 from sqlalchemy import create_engine, inspect
 
-from mc.config import get_settings
-from mc.db import migrate
+from periscope.config import get_settings
+from periscope.db import migrate
 
 
 def test_migrate_creates_tables(tmp_path, monkeypatch):
     url = f"sqlite:///{(tmp_path / 'm.db').as_posix()}"
-    monkeypatch.setenv("MC_DATABASE_URL", url)
+    monkeypatch.setenv("PERISCOPE_DATABASE_URL", url)
     get_settings.cache_clear()
     try:
         migrate()
@@ -18,9 +18,9 @@ def test_migrate_creates_tables(tmp_path, monkeypatch):
 
 
 def test_migrate_creates_parent_dir_and_engine_sets_pragmas(tmp_path, monkeypatch):
-    from mc import db as mcdb
+    from periscope import db as mcdb
     url = f"sqlite:///{(tmp_path / 'sub' / 'd' / 'm.db').as_posix()}"
-    monkeypatch.setenv("MC_DATABASE_URL", url)
+    monkeypatch.setenv("PERISCOPE_DATABASE_URL", url)
     get_settings.cache_clear()
     try:
         migrate()
@@ -35,7 +35,7 @@ def test_migrate_creates_parent_dir_and_engine_sets_pragmas(tmp_path, monkeypatc
 
 def test_migrate_adds_api_user_columns_with_defaults(tmp_path, monkeypatch):
     url = f"sqlite:///{(tmp_path / 'm.db').as_posix()}"
-    monkeypatch.setenv("MC_DATABASE_URL", url)
+    monkeypatch.setenv("PERISCOPE_DATABASE_URL", url)
     get_settings.cache_clear()
     try:
         migrate()

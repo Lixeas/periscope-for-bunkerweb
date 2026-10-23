@@ -1,8 +1,8 @@
 import getpass
 
-from mc import cli
-from mc.db import session_scope
-from mc.models import User
+from periscope import cli
+from periscope.db import session_scope
+from periscope.models import User
 
 
 def fake_migrate(monkeypatch):

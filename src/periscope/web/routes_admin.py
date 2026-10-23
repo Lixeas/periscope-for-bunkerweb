@@ -4,18 +4,18 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
-from mc import collector
-from mc.auth.audit import audit
-from mc.auth.passwords import MIN_LENGTH, hash_password
-from mc.auth.users import create_user
-from mc.bw_client import BWClient, BWError
-from mc.config import get_settings
-from mc.crypto import encrypt
-from mc.db import get_db
-from mc.models import AuditLog, Instance, Session, User
-from mc.web.deps import require_admin
-from mc.web.render import render
-from mc.web.routes_auth import ip_of
+from periscope import collector
+from periscope.auth.audit import audit
+from periscope.auth.passwords import MIN_LENGTH, hash_password
+from periscope.auth.users import create_user
+from periscope.bw_client import BWClient, BWError
+from periscope.config import get_settings
+from periscope.crypto import encrypt
+from periscope.db import get_db
+from periscope.models import AuditLog, Instance, Session, User
+from periscope.web.deps import require_admin
+from periscope.web.render import render
+from periscope.web.routes_auth import ip_of
 
 router = APIRouter(prefix="/admin")
 

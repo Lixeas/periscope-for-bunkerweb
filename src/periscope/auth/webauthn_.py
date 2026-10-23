@@ -13,8 +13,8 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
-from mc.config import get_settings
-from mc.models import Credential, User
+from periscope.config import get_settings
+from periscope.models import Credential, User
 
 
 def registration_options(user: User) -> tuple[dict, bytes]:

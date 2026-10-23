@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
 
-from mc import queries
-from mc.clock import utcnow
-from mc.db import session_scope
-from mc.models import CertProbe, Instance, Snapshot
+from periscope import queries
+from periscope.clock import utcnow
+from periscope.db import session_scope
+from periscope.models import CertProbe, Instance, Snapshot
 
 
 def seed():

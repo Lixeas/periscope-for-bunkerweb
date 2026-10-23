@@ -1,6 +1,6 @@
 # =============================================================================
 # Deux VRAIES instances BunkerWeb indépendantes (bw1, bw2) pour valider
-# Mission Control de bout en bout (spec section 7).
+# Periscope de bout en bout (spec section 7).
 #
 # !!! NON EXÉCUTÉ / NON VÉRIFIÉ !!!
 # Docker n'est pas installé sur la machine où ce fichier a été écrit : il n'a
@@ -19,19 +19,19 @@
 #   bw1 : API 8081 -> 8888 interne ; TLS 8443 -> 8443 (conteneur bunkerweb)
 #   bw2 : API 8082 -> 8888 interne ; TLS 9443 -> 8443
 #
-# Enregistrer dans Mission Control (page Instances) :
+# Enregistrer dans Periscope (page Instances) :
 #   bw1 : URL d'API http://127.0.0.1:8081   hôte de sonde 127.0.0.1   port TLS 8443
 #   bw2 : URL d'API http://127.0.0.1:8082   hôte de sonde 127.0.0.1   port TLS 9443
-#   Si Mission Control tourne lui-même en conteneur, remplacez 127.0.0.1 par
+#   Si Periscope tourne lui-même en conteneur, remplacez 127.0.0.1 par
 #   host.docker.internal (ou rattachez-le aux réseaux ci-dessous).
 #   Token : voir « TOKEN D'API » plus bas. Domaines sondés (SNI) :
 #   app.bw1.test / app.bw2.test (services déclarés ci-dessous).
 #
 # AUTHENTIFICATION (voir aussi le README)
-#   Recommandé : mode « Utilisateur API » de Mission Control avec un utilisateur
+#   Recommandé : mode « Utilisateur API » de Periscope avec un utilisateur
 #   ACL restreint (fichier API_ACL_BOOTSTRAP_FILE, bloc commenté sous bw1-api).
-#   Mission Control obtient un jeton via `POST /auth` (HTTP Basic ; test manuel :
-#   `curl -u mission-control:... -X POST http://127.0.0.1:8081/auth`, champ
+#   Periscope obtient un jeton via `POST /auth` (HTTP Basic ; test manuel :
+#   `curl -u periscope:... -X POST http://127.0.0.1:8081/auth`, champ
 #   `.token`) et le renouvelle seul (durée : API_BISCUIT_TTL_SECONDS, 3600 s par
 #   défaut selon la doc). Permissions de lecture : instances_read, service_read,
 #   global_config_read, ban_read, job_read, plugin_read.
@@ -40,7 +40,7 @@
 #   ne jamais le faire en prod.
 #
 # Alignement des réponses : une fois les instances enregistrées, comparez les
-# réponses réelles de l'API avec src/mc/normalize.py (Plan 3, Task 8).
+# réponses réelles de l'API avec src/periscope/normalize.py (Plan 3, Task 8).
 # =============================================================================
 
 x-db-uri-1: &db-uri-1 "mariadb+pymysql://bunkerweb:changeme@bw1-db:3306/db"
@@ -105,7 +105,7 @@ services:
       # API_ACL_BOOTSTRAP_FILE: "/var/lib/bunkerweb/api_acl_bootstrap.json"
       # Contenu (schéma général confirmé par la doc : users -> admin, password /
       # password_hash, permissions -> type -> id|"*" -> permission: true) :
-      # {"users":{"mission-control":{"admin":false,"password_hash":"<bcrypt>",
+      # {"users":{"periscope":{"admin":false,"password_hash":"<bcrypt>",
       #   "permissions":{"instances":{"*":{"instances_read":true}},
       #   "global_config":{"*":{"global_config_read":true}},
       #   "services":{"*":{"service_read":true}},"bans":{"*":{"ban_read":true}},

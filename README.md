@@ -1,4 +1,6 @@
-# BunkerWeb Mission Control
+# Periscope for BunkerWeb
+
+> **Projet communautaire indépendant.** Periscope for BunkerWeb n'est ni affilié à Bunkerity, ni approuvé ou soutenu par elle. BunkerWeb est une marque de Bunkerity. Ce projet utilise uniquement l'API publique de BunkerWeb, en lecture seule.
 
 Supervision **en lecture seule** de plusieurs instances [BunkerWeb](https://www.bunkerweb.io/) (2 à 10, même réseau) depuis une seule interface, via l'API BunkerWeb.
 
@@ -14,16 +16,16 @@ Licence : AGPL-3.0-or-later.
 
 ```bash
 cp .env.example .env
-# renseigner MC_SECRET_KEY (voir le fichier), MC_RP_ID et MC_ORIGINS
+# renseigner PERISCOPE_SECRET_KEY (voir le fichier), PERISCOPE_RP_ID et PERISCOPE_ORIGINS
 docker compose up -d --build
-docker compose exec -it mission-control mc bootstrap-admin --username admin
+docker compose exec -it periscope periscope bootstrap-admin --username admin
 ```
 
 Ouvrez `http://localhost:8000`, connectez-vous : l'enrôlement d'un second facteur (TOTP) est exigé avant tout accès. Ajoutez ensuite vos instances dans **Instances**.
 
 ## Authentification auprès de l'API BunkerWeb
 
-**Recommandé : un utilisateur d'API dédié et restreint** (non administrateur, droits de lecture uniquement). Dans **Instances**, choisissez le mode « Utilisateur API » et saisissez son nom et son mot de passe. Mission Control les stocke **chiffrés** (Fernet, `MC_SECRET_KEY`), ne les réaffiche jamais, échange ces identifiants contre un jeton via `POST /auth` (HTTP Basic), l'envoie en `Authorization: Bearer <jeton>` et **le renouvelle automatiquement** : le jeton est gardé en mémoire, et sur une réponse 401 (expiration ; par défaut `API_BISCUIT_TTL_SECONDS=3600` s) l'application se ré-authentifie une fois et rejoue la requête. Le test de connexion de l'écran d'ajout exerce `/auth` : un mauvais mot de passe donne « Authentification refusée ».
+**Recommandé : un utilisateur d'API dédié et restreint** (non administrateur, droits de lecture uniquement). Dans **Instances**, choisissez le mode « Utilisateur API » et saisissez son nom et son mot de passe. Periscope les stocke **chiffrés** (Fernet, `PERISCOPE_SECRET_KEY`), ne les réaffiche jamais, échange ces identifiants contre un jeton via `POST /auth` (HTTP Basic), l'envoie en `Authorization: Bearer <jeton>` et **le renouvelle automatiquement** : le jeton est gardé en mémoire, et sur une réponse 401 (expiration ; par défaut `API_BISCUIT_TTL_SECONDS=3600` s) l'application se ré-authentifie une fois et rejoue la requête. Le test de connexion de l'écran d'ajout exerce `/auth` : un mauvais mot de passe donne « Authentification refusée ».
 
 L'application n'émet que des `GET`, plus ce seul `POST /auth` (garanti par le code du client).
 
@@ -32,7 +34,7 @@ Déclaration de l'utilisateur côté BunkerWeb : fichier JSON référencé par `
 ```json
 {
   "users": {
-    "mission-control": {
+    "periscope": {
       "admin": false,
       "password_hash": "$2b$13$<hash bcrypt>",
       "permissions": {
@@ -56,20 +58,24 @@ Migration d'une instance existante : modifier l'instance, passer en « Utilisate
 
 ## Accès local et par domaine
 
-- Même application pour les deux accès. Listez toutes les URLs dans `MC_ORIGINS` (protection contre les requêtes inter-origines).
-- Les **passkeys sont liées au domaine** (`MC_RP_ID`) : elles fonctionnent via le domaine, pas via `localhost`/IP. En local, utilisez le TOTP.
-- **Attention** : un `MC_TRUSTED_PROXY` incorrect fait partager un seul compteur d'IP (limitation de débit) à tous les clients.
-- Derrière BunkerWeb : retirez `ports` du `docker-compose.yml`, rattachez le service au réseau de BunkerWeb, déclarez le service dans BunkerWeb avec `USE_REVERSE_PROXY=yes` et l'URL interne `http://mission-control:8000`, et renseignez `MC_TRUSTED_PROXY` avec l'IP de BunkerWeb sur ce réseau.
+- Même application pour les deux accès. Listez toutes les URLs dans `PERISCOPE_ORIGINS` (protection contre les requêtes inter-origines).
+- Les **passkeys sont liées au domaine** (`PERISCOPE_RP_ID`) : elles fonctionnent via le domaine, pas via `localhost`/IP. En local, utilisez le TOTP.
+- **Attention** : un `PERISCOPE_TRUSTED_PROXY` incorrect fait partager un seul compteur d'IP (limitation de débit) à tous les clients.
+- Derrière BunkerWeb : retirez `ports` du `docker-compose.yml`, rattachez le service au réseau de BunkerWeb, déclarez le service dans BunkerWeb avec `USE_REVERSE_PROXY=yes` et l'URL interne `http://periscope:8000`, et renseignez `PERISCOPE_TRUSTED_PROXY` avec l'IP de BunkerWeb sur ce réseau.
+
+## Migration depuis « BunkerWeb Mission Control »
+
+Migration : les variables MC_* deviennent PERISCOPE_* (par exemple MC_SECRET_KEY → PERISCOPE_SECRET_KEY). Les cookies `mc_session` et `mc_login_csrf` deviennent `periscope_session` et `periscope_login_csrf` : les sessions existantes sont déconnectées. Le volume Docker `mc-data` devient `periscope-data`. Un fichier SQLite existant nommé `mc.db` doit être renommé en `periscope.db` (ou conservez l'ancien fichier en définissant `PERISCOPE_DATABASE_URL`).
 
 ## Sécurité
 
 - Cookies `HttpOnly`, `Secure`, `SameSite=Strict`, sessions serveur (8 h d'inactivité, 24 h max), CSRF, CSP stricte, HSTS.
-- Sauvegardez `MC_SECRET_KEY` : elle chiffre les identifiants et tokens BunkerWeb. Perdue, il faut les ressaisir.
+- Sauvegardez `PERISCOPE_SECRET_KEY` : elle chiffre les identifiants et tokens BunkerWeb. Perdue, il faut les ressaisir.
 - Sauvegardez le volume `/data` (SQLite).
 
 ## Validation de bout en bout avec de vraies instances
 
-`dev/docker-compose.bunkerweb.yml` définit deux piles BunkerWeb indépendantes (bw1 : API sur 8081, TLS 8443 ; bw2 : API sur 8082, TLS 9443) avec un upstream trivial. **Ce fichier n'a jamais été exécuté** (Docker absent de la machine de rédaction) : il suit la documentation officielle mais doit être validé ; les points incertains y sont commentés (notamment le fichier d'utilisateur ACL `API_ACL_BOOTSTRAP_FILE`, bloc commenté sous bw1-api). L'en-tête du fichier explique comment enregistrer les instances dans Mission Control. Ensuite, alignez `src/mc/normalize.py` sur les réponses réelles : voir Plan 3, Task 8 (`docs/superpowers/plans/2026-10-22-plan-3-views-delivery.md`).
+`dev/docker-compose.bunkerweb.yml` définit deux piles BunkerWeb indépendantes (bw1 : API sur 8081, TLS 8443 ; bw2 : API sur 8082, TLS 9443) avec un upstream trivial. **Ce fichier n'a jamais été exécuté** (Docker absent de la machine de rédaction) : il suit la documentation officielle mais doit être validé ; les points incertains y sont commentés (notamment le fichier d'utilisateur ACL `API_ACL_BOOTSTRAP_FILE`, bloc commenté sous bw1-api). L'en-tête du fichier explique comment enregistrer les instances dans Periscope. Ensuite, alignez `src/periscope/normalize.py` sur les réponses réelles : voir Plan 3, Task 8 (`docs/superpowers/plans/2026-10-22-plan-3-views-delivery.md`).
 
 ## Développement
 
