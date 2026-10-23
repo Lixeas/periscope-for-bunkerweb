@@ -41,9 +41,9 @@ def test_services_page_with_gap_and_filter(client):
 def test_bans_page_renders_duration_permanent_and_epoch_date(client):
     t = client.get("/bans").text
     assert "09/10/2025 08:53 UTC" in t                   # date epoch -> datetime
-    assert "1 min" in t and "30 s" in t                   # secondes restantes -> durée lisible
+    assert "1 min" in t and "30 s" in t                   # remaining seconds -> readable duration
     assert "Permanent" in t                               # exp 0 / permanent
-    assert 'data-v="1000000000000"' in t and 'data-v="60"' in t  # tri numérique, permanent en dernier
+    assert 'data-v="1000000000000"' in t and 'data-v="60"' in t  # numeric sort, permanent last
     assert "CrowdSec" in t and "service" in t             # badge crowdsec_lease + ban_scope
     assert "Durée restante renvoyée par BunkerWeb ; « Permanent » si le ban n'expire pas." in t
     assert "telle que renvoyée" not in t
@@ -100,7 +100,7 @@ def test_bans_page_hostile_expiration_and_date_values(client):
 
 
 def test_jobs_page_with_iso_offset_last_run_and_services_mode(client):
-    """last_run ISO avec décalage (forme dérivée du source BunkerWeb v1.6.17, non capturée en live)."""
+    """ISO last_run with offset (shape derived from the BunkerWeb v1.6.17 source, not captured live)."""
     from periscope.db import session_scope
     from periscope.models import Instance, Snapshot
     with session_scope() as s:
@@ -116,6 +116,6 @@ def test_dashboard_lists_scheduler_and_worker_nodes(client):
     t = client.get("/dashboard").text
     assert t.count(">scheduler<") == 3 and ">worker<" in t
     assert "1/2 en ligne" in t and "w1.lan:5000" in t and "w2.lan:5000" in t
-    assert "En ligne" in t and "Hors ligne" in t  # libellé texte, pas seulement la couleur
+    assert "En ligne" in t and "Hors ligne" in t  # text label, not just the color
     assert "<script>x</script>" not in t and "&lt;script&gt;x&lt;/script&gt;" in t
-    assert "inconnus" in t  # bw2 : jamais collecté
+    assert "inconnus" in t  # bw2: never collected

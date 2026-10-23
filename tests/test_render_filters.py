@@ -27,7 +27,7 @@ def test_duration_filter_non_numeric_negative_and_huge():
     d = templates.env.filters["duration"]
     for bad in (None, "x", "60", ["x"], {"a": 1}, True, -1, -3600.5, float("nan"), float("inf"), float("-inf")):
         assert d(bad) == "—", bad
-    assert d(10**30).endswith("j") or " j" in d(10**30)  # ne lève pas
+    assert d(10**30).endswith("j") or " j" in d(10**30)  # does not raise
 
 
 def test_epoch_filter():

@@ -34,7 +34,7 @@ def test_foreign_origin_rejected_on_unsafe_methods(client):
     r = client.post("/login", headers={"origin": "https://evil.example"})
     assert r.status_code == 403
     r = client.post("/login", headers={"origin": "http://localhost:8000"})
-    assert r.status_code != 403  # origine autorisée (la route n'existe pas encore : 404/405 attendu)
+    assert r.status_code != 403  # allowed origin (the route does not exist yet: 404/405 expected)
 
 
 def test_docs_disabled(client):
