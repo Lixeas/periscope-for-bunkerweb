@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const val = (tr) => { const c = tr.cells[th.cellIndex]; return c.dataset.v ?? c.textContent.trim(); };
         [...body.rows].sort((a, b) => {
           const x = val(a), y = val(b), nx = parseFloat(x), ny = parseFloat(y);
-          const cmp = !isNaN(nx) && !isNaN(ny) ? nx - ny : x.localeCompare(y, "fr");
+          const cmp = !isNaN(nx) && !isNaN(ny) ? nx - ny : x.localeCompare(y, document.documentElement.lang || undefined);
           return dir === "asc" ? cmp : -cmp;
         }).forEach((r) => body.appendChild(r));
       };

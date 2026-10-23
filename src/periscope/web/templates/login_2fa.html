@@ -1,19 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Second facteur{% endblock %}
+{% block title %}{{ _("Second factor") }}{% endblock %}
 {% block content %}
 <div class="row justify-content-center mt-5"><div class="col-md-6 col-lg-4">
-  <h1 class="h4 mb-4">Vérification en deux étapes</h1>
+  <h1 class="h4 mb-4">{{ _("Two-step verification") }}</h1>
   {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
   <form method="post" action="/login/2fa" class="mb-4">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="mb-3">
-      <label class="form-label" for="code">{% if has_totp %}Code à 6 chiffres ou code de secours{% else %}Code de secours{% endif %}</label>
+      <label class="form-label" for="code">{% if has_totp %}{{ _("6-digit code or backup code") }}{% else %}{{ _("Backup code") }}{% endif %}</label>
       <input class="form-control" id="code" name="code" autocomplete="one-time-code" inputmode="text" required autofocus>
     </div>
-    <button class="btn btn-primary w-100">Valider</button>
+    <button class="btn btn-primary w-100">{{ _("Confirm") }}</button>
   </form>
   {% if has_passkey %}
-  <button type="button" class="btn btn-outline-secondary w-100" data-passkey="login" data-csrf="{{ csrf }}">Utiliser une passkey</button>
+  <button type="button" class="btn btn-outline-secondary w-100" data-passkey="login" data-csrf="{{ csrf }}">{{ _("Use a passkey") }}</button>
   <p id="passkey-error" class="text-danger mt-2" role="alert"></p>
   {% endif %}
 </div></div>
