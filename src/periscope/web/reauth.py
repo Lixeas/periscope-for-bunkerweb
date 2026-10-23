@@ -17,8 +17,8 @@ def _ip(request: Request) -> str:
 
 
 def reauth(request: Request, db, user: User, password: str) -> str | None:
-    """Ré-authentification par mot de passe, avec le même verrouillage que la connexion.
-    Retourne un code de message d'erreur, ou None si le mot de passe est correct."""
+    """Password re-authentication, with the same lockout as login.
+    Returns an error message code, or None if the password is correct."""
     now = utcnow()
     if ratelimit.is_locked(user, now):
         return "locked"
@@ -31,6 +31,6 @@ def reauth(request: Request, db, user: User, password: str) -> str | None:
 
 
 def revoke_other_sessions(request: Request, db, user: User, reason: str) -> None:
-    """Après un changement de second facteur : ferme toutes les autres sessions (non committé)."""
+    """After a second-factor change: close all other sessions (not committed)."""
     db.query(Session).filter(Session.user_id == user.id, Session.id != request.state.session.id).delete()
     audit(db, "sessions_revoked", user.username, detail=reason, ip=_ip(request))

@@ -27,8 +27,8 @@ def provisioning_uri(secret_enc: str, username: str, issuer: str) -> str:
 
 
 def verify_totp(secret_enc: str, code: str, last_step: int) -> int | None:
-    """Retourne le pas TOTP accepté (à mémoriser dans user.totp_last_step) ou None.
-    Fenêtre ±1 pas ; un pas déjà consommé est refusé (anti-rejeu)."""
+    """Return the accepted TOTP step (to store in user.totp_last_step) or None.
+    ±1 step window; an already consumed step is rejected (replay protection)."""
     totp = pyotp.TOTP(decrypt(secret_enc))
     code = code.strip().replace(" ", "")
     cur = int(time.time() // 30)
@@ -39,11 +39,11 @@ def verify_totp(secret_enc: str, code: str, last_step: int) -> int | None:
 
 
 def _hash(code: str) -> str:
-    return hashlib.sha256(code.encode()).hexdigest()  # codes à 96 bits d'entropie : SHA-256 suffit
+    return hashlib.sha256(code.encode()).hexdigest()  # codes carry 96 bits of entropy: SHA-256 is enough
 
 
 def reset_backup_codes(db: Session, user: User, n: int = 10) -> list[str]:
-    """Remplace les codes ; retourne les codes en clair (à afficher une seule fois)."""
+    """Replace the codes; return the plaintext codes (to display only once)."""
     plain = [secrets.token_urlsafe(12) for _ in range(n)]
     user.backup_codes.clear()
     user.backup_codes.extend(BackupCode(code_hash=_hash(c)) for c in plain)

@@ -4,8 +4,8 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 
 MIN_LENGTH = 12
-_ph = PasswordHasher()  # argon2id par défaut
-_DUMMY = _ph.hash(secrets.token_urlsafe(32))  # secret aléatoire : aucun mot de passe ne peut le valider
+_ph = PasswordHasher()  # argon2id by default
+_DUMMY = _ph.hash(secrets.token_urlsafe(32))  # random secret: no password can match it
 
 
 def hash_password(password: str) -> str:
@@ -15,7 +15,7 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password_hash: str | None, password: str) -> bool:
-    """Utilisateur inconnu (None) : on vérifie un faux hash pour égaliser le temps, puis on refuse."""
+    """Unknown user (None): verify a dummy hash to equalize timing, then reject."""
     if not password_hash:
         try:
             _ph.verify(_DUMMY, password)

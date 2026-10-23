@@ -11,7 +11,7 @@ from cryptography.x509.oid import NameOID
 class CertInfo:
     present: bool
     issuer: str = ""
-    not_after: datetime | None = None  # UTC naïf
+    not_after: datetime | None = None  # naive UTC
     error: str = ""
 
 
@@ -24,7 +24,7 @@ def _label(name: x509.Name) -> str:
 
 
 async def probe(host: str, port: int, domain: str, timeout: float = 5.0) -> CertInfo:
-    """Handshake TLS vers host:port avec SNI=domain ; lit le certificat servi, sans le valider."""
+    """TLS handshake to host:port with SNI=domain; reads the served certificate without validating it."""
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
