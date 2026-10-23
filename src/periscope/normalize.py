@@ -1,5 +1,10 @@
-"""Normalisation tolérante : la doc BunkerWeb ne fige pas la forme des réponses.
-Si l'API réelle diffère (cf. /openapi.json), n'ajuster que ce fichier + ses tests."""
+"""Normalisation tolérante. Les formes JSON de l'API BunkerWeb ne sont pas documentées : elles ont été
+dérivées de la lecture du SOURCE de BunkerWeb v1.6.17 (routers/*.py, Database.py, api.lua, banlease.lua),
+pas capturées sur une instance vivante. Les formes historiques supposées restent acceptées.
+Si l'API réelle diffère, n'ajuster que ce fichier + ses tests."""
+import math
+
+from periscope.diff import _parse_ts
 
 
 def _pick(d: dict, *keys, default=None):
@@ -30,34 +35,83 @@ def _items(payload, *keys) -> list[dict]:
     return []
 
 
+def service_items(payload) -> list[dict]:
+    """Éléments bruts de GET /services (dans le même ordre que `services`)."""
+    return _items(payload, "services")
+
+
 def services(payload) -> list[dict]:
-    return [
-        {"name": str(_pick(i, "id", "name", "service", default="")),
-         "draft": bool(_pick(i, "is_draft", "draft", default=False))}
-        for i in _items(payload, "services")
-    ]
+    out = []
+    for i in service_items(payload):
+        mode = _pick(i, "security_mode")
+        out.append({"name": str(_pick(i, "id", "name", "service", default="")),
+                    "draft": bool(_pick(i, "is_draft", "draft", default=False)),
+                    "mode": None if mode is None else str(mode).lower()})
+    return out
 
 
 def security_mode(payload) -> str | None:
     if isinstance(payload, dict):
         for k, v in payload.items():
             if str(k).upper().endswith("SECURITY_MODE"):
-                return str(v.get("value") if isinstance(v, dict) else v).lower()
+                val = v.get("value") if isinstance(v, dict) else v
+                return None if val is None else str(val).lower()
         for v in payload.values():
             if isinstance(v, dict) and (m := security_mode(v)):
                 return m
     return None
 
 
+def _num(v):
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def _remaining(b: dict) -> float:
+    """Durée restante comparable : permanent = infini, inconnu = -1."""
+    if b["permanent"]:
+        return float("inf")
+    n = _num(b["exp"])
+    return -1.0 if n is None or math.isnan(n) else float(n)
+
+
+def _ban_items(payload) -> list[dict]:
+    if isinstance(payload, dict) and "bans" not in payload:
+        # forme réelle : {"<instance nginx>": {"status", "msg", "data": [...]}, ...} (ou corps d'erreur)
+        return [x for v in payload.values() if isinstance(v, dict) and isinstance(v.get("data"), list)
+                for x in v["data"] if isinstance(x, dict)]
+    return _items(payload, "bans")
+
+
 def bans(payload) -> list[dict]:
-    return [
-        {"ip": _s(i, "ip", "name"),
-         "reason": _s(i, "reason"),
-         "service": _s(i, "service", default="global"),
-         "exp": _pick(i, "exp", "ban_end", "expire"),
-         "date": _pick(i, "date", "ban_start")}
-        for i in _items(payload, "bans")
-    ]
+    uniq: dict[tuple, dict] = {}
+    for i in _ban_items(payload):
+        exp = _pick(i, "exp", "ban_end", "expire")
+        b = {"ip": _s(i, "ip", "name"),
+             "reason": _s(i, "reason"),
+             "service": _s(i, "service", default="global"),
+             "ban_scope": _s(i, "ban_scope"),
+             "date": _pick(i, "date", "ban_start"),
+             "exp": exp,
+             "permanent": bool(i.get("permanent")) or (_num(exp) == 0),
+             "country": _s(i, "country"),
+             "kind": _s(i, "kind")}
+        key = (b["ip"], b["service"], b["ban_scope"], b["kind"])
+        # la même interdiction remonte une fois par instance nginx : on garde la plus longue
+        if key not in uniq or _remaining(b) > _remaining(uniq[key]):
+            uniq[key] = b
+    return list(uniq.values())
+
+
+def _latest(history) -> dict | None:
+    """Entrée d'historique la plus récente (par end_date, sans supposer l'ordre) ; à défaut de date lisible,
+    la dernière de la liste (ancien ordre supposé)."""
+    entries = [h for h in history if isinstance(h, dict)] if isinstance(history, list) else []
+    if not entries:
+        return None
+    dated = [(ts, h) for h in entries if (ts := _parse_ts(_pick(h, "end_date", "start_date"))) is not None]
+    if not dated:
+        return entries[-1]
+    return max(dated, key=lambda t: t[0])[1]
 
 
 def jobs(payload) -> list[dict]:
@@ -65,12 +119,11 @@ def jobs(payload) -> list[dict]:
     for i in _items(payload, "jobs"):
         last_run = _pick(i, "last_run", "lastRun")
         success = _pick(i, "success", "last_success")
-        history = i.get("history")
-        if last_run is None and isinstance(history, list) and history and isinstance(history[-1], dict):
-            h = history[-1]
+        h = _latest(i.get("history"))
+        if last_run is None and h is not None:
             last_run = _pick(h, "end_date", "start_date")
             success = h.get("success") if success is None else success
-        out.append({"name": _s(i, "name"), "plugin": _s(i, "plugin"),
+        out.append({"name": _s(i, "name"), "plugin": _s(i, "plugin_id", "plugin"),
                     "every": _s(i, "every"), "last_run": last_run, "success": success})
     return out
 
