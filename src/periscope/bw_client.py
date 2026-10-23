@@ -62,7 +62,10 @@ class BWClient:
         except httpx.HTTPError as e:
             raise BWError("network", f"{type(e).__name__}: {e}") from e
 
-    async def _get(self, path: str, **params):
+    async def _get(self, path: str, *, ok_statuses: tuple[int, ...] = (200,), **params):
+        return (await self._get_status(path, ok_statuses, params))[1]
+
+    async def _get_status(self, path: str, ok_statuses: tuple[int, ...], params: dict):
         params = params or None
         if self.token is None:
             await self._authenticate()
@@ -74,10 +77,10 @@ class BWClient:
             r = await self._send(path, params)
         if r.status_code in (401, 403):
             raise BWError("auth", f"HTTP {r.status_code} on {path}")
-        if r.status_code >= 400:
+        if r.status_code not in ok_statuses:
             raise BWError("http", f"HTTP {r.status_code} on {path}")
         try:
-            return r.json()
+            return r.status_code, r.json()
         except ValueError as e:
             raise BWError("data", f"invalid JSON on {path}") from e
 
@@ -88,16 +91,23 @@ class BWClient:
         return (time.perf_counter() - t) * 1000, version
 
     async def services(self) -> list[dict]:
-        items = N.services(await self._get("/services"))
-        for s in items:  # ponytail: N+1 requêtes, acceptable pour <= 10 instances
-            try:
+        payload = await self._get("/services")
+        items = N.services(payload)
+        for s, raw in zip(items, N.service_items(payload), strict=True):
+            if "security_mode" in raw:  # le mode est fourni par la liste (repli sur le global côté BunkerWeb)
+                continue
+            try:  # anciennes versions : une requête par service
                 s["mode"] = N.security_mode(await self._get(f"/services/{quote(s['name'], safe='')}", full="true"))
             except BWError:
                 s["mode"] = None
         return items
 
     async def bans(self) -> list[dict]:
-        return N.bans(await self._get("/bans"))
+        # 502 = au moins une instance nginx a échoué ; le corps reste le dict par instance (réponse partielle)
+        status, body = await self._get_status("/bans", (200, 502), {})
+        if status == 502 and not (isinstance(body, dict) and any(isinstance(v, dict) for v in body.values())):
+            raise BWError("http", "HTTP 502 on /bans")
+        return N.bans(body)
 
     async def jobs(self) -> list[dict]:
         return N.jobs(await self._get("/jobs"))

@@ -48,14 +48,95 @@ async def test_http_and_data_error_kinds():
     assert (e1.value.kind, e2.value.kind) == ("http", "data")
 
 
+# Formes ci-dessous : dérivées du source BunkerWeb v1.6.17, pas capturées sur une instance vivante.
+
 @respx.mock
-async def test_services_include_mode_and_quote_names():
-    respx.get(f"{BASE}/services").respond(json={"services": [{"id": "a.example"}, {"id": "b.example"}]})
-    respx.get(f"{BASE}/services/a.example", params={"full": "true"}).respond(json={"SECURITY_MODE": "block"})
-    respx.get(f"{BASE}/services/b.example", params={"full": "true"}).respond(status_code=404)
+async def test_ping_without_version_field():
+    respx.get(f"{BASE}/ping").respond(json={"status": "ok", "message": "pong"})
+    latency, version = await BWClient(BASE, "tok").ping()
+    assert latency >= 0 and version is None
+
+
+@respx.mock
+async def test_services_mode_from_list_without_per_service_calls():
+    respx.get(f"{BASE}/services").respond(json={"status": "success", "services": [
+        {"id": "a.example", "method": "ui", "is_draft": False, "creation_date": "x", "last_update": "y",
+         "template": None, "security_mode": "block"},
+        {"id": "b.example", "method": "ui", "is_draft": True, "creation_date": "x", "last_update": "y",
+         "template": None, "security_mode": "Detect"}]})
     out = await BWClient(BASE, "t").services()
     assert out == [{"name": "a.example", "draft": False, "mode": "block"},
-                   {"name": "b.example", "draft": False, "mode": None}]
+                   {"name": "b.example", "draft": True, "mode": "detect"}]
+    assert len(respx.calls) == 1  # aucun appel /services/{id}
+
+
+@respx.mock
+async def test_services_fallback_config_lookup_when_security_mode_absent_and_quote_names():
+    respx.get(f"{BASE}/services").respond(json={"services": [
+        {"id": "a.example"}, {"id": "b.example"}, {"id": "c d/e"}, {"id": "f.example", "security_mode": "block"}]})
+    respx.get(f"{BASE}/services/a.example", params={"full": "true"}).respond(json={
+        "status": "success", "service": "a.example",
+        "config": {"SECURITY_MODE": {"value": "block", "global": False, "method": "ui", "default": "detect",
+                                     "template": None}}})
+    respx.get(f"{BASE}/services/b.example", params={"full": "true"}).respond(status_code=404)
+    respx.get(f"{BASE}/services/c%20d%2Fe", params={"full": "true"}).respond(json={
+        "config": {"SECURITY_MODE": "detect"}})
+    out = await BWClient(BASE, "t").services()
+    assert out == [{"name": "a.example", "draft": False, "mode": "block"},
+                   {"name": "b.example", "draft": False, "mode": None},
+                   {"name": "c d/e", "draft": False, "mode": "detect"},
+                   {"name": "f.example", "draft": False, "mode": "block"}]
+
+
+def _ban(**kw):
+    return {"ip": "203.0.113.7", "reason": "antibot", "service": "www", "date": 1760000000, "country": "FR",
+            "ban_scope": "service", "exp": 600, "permanent": False, "kind": "ban", "reason_data": {}, **kw}
+
+
+@respx.mock
+async def test_bans_per_instance_dict_aggregated_and_deduped():
+    respx.get(f"{BASE}/bans").respond(json={
+        "nginx-1": {"status": "success", "msg": "success", "data": [_ban(exp=100)]},
+        "nginx-2": {"status": "success", "msg": "success", "data": [_ban(exp=500), _ban(ip="1.1.1.1")]}})
+    out = await BWClient(BASE, "t").bans()
+    assert [(b["ip"], b["exp"]) for b in out] == [("203.0.113.7", 500), ("1.1.1.1", 600)]
+
+
+@respx.mock
+async def test_bans_partial_failure_502_with_instance_dict_is_accepted():
+    respx.get(f"{BASE}/bans").respond(status_code=502, json={
+        "nginx-1": {"status": "success", "msg": "success", "data": [_ban()]},
+        "nginx-2": {"status": "error", "msg": "timeout"}})
+    out = await BWClient(BASE, "t").bans()
+    assert [b["ip"] for b in out] == ["203.0.113.7"]
+
+
+@respx.mock
+async def test_bans_502_with_error_body_is_http_error():
+    respx.get(f"{BASE}/bans").respond(status_code=502, json={"status": "error", "msg": "internal error"})
+    with pytest.raises(BWError) as e:
+        await BWClient(BASE, "t").bans()
+    assert e.value.kind == "http"
+
+
+@respx.mock
+async def test_502_is_an_error_on_other_endpoints_and_other_statuses_rejected_on_bans():
+    respx.get(f"{BASE}/jobs").respond(status_code=502, json={"n": {"status": "success", "data": []}})
+    with pytest.raises(BWError) as e1:
+        await BWClient(BASE, "t").jobs()
+    respx.get(f"{BASE}/bans").respond(status_code=500, json={"n": {"status": "success", "data": []}})
+    with pytest.raises(BWError) as e2:
+        await BWClient(BASE, "t").bans()
+    assert (e1.value.kind, e2.value.kind) == ("http", "http")
+
+
+@respx.mock
+async def test_jobs_real_dict_shape():
+    respx.get(f"{BASE}/jobs").respond(json={"status": "success", "jobs": {
+        "j1": {"plugin_id": "p", "every": "day", "reload": False, "async": False, "cache": [],
+               "history": [{"start_date": "a", "end_date": "2026-10-22T03:00:05+00:00", "success": True}]}}})
+    assert await BWClient(BASE, "t").jobs() == [
+        {"name": "j1", "plugin": "p", "every": "day", "last_run": "2026-10-22T03:00:05+00:00", "success": True}]
 
 
 CREDS = ("periscope", "s3cret!")
