@@ -5,6 +5,7 @@
   <h1 class="h4 mb-4">BunkerWeb Mission Control</h1>
   {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
   <form method="post" action="/login">
+    <input type="hidden" name="csrf" value="{{ login_csrf }}">
     <div class="mb-3">
       <label class="form-label" for="username">Utilisateur</label>
       <input class="form-control" id="username" name="username" autocomplete="username" required autofocus>

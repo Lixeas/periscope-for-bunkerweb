@@ -26,6 +26,29 @@ def test_login_page_renders(client):
     assert r.status_code == 200 and 'name="username"' in r.text
 
 
+def test_login_page_sets_csrf_cookie_and_field(client):
+    r = client.get("/login")
+    token = csrf_of(r.text)
+    cookie = r.headers["set-cookie"]
+    assert f"mc_login_csrf={token}" in cookie and "HttpOnly" in cookie and "SameSite=strict" in cookie
+
+
+def test_login_post_without_csrf_cookie_is_403(client):
+    make_user()
+    r = client.post("/login", data={"username": "alice", "password": PW, "csrf": "x"}, follow_redirects=False)
+    assert r.status_code == 403
+    assert audit_events() == []
+
+
+def test_login_post_with_mismatched_csrf_is_403(client):
+    make_user()
+    client.get("/login")
+    r = client.post("/login", data={"username": "alice", "password": PW, "csrf": "nope"}, follow_redirects=False)
+    assert r.status_code == 403
+    r = client.post("/login", data={"username": "alice", "password": PW}, follow_redirects=False)
+    assert r.status_code == 403
+
+
 def test_full_login_with_totp_then_dashboard_then_logout(client):
     secret = make_user()
     r = post_login(client)

@@ -1,8 +1,10 @@
+import hmac
 import logging
 import re
+import secrets
 
 import segno
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from webauthn.helpers import base64url_to_bytes
 
@@ -56,21 +58,37 @@ def twofa_page(request: Request, user: User, error: str | None = None, status: i
 
 # --- mot de passe ---------------------------------------------------------
 
+LOGIN_CSRF = "mc_login_csrf"
+
+
+def login_form(request: Request, status: int = 200, error: str | None = None):
+    """Formulaire de connexion avec CSRF pré-session (cookie + champ caché identiques)."""
+    token = request.cookies.get(LOGIN_CSRF) or secrets.token_urlsafe(24)
+    resp = render(request, "login.html", status=status, error=error, login_csrf=token)
+    resp.set_cookie(LOGIN_CSRF, token, httponly=True, secure=get_settings().cookie_secure,
+                    samesite="strict", path="/")
+    return resp
+
+
 @router.get("/login")
 async def login_page(request: Request, db=Depends(get_db)):
     row = session_row(request, db)
     if row and row.mfa_ok:
         return RedirectResponse("/", 303)
-    return render(request, "login.html")
+    return login_form(request)
 
 
 @router.post("/login")
-async def login(request: Request, username: str = Form(...), password: str = Form(...), db=Depends(get_db)):
+async def login(request: Request, username: str = Form(...), password: str = Form(...),
+                csrf: str = Form(""), db=Depends(get_db)):
     ip, now = ip_of(request), utcnow()
+    cookie = request.cookies.get(LOGIN_CSRF, "")
+    if not cookie or not hmac.compare_digest(csrf.encode(), cookie.encode()):
+        raise HTTPException(403, "CSRF invalide")
     if not limiter.hit(ip):
         audit(db, "login_throttled", username, ip=ip)
         db.commit()
-        return render(request, "login.html", status=429, error="Trop de tentatives, réessayez plus tard.")
+        return login_form(request, 429, "Trop de tentatives, réessayez plus tard.")
     user = db.query(User).filter_by(username=username).one_or_none()
     locked = bool(user and ratelimit.is_locked(user, now))
     if not (verify_password(user.password_hash if user else None, password) and not locked):
@@ -78,7 +96,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
             ratelimit.register_failure(user, now)
         audit(db, "login_locked" if locked else "login_failed", username, ip=ip)
         db.commit()
-        return render(request, "login.html", status=401, error=GENERIC)
+        return login_form(request, 401, GENERIC)
     token, _ = sessions.create(db, user, False, now)
     audit(db, "password_ok", username, ip=ip)
     db.commit()
