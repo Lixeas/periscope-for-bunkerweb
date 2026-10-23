@@ -71,3 +71,44 @@ def test_ip_limiter_drops_empty_entries():
     assert "1.1.1.1" not in lim._events
     lim.hit("1.1.1.1", now=40)
     assert len(lim._events["1.1.1.1"]) == 1
+
+
+def test_login_failures_escalation_and_cap():
+    lf = ratelimit.LoginFailures()
+    for i in range(4):
+        lf.register_failure("a", "1.1.1.1", now=100.0)
+        assert lf.retry_after("a", "1.1.1.1", now=100.0) == 0
+    lf.register_failure("a", "1.1.1.1", now=100.0)
+    assert lf.retry_after("a", "1.1.1.1", now=100.0) == 30
+    assert lf.retry_after("a", "1.1.1.1", now=131.0) == 0
+    lf.register_failure("a", "1.1.1.1", now=131.0)
+    assert lf.retry_after("a", "1.1.1.1", now=131.0) == 60
+    for _ in range(20):
+        lf.register_failure("a", "1.1.1.1", now=200.0)
+    assert lf.retry_after("a", "1.1.1.1", now=200.0) == 900
+
+
+def test_login_failures_keyed_by_lowercase_user_and_ip():
+    lf = ratelimit.LoginFailures()
+    for _ in range(5):
+        lf.register_failure("Alice", "1.1.1.1", now=0.0)
+    assert lf.retry_after("alice", "1.1.1.1", now=0.0) == 30
+    assert lf.retry_after("alice", "2.2.2.2", now=0.0) == 0
+    assert lf.retry_after("bob", "1.1.1.1", now=0.0) == 0
+
+
+def test_login_failures_success_reset():
+    lf = ratelimit.LoginFailures()
+    for _ in range(5):
+        lf.register_failure("a", "1.1.1.1", now=0.0)
+    lf.clear("A", "1.1.1.1")
+    assert lf.retry_after("a", "1.1.1.1", now=0.0) == 0
+
+
+def test_login_failures_sweep_bounds_memory():
+    lf = ratelimit.LoginFailures()
+    for i in range(50):
+        lf.register_failure(f"u{i}", "1.1.1.1", now=0.0)
+    assert len(lf._state) == 50
+    lf.register_failure("late", "1.1.1.1", now=ratelimit.LoginFailures.FORGET + 1)
+    assert len(lf._state) == 1

@@ -23,6 +23,7 @@ from mc.web.render import render
 log = logging.getLogger("mc.auth")
 router = APIRouter()
 limiter = ratelimit.IPLimiter()
+login_failures = ratelimit.LoginFailures()
 GENERIC = "Identifiants invalides ou compte temporairement verrouillé."
 
 
@@ -54,6 +55,7 @@ def set_cookie(resp, token: str, *, final: bool):
 def finish_login(request: Request, db, user: User, method: str) -> str:
     """Promeut la session en session pleine ; retourne le nouveau jeton."""
     ratelimit.register_success(user)
+    login_failures.clear(user.username, ip_of(request))
     token = sessions.promote(db, request.state.session, user, utcnow())
     audit(db, "login", user.username, detail=method, ip=ip_of(request))
     db.commit()
@@ -104,11 +106,12 @@ async def login(request: Request, username: str = Form(...), password: str = For
         audit(db, "login_throttled", username, ip=ip)
         db.commit()
         return retry_after(login_form(request, 429, THROTTLED), wait)
+    # Verrou du mot de passe par (identifiant, IP) uniquement : jamais sur le compte réel (anti-DoS).
     user = db.query(User).filter_by(username=username).one_or_none()
-    locked = bool(user and ratelimit.is_locked(user, now))
-    if not (verify_password(user.password_hash if user else None, password) and not locked):
-        if user and not locked:
-            ratelimit.register_failure(user, now)
+    locked = bool(login_failures.retry_after(username, ip))
+    if locked or not verify_password(user.password_hash if user else None, password):
+        if not locked:
+            login_failures.register_failure(username, ip)
         audit(db, "login_locked" if locked else "login_failed", username, ip=ip)
         db.commit()
         return login_form(request, 401, GENERIC)
