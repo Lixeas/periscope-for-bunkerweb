@@ -16,8 +16,8 @@ def test_dashboard_shows_tiles_and_instance_cards(client):
     r = client.get("/dashboard")
     assert r.status_code == 200
     assert 'data-summary="instances_ok"' in r.text and "bw1" in r.text and "bw2" in r.text
-    assert "Injoignable" in r.text and "network: timeout" in r.text
-    assert "Désactivée" in r.text  # bw3
+    assert "Unreachable" in r.text and "network: timeout" in r.text
+    assert "Disabled" in r.text  # bw3
 
 
 def test_api_summary_json(client):
@@ -33,19 +33,19 @@ def test_api_summary_requires_login(fresh_db):
 
 def test_services_page_with_gap_and_filter(client):
     r = client.get("/services")
-    assert "y.example" in r.text and "absent sur : bw2" in r.text
+    assert "y.example" in r.text and "missing on: bw2" in r.text
     r = client.get("/services", params={"mode": "block"})
     assert "y.example" not in r.text and "x.example" in r.text
 
 
 def test_bans_page_renders_duration_permanent_and_epoch_date(client):
     t = client.get("/bans").text
-    assert "09/10/2025 08:53 UTC" in t                   # date epoch -> datetime
+    assert "2025-10-09 08:53 UTC" in t                   # date epoch -> datetime
     assert "1 min" in t and "30 s" in t                   # remaining seconds -> readable duration
     assert "Permanent" in t                               # exp 0 / permanent
     assert 'data-v="1000000000000"' in t and 'data-v="60"' in t  # numeric sort, permanent last
     assert "CrowdSec" in t and "service" in t             # badge crowdsec_lease + ban_scope
-    assert "Durée restante renvoyée par BunkerWeb ; « Permanent » si le ban n'expire pas." in t
+    assert "Remaining duration as returned by BunkerWeb; “Permanent” if the ban does not expire." in t
     assert "telle que renvoyée" not in t
 
 
@@ -58,13 +58,13 @@ def test_bans_page_search(client):
 def test_jobs_page_has_matrix_and_job(client):
     r = client.get("/jobs")
     assert "renew" in r.text and "antibot" in r.text and "1.1" in r.text
-    assert "Prochaine échéance (estimée)" in r.text
-    assert "02/01/2020 00:00 UTC" in r.text and "en retard" in r.text
+    assert "Next run (estimated)" in r.text
+    assert "2020-01-02 00:00 UTC" in r.text and "overdue" in r.text
 
 
 def test_certificates_page_status_labels(client):
     r = client.get("/certificates")
-    assert "Critique" in r.text and "Aucun" in r.text and "Valide" in r.text and "Let's Encrypt" in r.text
+    assert "Critical" in r.text and "None" in r.text and "Valid" in r.text and "Let's Encrypt" in r.text
 
 
 def test_bans_jobs_plugins_render_with_hostile_snapshot_values(client):
@@ -109,13 +109,13 @@ def test_jobs_page_with_iso_offset_last_run_and_services_mode(client):
         snap.payload = [{"name": "j", "plugin": "p", "every": "day",
                          "last_run": "2020-05-01T03:00:00+02:00", "success": False}]
     t = client.get("/jobs").text
-    assert "02/05/2020 01:00 UTC" in t and "Échec" in t and "en retard" in t
+    assert "2020-05-02 01:00 UTC" in t and "Failure" in t and "overdue" in t
 
 
 def test_dashboard_lists_scheduler_and_worker_nodes(client):
     t = client.get("/dashboard").text
     assert t.count(">scheduler<") == 3 and ">worker<" in t
-    assert "1/2 en ligne" in t and "w1.lan:5000" in t and "w2.lan:5000" in t
-    assert "En ligne" in t and "Hors ligne" in t  # text label, not just the color
+    assert "1/2 online" in t and "w1.lan:5000" in t and "w2.lan:5000" in t
+    assert "Online" in t and "Offline" in t  # text label, not just the color
     assert "<script>x</script>" not in t and "&lt;script&gt;x&lt;/script&gt;" in t
-    assert "inconnus" in t  # bw2: never collected
+    assert "not collected yet" in t  # bw2: never collected

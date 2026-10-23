@@ -41,9 +41,9 @@ def test_create_user_and_listing(client, csrf):
 
 def test_create_user_errors(client, csrf):
     r = client.post("/admin/users", data={"csrf": csrf, "username": "bob", "role": "reader", "password": "short"})
-    assert r.status_code == 400 and "trop court" in r.text
+    assert r.status_code == 400 and "too short" in r.text
     r = client.post("/admin/users", data={"csrf": csrf, "username": "alice", "role": "reader", "password": PW})
-    assert r.status_code == 400 and "existant" in r.text
+    assert r.status_code == 400 and "already exists" in r.text
 
 
 def test_cannot_delete_self_or_last_admin_or_demote_last_admin(client, csrf):

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from periscope import collector
+from periscope import collector, i18n
 from periscope.bw_client import BWError
 from periscope.crypto import encrypt
 from periscope.db import session_scope
@@ -81,7 +81,8 @@ async def test_collect_down_keeps_last_snapshot(fresh_db):
     await collector.collect_one(iid, lambda inst: Fake(ping_err=BWError("network", "refused")))
     with session_scope() as s:
         inst = s.get(Instance, iid)
-        assert inst.status == "down" and inst.last_error.startswith("network:")
+        assert inst.status == "down" and i18n.render("en", inst.last_error) == "network: refused"
+        assert i18n.render("fr", inst.last_error) == "network: refused"  # unknown msgid: shown as is
         assert inst.last_ok_at is not None
     assert snap(iid, "bans") == [{"ip": "1.1.1.1"}]
 
@@ -94,7 +95,7 @@ async def test_collect_partial_failure_is_degraded_and_keeps_old_kind(fresh_db):
     await collector.collect_one(iid, lambda inst: Fake(fail=("bans",)))
     with session_scope() as s:
         inst = s.get(Instance, iid)
-        assert inst.status == "degraded" and "bans: auth" in inst.last_error
+        assert inst.status == "degraded" and "bans: auth" in i18n.render("en", inst.last_error)
     assert snap(iid, "bans") == [{"ip": "old"}]
 
 
@@ -313,11 +314,13 @@ async def test_down_node_degrades_instance(fresh_db):
     await collector.collect_one(iid, lambda inst: Fake(nodes=[_node("w1", "up"), _node("w2", "down")]))
     with session_scope() as s:
         inst = s.get(Instance, iid)
-        assert inst.status == "degraded" and inst.last_error == "1 nœud hors ligne : w2"
+        assert inst.status == "degraded" and i18n.render("en", inst.last_error) == "1 node offline: w2"
+        assert i18n.render("fr", inst.last_error) == "1 nœud hors ligne : w2"
     await collector.collect_one(iid, lambda inst: Fake(nodes=[_node("a", "down"), _node("b", "failover")]))
     with session_scope() as s:
         err = s.get(Instance, iid).last_error
-        assert "1 nœud hors ligne : a" in err and "1 nœud en failover : b" in err
+        assert "1 node offline: a; 1 node in failover: b" == i18n.render("en", err)
+        assert "1 nœud hors ligne : a; 1 nœud en failover : b" == i18n.render("fr", err)
 
 
 async def test_instances_failure_is_partial_and_keeps_snapshot(fresh_db):
@@ -326,6 +329,6 @@ async def test_instances_failure_is_partial_and_keeps_snapshot(fresh_db):
     await collector.collect_one(iid, lambda inst: Fake(fail=("instances",)))
     with session_scope() as s:
         inst = s.get(Instance, iid)
-        assert inst.status == "degraded" and inst.last_error.startswith("instances:")
+        assert inst.status == "degraded" and i18n.render("en", inst.last_error).startswith("instances:")
     assert [n["hostname"] for n in snap(iid, "instances")] == ["w1"]
     assert len(snap(iid, "services")) == 2

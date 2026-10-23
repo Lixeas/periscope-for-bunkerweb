@@ -46,4 +46,4 @@ def test_login_page_shows_name_and_non_affiliation_footer(client):
     r = client.get("/login")
     assert r.status_code == 200
     assert "Periscope for BunkerWeb" in r.text
-    assert "Projet indépendant, non affilié à Bunkerity." in r.text
+    assert "Independent project, not affiliated with Bunkerity." in r.text
