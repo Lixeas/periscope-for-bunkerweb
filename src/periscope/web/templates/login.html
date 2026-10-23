@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Connexion{% endblock %}
+{% block title %}{{ _("Sign in") }}{% endblock %}
 {% block content %}
 <div class="row justify-content-center mt-5"><div class="col-md-6 col-lg-4">
   <h1 class="h4 mb-4">Periscope for BunkerWeb</h1>
@@ -7,14 +7,14 @@
   <form method="post" action="/login">
     <input type="hidden" name="csrf" value="{{ login_csrf }}">
     <div class="mb-3">
-      <label class="form-label" for="username">Utilisateur</label>
+      <label class="form-label" for="username">{{ _("User") }}</label>
       <input class="form-control" id="username" name="username" autocomplete="username" required autofocus>
     </div>
     <div class="mb-3">
-      <label class="form-label" for="password">Mot de passe</label>
+      <label class="form-label" for="password">{{ _("Password") }}</label>
       <input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required>
     </div>
-    <button class="btn btn-primary w-100">Continuer</button>
+    <button class="btn btn-primary w-100">{{ _("Continue") }}</button>
   </form>
 </div></div>
 {% endblock %}

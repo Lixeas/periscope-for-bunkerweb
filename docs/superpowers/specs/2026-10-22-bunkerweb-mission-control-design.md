@@ -56,7 +56,7 @@ Direct TLS connection to `IP_instance:443` with SNI = service domain. Stays insi
 6. **Administration** (admin): instances (add with connection test, edit, delete), users, audit.
 7. **Account**: TOTP, passkeys, backup codes.
 
-Cross-cutting: French UI, light/dark theme, sortable and filterable tables.
+Cross-cutting: bilingual UI (English default, French; see CLAUDE.md, "Internationalisation"), light/dark theme, sortable and filterable tables.
 
 ## 6. Error handling
 

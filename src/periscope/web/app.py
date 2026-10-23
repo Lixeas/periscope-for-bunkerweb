@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from periscope.config import get_settings
 from periscope.db import migrate
+from periscope.i18n import tr
 from periscope.web.deps import Redirect
 
 CSP = ("default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; "
@@ -44,7 +45,7 @@ def create_app(run_migrations: bool = True) -> FastAPI:
         if request.method not in ("GET", "HEAD", "OPTIONS"):
             origin = request.headers.get("origin")
             if origin and origin not in cfg.origins:
-                return PlainTextResponse("Origine refusée", status_code=403)
+                return PlainTextResponse(tr(request, "Origin rejected"), status_code=403)
         resp = await call_next(request)
         resp.headers["Content-Security-Policy"] = CSP
         resp.headers["X-Frame-Options"] = "DENY"

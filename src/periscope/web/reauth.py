@@ -4,11 +4,12 @@ from periscope.auth import ratelimit
 from periscope.auth.audit import audit
 from periscope.auth.passwords import verify_password
 from periscope.clock import utcnow
+from periscope.i18n import N_
 from periscope.models import Session, User
 
 ERRORS = {
-    "pwd_bad": "Mot de passe actuel incorrect.",
-    "locked": "Trop d'échecs : compte temporairement verrouillé.",
+    "pwd_bad": N_("Current password is incorrect."),
+    "locked": N_("Too many failures: account temporarily locked."),
 }
 
 

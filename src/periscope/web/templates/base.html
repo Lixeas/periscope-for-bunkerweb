@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr" data-bs-theme="light">
+<html lang="{{ lang }}" data-bs-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Accueil{% endblock %} · Periscope for BunkerWeb</title>
+  <title>{% block title %}{{ _("Home") }}{% endblock %} · Periscope for BunkerWeb</title>
   <link rel="stylesheet" href="/static/bootstrap.min.css">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/app.js"></script>
@@ -11,28 +11,28 @@
   <script src="/static/refresh.js" defer></script>
   {% block head %}{% endblock %}
 </head>
-<body>
+<body data-msg-error="{{ _('Error') }}">
 {% if user %}
 <nav class="navbar border-bottom mb-4">
   <div class="container d-flex flex-wrap gap-3 align-items-center">
     <a class="navbar-brand fw-semibold" href="/dashboard">Periscope</a>
     <div class="d-flex flex-wrap gap-3 me-auto" id="main-nav">
-      <a href="/dashboard">Accueil</a>
-      <a href="/services">Services</a>
-      <a href="/bans">Bans</a>
-      <a href="/jobs">Jobs &amp; plugins</a>
-      <a href="/certificates">Certificats</a>
+      <a href="/dashboard">{{ _("Home") }}</a>
+      <a href="/services">{{ _("Services") }}</a>
+      <a href="/bans">{{ _("Bans") }}</a>
+      <a href="/jobs">{{ _("Jobs & plugins") }}</a>
+      <a href="/certificates">{{ _("Certificates") }}</a>
       {% if user.role == 'admin' %}
-      <a href="/admin/instances">Instances</a>
-      <a href="/admin/users">Utilisateurs</a>
-      <a href="/admin/audit">Audit</a>
+      <a href="/admin/instances">{{ _("Instances") }}</a>
+      <a href="/admin/users">{{ _("Users") }}</a>
+      <a href="/admin/audit">{{ _("Audit") }}</a>
       {% endif %}
     </div>
-    <button type="button" id="theme-toggle" class="btn btn-sm btn-outline-secondary">Thème</button>
+    <button type="button" id="theme-toggle" class="btn btn-sm btn-outline-secondary">{{ _("Theme") }}</button>
     <a href="/account">{{ user.username }}</a>
     <form method="post" action="/logout" class="m-0">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <button class="btn btn-sm btn-outline-secondary">Déconnexion</button>
+      <button class="btn btn-sm btn-outline-secondary">{{ _("Sign out") }}</button>
     </form>
   </div>
 </nav>
@@ -40,6 +40,17 @@
 <main class="container pb-5">
 {% block content %}{% endblock %}
 </main>
-<footer class="container pb-4 text-center small text-muted">Projet indépendant, non affilié à Bunkerity.</footer>
+<footer class="container pb-4 text-center small text-muted">
+  <div>{{ _("Independent project, not affiliated with Bunkerity.") }}</div>
+  {% block lang_switch %}
+  <form method="post" action="/lang" class="d-inline-flex align-items-center gap-1 mt-2 m-0" role="group" aria-label="{{ _('Language') }}">
+    <input type="hidden" name="csrf" value="{{ login_csrf or csrf }}">
+    <input type="hidden" name="next" value="{{ next_url }}">
+    {% for code, label in LANGUAGES %}
+    <button type="submit" name="lang" value="{{ code }}" lang="{{ code }}" class="btn btn-sm btn-link{% if code == lang %} fw-bold text-decoration-underline{% endif %}"{% if code == lang %} aria-current="true"{% endif %}>{{ label }}</button>
+    {% endfor %}
+  </form>
+  {% endblock %}
+</footer>
 </body>
 </html>

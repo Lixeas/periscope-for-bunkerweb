@@ -6,16 +6,26 @@ import httpx
 
 from periscope import normalize as N
 from periscope.biscuit_version import version_from_token
+from periscope.i18n import N_, pack, translate
 
 _OPENAPI_MAX_BYTES = 5 * 1024 * 1024
 
 
 class BWError(Exception):
-    """kind : network | auth | http | data"""
+    """kind : network | auth | http | data.
 
-    def __init__(self, kind: str, message: str):
-        super().__init__(message)
-        self.kind = kind
+    `message` is an English msgid (with `{named}` placeholders filled from `params`), so the text can
+    be stored language-neutral (`pack`) and translated when displayed; `str(e)` is the English text."""
+
+    def __init__(self, kind: str, message: str, **params):
+        super().__init__(translate("en", message, **params))
+        self.kind, self.msgid, self.params = kind, message, params
+
+    def localize(self, lang: str | None) -> str:
+        return translate(lang, self.msgid, **self.params)
+
+    def pack(self) -> str:
+        return pack(self.msgid, **self.params)
 
 
 class BWClient:
@@ -27,7 +37,7 @@ class BWClient:
                  credentials: tuple[str, str] | None = None, timeout: float = 5.0,
                  verify: bool = True, transport=None):
         if not token and not credentials:
-            raise ValueError("token ou credentials requis")
+            raise ValueError("token or credentials required")
         self._credentials = credentials
         self.token: str | None = token or None  # exposed so the caller can cache it
         self._http = httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=timeout,
@@ -38,23 +48,24 @@ class BWClient:
         try:
             r = await self._http.post("/auth", auth=self._credentials)
         except httpx.TimeoutException as e:
-            raise BWError("network", "timeout on /auth") from e
+            raise BWError("network", N_("timeout on {path}"), path="/auth") from e
         except httpx.HTTPError as e:
-            raise BWError("network", f"{type(e).__name__} on /auth") from e
+            raise BWError("network", N_("{error} on {path}"), error=type(e).__name__, path="/auth") from e
         if r.status_code in (401, 403):
-            raise BWError("auth", f"HTTP {r.status_code} on /auth (identifiants refusés)")
+            raise BWError("auth", N_("HTTP {status} on {path} (credentials rejected)"),
+                          status=r.status_code, path="/auth")
         if r.status_code >= 400:
-            raise BWError("http", f"HTTP {r.status_code} on /auth")
+            raise BWError("http", N_("HTTP {status} on {path}"), status=r.status_code, path="/auth")
         try:
             body = r.json()
         except ValueError as e:
-            raise BWError("data", "invalid JSON on /auth") from e
+            raise BWError("data", N_("invalid JSON on {path}"), path="/auth") from e
         data = body.get("data") if isinstance(body, dict) else None
         token = body.get("token") if isinstance(body, dict) else None
         if not token and isinstance(data, dict):
             token = data.get("token")
         if not isinstance(token, str) or not token:
-            raise BWError("data", "no token in /auth response")
+            raise BWError("data", N_("no token in /auth response"))
         self.token = token
 
     async def _send(self, path: str, params):
@@ -62,9 +73,9 @@ class BWClient:
             return await self._http.get(path, params=params,
                                         headers={"Authorization": f"Bearer {self.token}"})
         except httpx.TimeoutException as e:
-            raise BWError("network", f"timeout on {path}") from e
+            raise BWError("network", N_("timeout on {path}"), path=path) from e
         except httpx.HTTPError as e:
-            raise BWError("network", f"{type(e).__name__}: {e}") from e
+            raise BWError("network", N_("{error}: {detail}"), error=type(e).__name__, detail=str(e)) from e
 
     async def _get(self, path: str, *, ok_statuses: tuple[int, ...] = (200,), **params):
         return (await self._get_status(path, ok_statuses, params))[1]
@@ -80,13 +91,13 @@ class BWClient:
             await self._authenticate()
             r = await self._send(path, params)
         if r.status_code in (401, 403):
-            raise BWError("auth", f"HTTP {r.status_code} on {path}")
+            raise BWError("auth", N_("HTTP {status} on {path}"), status=r.status_code, path=path)
         if r.status_code not in ok_statuses:
-            raise BWError("http", f"HTTP {r.status_code} on {path}")
+            raise BWError("http", N_("HTTP {status} on {path}"), status=r.status_code, path=path)
         try:
             return r.status_code, r.json()
         except ValueError as e:
-            raise BWError("data", f"invalid JSON on {path}") from e
+            raise BWError("data", N_("invalid JSON on {path}"), path=path) from e
 
     async def ping(self) -> tuple[float, str | None]:
         t = time.perf_counter()
@@ -134,7 +145,7 @@ class BWClient:
         # 502 = at least one nginx instance failed; the body is still the per-instance dict (partial response)
         status, body = await self._get_status("/bans", (200, 502), {})
         if status == 502 and not (isinstance(body, dict) and any(isinstance(v, dict) for v in body.values())):
-            raise BWError("http", "HTTP 502 on /bans")
+            raise BWError("http", N_("HTTP {status} on {path}"), status=502, path="/bans")
         return N.bans(body)
 
     async def jobs(self) -> list[dict]:

@@ -13,7 +13,7 @@ async function api(url, body, csrf) {
     body: JSON.stringify(body || {}),
   });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || "Erreur " + r.status);
+  if (!r.ok) throw new Error(data.error || (document.body.dataset.msgError || "Error") + " " + r.status);
   return data;
 }
 

@@ -26,4 +26,4 @@ def test_bootstrap_admin_rejects_mismatch_and_duplicates(fresh_db, monkeypatch, 
     monkeypatch.setattr(getpass, "getpass", lambda prompt="": "correct horse battery")
     assert cli.main(["bootstrap-admin", "--username", "root"]) == 0
     assert cli.main(["bootstrap-admin", "--username", "root"]) == 1
-    assert "existant" in capsys.readouterr().err
+    assert "already exists" in capsys.readouterr().err
