@@ -38,6 +38,10 @@ Créez, côté BunkerWeb (voir la section API de la documentation), une identit�
 - Sauvegardez `MC_SECRET_KEY` : elle chiffre les tokens BunkerWeb. Perdue, il faut les ressaisir.
 - Sauvegardez le volume `/data` (SQLite).
 
+## Validation de bout en bout avec de vraies instances
+
+`dev/docker-compose.bunkerweb.yml` définit deux piles BunkerWeb indépendantes (bw1 : API sur 8081, TLS 8443 ; bw2 : API sur 8082, TLS 9443) avec un upstream trivial. **Ce fichier n'a jamais été exécuté** (Docker absent de la machine de rédaction) : il suit la documentation officielle mais doit être validé ; les points incertains y sont commentés (notamment le token : seul `API_TOKEN`, accès admin, est documenté comme Bearer statique). L'en-tête du fichier explique comment enregistrer les instances dans Mission Control. Ensuite, alignez `src/mc/normalize.py` sur les réponses réelles : voir Plan 3, Task 8 (`docs/superpowers/plans/2026-10-22-plan-3-views-delivery.md`).
+
 ## Développement
 
 ```bash
