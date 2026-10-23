@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import logging
+from datetime import datetime, timedelta
 
 from periscope.bw_client import BWClient, BWError
 from periscope.clock import utcnow
@@ -17,6 +18,11 @@ KINDS = ("services", "bans", "jobs", "plugins")
 # Jetons Biscuit en mémoire (processus unique) : (id instance, empreinte des identifiants) -> jeton.
 # Changer identifiant ou mot de passe change l'empreinte, donc invalide l'entrée.
 _TOKEN_CACHE: dict[tuple[int, str], str] = {}
+
+
+# Dernière recherche de version (OpenAPI) par instance : évite une requête par cycle.
+_VERSION_CHECKED: dict[int, datetime] = {}
+VERSION_RECHECK = timedelta(hours=1)
 
 
 def _cache_key(inst: Instance) -> tuple[int, str]:
@@ -82,6 +88,13 @@ async def collect_one(inst_id: int, client_factory=default_client) -> None:
         except BWError as e:
             _finish(inst_id, now, "down", f"{e.kind}: {e}", None, None, {})
             return
+        if not version and (not inst.version
+                            or now - _VERSION_CHECKED.get(inst_id, datetime.min) > VERSION_RECHECK):
+            _VERSION_CHECKED[inst_id] = now
+            try:
+                version = await client.version()  # ne lève pas ; None = on garde la valeur connue
+            except Exception:  # noqa: BLE001 - la version ne doit jamais affecter la collecte
+                version = None
         for kind in KINDS:
             try:
                 results[kind] = await getattr(client, kind)()

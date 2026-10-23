@@ -1,4 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+
+import pytest
 
 from periscope import collector
 from periscope.bw_client import BWError
@@ -9,13 +11,18 @@ from periscope.tlsprobe import CertInfo
 
 
 class Fake:
-    def __init__(self, ping_err=None, fail=()):
+    def __init__(self, ping_err=None, fail=(), ping_version="1.6.0", openapi_version=None):
         self.ping_err, self.fail = ping_err, fail
+        self.ping_version, self.openapi_version, self.version_calls = ping_version, openapi_version, 0
+
+    async def version(self):
+        self.version_calls += 1
+        return self.openapi_version
 
     async def ping(self):
         if self.ping_err:
             raise self.ping_err
-        return 12.0, "1.6.0"
+        return 12.0, self.ping_version
 
     async def _kind(self, kind, data):
         if kind in self.fail:
@@ -129,6 +136,77 @@ async def test_version_truncated(fresh_db):
     await collector.collect_one(iid, lambda inst: LongVer())
     with session_scope() as s:
         assert s.get(Instance, iid).version == "v" * 32
+
+
+@pytest.fixture(autouse=True)
+def _clear_version_cache():
+    collector._VERSION_CHECKED.clear()
+
+
+def _version(iid):
+    with session_scope() as s:
+        return s.get(Instance, iid).version
+
+
+async def test_openapi_version_stored_when_ping_has_none(fresh_db):
+    iid = add_instance()
+    await collector.collect_one(iid, lambda inst: Fake(ping_version=None, openapi_version="1.6.17"))
+    assert _version(iid) == "1.6.17"
+
+
+async def test_ping_version_wins_and_skips_lookup(fresh_db):
+    iid = add_instance()
+    f = Fake(ping_version="1.6.0", openapi_version="9.9")
+    await collector.collect_one(iid, lambda inst: f)
+    assert _version(iid) == "1.6.0" and f.version_calls == 0
+
+
+async def test_version_not_refetched_within_the_hour(fresh_db, monkeypatch):
+    iid = add_instance()
+    t0 = datetime(2026, 1, 1, 12, 0)
+    monkeypatch.setattr(collector, "utcnow", lambda: t0)
+    f = Fake(ping_version=None, openapi_version="1.6.17")
+    await collector.collect_one(iid, lambda inst: f)
+    monkeypatch.setattr(collector, "utcnow", lambda: t0 + timedelta(minutes=59))
+    await collector.collect_one(iid, lambda inst: f)
+    assert f.version_calls == 1 and _version(iid) == "1.6.17"
+
+
+async def test_version_refetched_after_an_hour(fresh_db, monkeypatch):
+    iid = add_instance()
+    t0 = datetime(2026, 1, 1, 12, 0)
+    monkeypatch.setattr(collector, "utcnow", lambda: t0)
+    await collector.collect_one(iid, lambda inst: Fake(ping_version=None, openapi_version="1.6.17"))
+    monkeypatch.setattr(collector, "utcnow", lambda: t0 + timedelta(hours=1, seconds=1))
+    f = Fake(ping_version=None, openapi_version="1.6.18")
+    await collector.collect_one(iid, lambda inst: f)
+    assert f.version_calls == 1 and _version(iid) == "1.6.18"
+
+
+async def test_previous_version_kept_when_lookup_returns_none(fresh_db, monkeypatch):
+    iid = add_instance()
+    t0 = datetime(2026, 1, 1, 12, 0)
+    monkeypatch.setattr(collector, "utcnow", lambda: t0)
+    await collector.collect_one(iid, lambda inst: Fake(ping_version=None, openapi_version="1.6.17"))
+    monkeypatch.setattr(collector, "utcnow", lambda: t0 + timedelta(hours=2))
+    await collector.collect_one(iid, lambda inst: Fake(ping_version=None, openapi_version=None))
+    assert _version(iid) == "1.6.17"
+
+
+async def test_version_retried_each_cycle_while_unknown(fresh_db):
+    iid = add_instance()
+    f = Fake(ping_version=None, openapi_version=None)
+    await collector.collect_one(iid, lambda inst: f)
+    await collector.collect_one(iid, lambda inst: f)
+    assert f.version_calls == 2 and not _version(iid)
+
+
+async def test_failing_version_lookup_does_not_degrade(fresh_db):
+    iid = add_instance()
+    await collector.collect_one(iid, lambda inst: Fake(ping_version=None, openapi_version=None))
+    with session_scope() as s:
+        inst = s.get(Instance, iid)
+        assert inst.status == "ok" and inst.last_error == ""
 
 
 def add_user_instance(password="pw") -> int:
