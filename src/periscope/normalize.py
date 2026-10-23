@@ -134,3 +134,26 @@ def plugins(payload) -> list[dict]:
          "version": _s(i, "version"), "type": _s(i, "type")}
         for i in _items(payload, "plugins")
     ]
+
+
+def nodes(payload) -> list[dict]:
+    """Nœuds nginx d'un scheduler (GET /instances). Un élément sans hostname ni name est ignoré ;
+    le statut inconnu est conservé tel quel (str, minuscules)."""
+    out = []
+    raw = payload.get("instances") if isinstance(payload, dict) else payload
+    for i in raw if isinstance(raw, list) else []:
+        if not isinstance(i, dict):
+            continue
+        host, name = _s(i, "hostname"), _s(i, "name")
+        if not (host or name):
+            continue
+        seen = _pick(i, "last_seen")
+        out.append({"hostname": host or name, "name": name or host, "port": _int(_pick(i, "port")),
+                    "type": _s(i, "type"), "status": _s(i, "status").lower(), "method": _s(i, "method"),
+                    "last_seen": seen if isinstance(seen, str) and seen else None,
+                    "server_name": _s(i, "server_name")})
+    return out
+
+
+def _int(v):
+    return v if isinstance(v, int) and not isinstance(v, bool) else None

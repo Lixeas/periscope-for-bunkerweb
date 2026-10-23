@@ -210,3 +210,26 @@ def test_real_shape_hostile_values_coerced():
         (j,) = N.jobs({"jobs": {"j": {"plugin_id": v, "every": v, "history": v}}})
         assert isinstance(j["plugin"], str)
         N.jobs({"jobs": {"j": {"history": [v, {"end_date": v}]}}})
+
+
+def test_nodes_real_shape():
+    payload = {"status": "success", "instances": [
+        {"hostname": "bw-w1", "name": "worker1", "port": 5000, "listen_https": True, "https_port": 5443,
+         "server_name": "bwapi", "type": "static", "status": "up", "method": "scheduler",
+         "creation_date": "2026-01-01T00:00:00+00:00", "last_seen": "2026-10-22T10:00:00+00:00"},
+        {"hostname": "bw-w2", "name": "worker2", "port": 5000, "type": "container", "status": "down",
+         "method": "autoconf", "last_seen": None}]}
+    assert N.nodes(payload) == [
+        {"hostname": "bw-w1", "name": "worker1", "port": 5000, "type": "static", "status": "up",
+         "method": "scheduler", "last_seen": "2026-10-22T10:00:00+00:00", "server_name": "bwapi"},
+        {"hostname": "bw-w2", "name": "worker2", "port": 5000, "type": "container", "status": "down",
+         "method": "autoconf", "last_seen": None, "server_name": ""}]
+
+
+def test_nodes_tolerant_of_odd_input():
+    assert N.nodes(None) == [] and N.nodes("x") == [] and N.nodes({"status": "success"}) == []
+    out = N.nodes([{"hostname": "h", "status": "Weird", "port": "80", "last_seen": ["x"]}, 7, {"name": "n"}, {}])
+    assert [n["hostname"] for n in out] == ["h", "n"]  # sans hostname ni name : ignoré ; nom seul accepté
+    assert out[0]["status"] == "weird" and out[0]["port"] is None and out[0]["last_seen"] is None
+    assert out[1]["status"] == "" and out[1]["name"] == "n"
+    assert N.nodes({"instances": [{"hostname": ["a"], "port": True}]})[0]["hostname"] == "['a']"
