@@ -8,6 +8,7 @@ from periscope.clock import utcnow
 from periscope.config import get_settings
 from periscope.crypto import decrypt
 from periscope.db import session_scope
+from periscope.i18n import N_, pack, pack_data, pack_many, render
 from periscope.models import CertProbe, Instance, Snapshot
 from periscope.tlsprobe import probe
 
@@ -52,14 +53,16 @@ def default_client(inst: Instance) -> BWClient:
     return BWClient(inst.base_url, decrypt(inst.token_enc), **kw)
 
 
-def _node_problems(nodes: list[dict]) -> str:
-    """Error message for faulty nodes ('loading' is not one); '' if all is well."""
-    parts = []
-    for status, label in (("down", "hors ligne"), ("failover", "en failover")):
+def _node_problems(nodes: list[dict]) -> list[str]:
+    """Packed (language-neutral) messages for faulty nodes ('loading' is not one); [] if all is well."""
+    problems = []
+    for status, one, many in (
+            ("down", N_("{count} node offline: {names}"), N_("{count} nodes offline: {names}")),
+            ("failover", N_("{count} node in failover: {names}"), N_("{count} nodes in failover: {names}"))):
         names = [str(n.get("hostname") or n.get("name") or "?") for n in nodes if n.get("status") == status]
         if names:
-            parts.append(f"{len(names)} {'nœud' if len(names) == 1 else 'nœuds'} {label} : {', '.join(names)}")
-    return "; ".join(parts)
+            problems.append(pack(one if len(names) == 1 else many, count=len(names), names=", ".join(names)))
+    return problems
 
 
 def _save_snapshot(s, inst_id: int, kind: str, payload: list, now) -> None:
@@ -70,12 +73,28 @@ def _save_snapshot(s, inst_id: int, kind: str, payload: list, now) -> None:
         s.add(Snapshot(instance_id=inst_id, kind=kind, payload=payload, collected_at=now))
 
 
+def _bw_problem(resource: str | None, e: BWError) -> str:
+    """Packed message for one BunkerWeb API failure ("kind: detail", prefixed by the resource if any)."""
+    detail = pack_data(e.msgid, **e.params)
+    if resource is None:
+        return pack(N_("{kind}: {detail}"), kind=e.kind, detail=detail)
+    return pack(N_("{resource}: {kind}: {detail}"), resource=resource, kind=e.kind, detail=detail)
+
+
+def _stored_error(errors: list[str]) -> str:
+    """Language-neutral stored form of the cycle's problems ('' if none), shown translated at display time."""
+    if not errors:
+        return ""
+    packed = pack_many(errors)
+    return packed if len(packed) <= 1024 else render("en", packed)[:1024]  # column size: keep readable text
+
+
 def _finish(inst_id, now, status, error, latency, version, results) -> None:
     with session_scope() as s:
         inst = s.get(Instance, inst_id)
         if inst is None:  # deleted during the cycle
             return
-        inst.status, inst.last_attempt_at, inst.last_error = status, now, error[:1024]
+        inst.status, inst.last_attempt_at, inst.last_error = status, now, error
         if status != "down":
             inst.last_ok_at, inst.latency_ms = now, latency
             inst.version = version[:32] if version else inst.version
@@ -96,7 +115,7 @@ async def collect_one(inst_id: int, client_factory=default_client) -> None:
         try:
             latency, version = await client.ping()
         except BWError as e:
-            _finish(inst_id, now, "down", f"{e.kind}: {e}", None, None, {})
+            _finish(inst_id, now, "down", _stored_error([_bw_problem(None, e)]), None, None, {})
             return
         if not version and (not inst.version
                             or now - _VERSION_CHECKED.get(inst_id, datetime.min) > VERSION_RECHECK):
@@ -109,13 +128,13 @@ async def collect_one(inst_id: int, client_factory=default_client) -> None:
             try:
                 results[kind] = await getattr(client, kind)()
             except BWError as e:
-                errors.append(f"{kind}: {e.kind}: {e}")
+                errors.append(_bw_problem(kind, e))
     finally:
         remember_token(inst, client)  # reused on the next cycle (avoids one POST /auth per cycle)
         await client.aclose()
     if problem := _node_problems(results.get("instances") or []):
-        errors.append(problem)
-    _finish(inst_id, now, "degraded" if errors else "ok", "; ".join(errors), latency, version, results)
+        errors.extend(problem)
+    _finish(inst_id, now, "degraded" if errors else "ok", _stored_error(errors), latency, version, results)
 
 
 async def probe_one(inst_id: int, probe_fn=probe) -> None:
