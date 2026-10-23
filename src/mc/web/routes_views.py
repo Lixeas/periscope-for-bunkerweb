@@ -37,7 +37,7 @@ async def bans(request: Request, q: str = "", user: User = Depends(current_user)
 @router.get("/jobs")
 async def jobs(request: Request, user: User = Depends(current_user), db=Depends(get_db)):
     names, matrix = queries.plugins(db)
-    return render(request, "jobs.html", user=user, jobs=queries.jobs(db), names=names, matrix=matrix)
+    return render(request, "jobs.html", user=user, jobs=queries.jobs(db), now=utcnow(), names=names, matrix=matrix)
 
 
 @router.get("/certificates")

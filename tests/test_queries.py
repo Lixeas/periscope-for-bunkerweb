@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from mc import queries
 from mc.clock import utcnow
@@ -25,7 +25,7 @@ def seed():
             (b.id, "bans"): [{"ip": "1.1.1.1", "reason": "bot", "service": "x.example", "exp": 30, "date": 1},
                              {"ip": "2.2.2.2", "reason": "scan", "service": "global", "exp": 10, "date": 2}],
             (off.id, "bans"): [{"ip": "9.9.9.9", "reason": "x", "service": "global", "exp": 1, "date": 1}],
-            (a.id, "jobs"): [{"name": "renew", "plugin": "letsencrypt", "every": "day", "last_run": "t", "success": True}],
+            (a.id, "jobs"): [{"name": "renew", "plugin": "letsencrypt", "every": "day", "last_run": "2020-01-01 00:00:00", "success": True}],
             (a.id, "plugins"): [{"id": "antibot", "name": "Antibot", "version": "1.0", "type": "core"}],
             (b.id, "plugins"): [{"id": "antibot", "name": "Antibot", "version": "1.1", "type": "core"}],
         }
@@ -85,6 +85,7 @@ def test_jobs_and_plugin_matrix(fresh_db):
     seed()
     with session_scope() as s:
         assert queries.jobs(s)[0]["instance"] == "bw1" and queries.jobs(s)[0]["name"] == "renew"
+        assert queries.jobs(s)[0]["next_run"] == datetime(2020, 1, 2)
         names, matrix = queries.plugins(s)
     assert names == ["bw1", "bw2"]
     assert matrix[0]["id"] == "antibot" and matrix[0]["diff"] is True and matrix[0]["cells"] == {"bw1": "1.0", "bw2": "1.1"}

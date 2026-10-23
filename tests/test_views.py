@@ -47,6 +47,8 @@ def test_bans_page_search(client):
 def test_jobs_page_has_matrix_and_job(client):
     r = client.get("/jobs")
     assert "renew" in r.text and "antibot" in r.text and "1.1" in r.text
+    assert "Prochaine échéance (estimée)" in r.text
+    assert "02/01/2020 00:00 UTC" in r.text and "en retard" in r.text
 
 
 def test_certificates_page_status_labels(client):
