@@ -6,6 +6,7 @@ from periscope.auth import sessions
 from periscope.clock import utcnow
 from periscope.config import get_settings
 from periscope.db import get_db
+from periscope.i18n import tr
 from periscope.models import Session, User
 
 
@@ -30,7 +31,7 @@ async def _check_csrf(request: Request, row: Session) -> None:
         form = await request.form()
         sent = form.get("csrf")
     if not isinstance(sent, str) or not hmac.compare_digest(sent, row.csrf):
-        raise HTTPException(403, "CSRF invalide")
+        raise HTTPException(403, tr(request, "Invalid CSRF token"))
 
 
 async def _user_for(request: Request, db, *, full: bool) -> User:
@@ -40,6 +41,7 @@ async def _user_for(request: Request, db, *, full: bool) -> User:
     user = db.get(User, row.user_id)
     if user is None:
         raise Redirect("/login")
+    request.state.lang_pref = user.lang  # the saved preference wins over cookie and header
     await _check_csrf(request, row)
     request.state.session = row
     return user
@@ -54,7 +56,7 @@ async def current_user(request: Request, db=Depends(get_db)) -> User:
     return await _user_for(request, db, full=True)
 
 
-async def require_admin(user: User = Depends(current_user)) -> User:
+async def require_admin(request: Request, user: User = Depends(current_user)) -> User:
     if user.role != "admin":
-        raise HTTPException(403, "Réservé aux administrateurs")
+        raise HTTPException(403, tr(request, "Administrators only"))
     return user
