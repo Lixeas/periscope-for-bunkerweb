@@ -15,21 +15,63 @@ class BWError(Exception):
 
 
 class BWClient:
-    """Lecture seule par construction : seul GET est émis, aucune méthode d'écriture n'existe."""
+    """Lecture seule : tout est lu par `_get` (GET). Seule autre requête émise : POST /auth,
+    qui échange l'identifiant/mot de passe de l'utilisateur d'API contre un jeton Biscuit.
+    Aucune méthode publique d'écriture n'existe. Ni mot de passe ni jeton dans les messages d'erreur."""
 
-    def __init__(self, base_url: str, token: str, *, timeout: float = 5.0,
+    def __init__(self, base_url: str, token: str | None = None, *,
+                 credentials: tuple[str, str] | None = None, timeout: float = 5.0,
                  verify: bool = True, transport=None):
-        self._http = httpx.AsyncClient(
-            base_url=base_url.rstrip("/"), headers={"Authorization": f"Bearer {token}"},
-            timeout=timeout, verify=verify, transport=transport)
+        if not token and not credentials:
+            raise ValueError("token ou credentials requis")
+        self._credentials = credentials
+        self.token: str | None = token or None  # exposé pour que l'appelant le mette en cache
+        self._http = httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=timeout,
+                                       verify=verify, transport=transport)
 
-    async def _get(self, path: str, **params):
+    async def _authenticate(self) -> None:
+        assert self._credentials
         try:
-            r = await self._http.get(path, params=params or None)
+            r = await self._http.post("/auth", auth=self._credentials)
+        except httpx.TimeoutException as e:
+            raise BWError("network", "timeout on /auth") from e
+        except httpx.HTTPError as e:
+            raise BWError("network", f"{type(e).__name__} on /auth") from e
+        if r.status_code in (401, 403):
+            raise BWError("auth", f"HTTP {r.status_code} on /auth (identifiants refusés)")
+        if r.status_code >= 400:
+            raise BWError("http", f"HTTP {r.status_code} on /auth")
+        try:
+            body = r.json()
+        except ValueError as e:
+            raise BWError("data", "invalid JSON on /auth") from e
+        data = body.get("data") if isinstance(body, dict) else None
+        token = body.get("token") if isinstance(body, dict) else None
+        if not token and isinstance(data, dict):
+            token = data.get("token")
+        if not isinstance(token, str) or not token:
+            raise BWError("data", "no token in /auth response")
+        self.token = token
+
+    async def _send(self, path: str, params):
+        try:
+            return await self._http.get(path, params=params,
+                                        headers={"Authorization": f"Bearer {self.token}"})
         except httpx.TimeoutException as e:
             raise BWError("network", f"timeout on {path}") from e
         except httpx.HTTPError as e:
             raise BWError("network", f"{type(e).__name__}: {e}") from e
+
+    async def _get(self, path: str, **params):
+        params = params or None
+        if self.token is None:
+            await self._authenticate()
+        r = await self._send(path, params)
+        if r.status_code == 401 and self._credentials:
+            # jeton expiré/révoqué : une seule ré-authentification, un seul nouvel essai
+            self.token = None
+            await self._authenticate()
+            r = await self._send(path, params)
         if r.status_code in (401, 403):
             raise BWError("auth", f"HTTP {r.status_code} on {path}")
         if r.status_code >= 400:
