@@ -14,7 +14,7 @@ plugin_id et history triée par end_date décroissante, /plugins avec les clés 
 Authentification (optionnelle) : POST /auth (HTTP Basic, ou champs/JSON `username` + `password` ; utilisateur
 `periscope`, mot de passe FAKE_PASSWORD, défaut `secret`) renvoie {"token":...}. Avec FAKE_AUTH=1, tous les
 endpoints de données exigent un Bearer valide (401 sinon) ; le jeton expire après FAKE_TTL secondes
-(défaut 3600). /ping et /health restent publics.
+(défaut 3600). /ping, /health et /openapi.json restent publics.
   FAKE_AUTH=1 FAKE_TTL=8 uvicorn --app-dir dev fake_bunkerweb:app --port 9001
 """
 import asyncio
@@ -80,7 +80,7 @@ async def lifespan(_: FastAPI):
         server.close()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, openapi_url=None)  # /openapi.json ci-dessous (public, comme le vrai)
 
 
 def require_token(request: Request) -> None:
@@ -112,6 +112,12 @@ async def auth(request: Request):
     token = secrets.token_urlsafe(24)
     TOKENS[token] = time.monotonic() + TTL
     return {"token": token}
+
+
+@app.get("/openapi.json")
+def openapi_doc():
+    # Public (hors garde d'auth), comme l'API réelle : la version vit dans info.version.
+    return {"openapi": "3.1.0", "info": {"title": "BunkerWeb API", "version": "1.6.17-fake"}, "paths": {}}
 
 
 @app.get("/ping")
