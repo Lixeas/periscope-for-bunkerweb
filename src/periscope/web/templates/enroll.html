@@ -1,23 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Activer le second facteur{% endblock %}
+{% block title %}{{ _("Enable the second factor") }}{% endblock %}
 {% block content %}
 <div class="row justify-content-center mt-5"><div class="col-md-8 col-lg-5">
-  <h1 class="h4 mb-3">Activez l'authentification à deux facteurs</h1>
-  <p>Un second facteur est obligatoire. Scannez ce QR code avec une application TOTP (FreeOTP, Aegis, Google Authenticator…), puis saisissez le code affiché.</p>
+  <h1 class="h4 mb-3">{{ _("Enable two-factor authentication") }}</h1>
+  <p>{{ _("A second factor is mandatory. Scan this QR code with a TOTP app (FreeOTP, Aegis, Google Authenticator…), then enter the code displayed.") }}</p>
   {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
-  <img src="{{ qr }}" alt="QR code TOTP" width="200" height="200" class="mb-2">
-  <p class="small text-secondary">Saisie manuelle : <code class="secret">{{ secret }}</code></p>
+  <img src="{{ qr }}" alt="{{ _('TOTP QR code') }}" width="200" height="200" class="mb-2">
+  <p class="small text-secondary">{{ _("Manual entry:") }} <code class="secret">{{ secret }}</code></p>
   <form method="post" action="/enroll">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="mb-3">
-      <label class="form-label" for="code">Code à 6 chiffres</label>
+      <label class="form-label" for="code">{{ _("6-digit code") }}</label>
       <input class="form-control" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" required autofocus>
     </div>
-    <button class="btn btn-primary">Activer</button>
+    <button class="btn btn-primary">{{ _("Enable") }}</button>
   </form>
   <hr class="my-4">
-  <p class="small text-secondary">Ou utilisez une passkey (empreinte, clé de sécurité…) comme premier facteur ; elle ne fonctionne que sur le domaine du site.</p>
-  <button type="button" class="btn btn-outline-primary" data-passkey="enroll" data-csrf="{{ csrf }}">Enregistrer une passkey</button>
+  <p class="small text-secondary">{{ _("Or use a passkey (fingerprint, security key…) as your first factor; it only works on the site's domain.") }}</p>
+  <button type="button" class="btn btn-outline-primary" data-passkey="enroll" data-csrf="{{ csrf }}">{{ _("Register a passkey") }}</button>
   <p id="passkey-error" class="text-danger mt-2" role="alert"></p>
 </div></div>
 {% endblock %}

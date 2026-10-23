@@ -1,37 +1,37 @@
 {% macro instance_badge(status) -%}
 {%- set cls = {'ok': 'success', 'degraded': 'warning', 'down': 'danger'}[status] | default('secondary') -%}
-{%- set label = {'ok': 'OK', 'degraded': 'Dégradé', 'down': 'Injoignable', 'unknown': 'Inconnu'}[status] | default(status) -%}
+{%- set label = {'ok': 'OK', 'degraded': _('Degraded'), 'down': _('Unreachable'), 'unknown': _('Unknown')}[status] | default(status) -%}
 <span class="badge text-bg-{{ cls }}">{{ label }}</span>
 {%- endmacro %}
 
 {% macro cert_badge(status) -%}
 {%- set cls = {'ok': 'success', 'orange': 'warning', 'red': 'danger', 'expired': 'danger'}[status] | default('secondary') -%}
-{%- set label = {'ok': 'Valide', 'orange': 'Expire bientôt', 'red': 'Critique', 'expired': 'Expiré', 'none': 'Aucun'}[status] | default(status) -%}
+{%- set label = {'ok': _('Valid'), 'orange': _('Expires soon'), 'red': _('Critical'), 'expired': _('Expired'), 'none': _('None')}[status] | default(status) -%}
 <span class="badge text-bg-{{ cls }}">{{ label }}</span>
 {%- endmacro %}
 
 {% macro mode_badge(mode) -%}
 {%- if mode == 'block' -%}<span class="badge text-bg-success">block</span>
 {%- elif mode == 'detect' -%}<span class="badge text-bg-warning">detect</span>
-{%- else -%}<span class="badge text-bg-secondary">inconnu</span>{%- endif -%}
+{%- else -%}<span class="badge text-bg-secondary">{{ _("unknown") }}</span>{%- endif -%}
 {%- endmacro %}
 
 {% macro missing(names) -%}
-{%- if names %}<div class="small text-warning-emphasis">⚠ absent sur : {{ names | join(', ') }}</div>{% endif -%}
+{%- if names %}<div class="small text-warning-emphasis">{{ _("⚠ missing on: {names}", names=names | join(', ')) }}</div>{% endif -%}
 {%- endmacro %}
 
 {% macro node_badge(status) -%}
 {%- set cls = {'up': 'success', 'loading': 'secondary', 'down': 'danger', 'failover': 'warning'}[status] | default('secondary') -%}
-{%- set label = {'up': 'En ligne', 'loading': 'Démarrage', 'down': 'Hors ligne', 'failover': 'Failover'}[status] | default(status or 'Inconnu') -%}
+{%- set label = {'up': _('Online'), 'loading': _('Starting'), 'down': _('Offline'), 'failover': 'Failover'}[status] | default(status or _('Unknown')) -%}
 <span class="badge text-bg-{{ cls }}">{{ label }}</span>
 {%- endmacro %}
 
 {% macro nodes_block(c) -%}
 <div class="mt-3 border-top pt-2">
-  <div class="small fw-semibold">Nœuds :
-    {% if c.nodes is none %}<span class="text-secondary">inconnus</span>
-    {% elif not c.nodes %}<span class="text-secondary">aucun</span>
-    {% else %}<span data-nodes-summary>{{ c.nodes_up }}/{{ c.nodes_total }} en ligne</span>{% endif %}
+  <div class="small fw-semibold">{{ _("Nodes:") }}
+    {% if c.nodes is none %}<span class="text-secondary">{{ _("not collected yet") }}</span>
+    {% elif not c.nodes %}<span class="text-secondary">{{ _("none") }}</span>
+    {% else %}<span data-nodes-summary>{{ _("{up}/{total} online", up=c.nodes_up, total=c.nodes_total) }}</span>{% endif %}
   </div>
   {% if c.nodes %}
   <ul class="list-unstyled small mb-0 mt-1">
@@ -41,7 +41,7 @@
         <span><span class="badge text-bg-info">worker</span> <strong>{{ n.name or n.hostname }}</strong></span>
         {{ node_badge(n.status) }}
       </div>
-      <div class="text-secondary">{{ n.hostname }}{% if n.port %}:{{ n.port }}{% endif %}{% if n.type %} · {{ n.type }}{% endif %} · vu {{ n.last_seen | ago }}</div>
+      <div class="text-secondary">{{ n.hostname }}{% if n.port %}:{{ n.port }}{% endif %}{% if n.type %} · {{ n.type }}{% endif %} · {{ _("seen {ago}", ago=n.last_seen | ago) }}</div>
     </li>
     {% endfor %}
   </ul>

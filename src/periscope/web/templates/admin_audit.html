@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Audit{% endblock %}
+{% block title %}{{ _("Audit") }}{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">Journal d'audit <small class="text-secondary fs-6">(200 derniers événements)</small></h1>
-<div class="mb-3"><input class="form-control" type="search" placeholder="Filtrer…" aria-label="Filtrer" data-filter-for="t-audit"></div>
+<h1 class="h4 mb-3">{{ _("Audit log") }} <small class="text-secondary fs-6">{{ _("(last 200 events)") }}</small></h1>
+<div class="mb-3"><input class="form-control" type="search" placeholder="{{ _('Filter…') }}" aria-label="{{ _('Filter') }}" data-filter-for="t-audit"></div>
 <div class="table-responsive">
 <table class="table table-sm align-middle" id="t-audit" data-table>
-  <thead><tr><th data-sort>Date</th><th data-sort>Utilisateur</th><th data-sort>Événement</th><th data-sort>Détail</th><th data-sort>IP</th></tr></thead>
+  <thead><tr><th data-sort>{{ _("Date") }}</th><th data-sort>{{ _("User") }}</th><th data-sort>{{ _("Event") }}</th><th data-sort>{{ _("Detail") }}</th><th data-sort>IP</th></tr></thead>
   <tbody>
   {% for e in rows %}
-  <tr><td data-v="{{ e.id }}">{{ e.at | dt }}</td><td>{{ e.username or '—' }}</td><td>{{ e.event }}</td><td>{{ e.detail or '—' }}</td><td>{{ e.ip or '—' }}</td></tr>
-  {% else %}<tr><td colspan="5" class="text-secondary">Aucun événement.</td></tr>
+  <tr><td data-v="{{ e.id }}">{{ e.at | dt }}</td><td>{{ e.username or '—' }}</td><td title="{{ e.event }}">{{ labels.get(e.event, e.event) }}</td><td>{{ e.detail or '—' }}</td><td>{{ e.ip or '—' }}</td></tr>
+  {% else %}<tr><td colspan="5" class="text-secondary">{{ _("No events.") }}</td></tr>
   {% endfor %}
   </tbody>
 </table>

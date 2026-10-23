@@ -1,72 +1,85 @@
 {% extends "base.html" %}
-{% block title %}Mon compte{% endblock %}
+{% block title %}{{ _("My account") }}{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">Mon compte</h1>
+<h1 class="h4 mb-3">{{ _("My account") }}</h1>
 {% if msg %}<div class="alert alert-info" role="status">{{ msg }}</div>{% endif %}
 
 <section class="mb-5">
-  <h2 class="h5">Second facteur</h2>
-  <p>TOTP : {% if user.totp_confirmed %}<span class="badge text-bg-success">actif</span>{% else %}<span class="badge text-bg-secondary">inactif</span>{% endif %}
-     · Codes de secours restants : <strong>{{ backup_left }}</strong></p>
+  <h2 class="h5">{{ _("Second factor") }}</h2>
+  <p>TOTP : {% if user.totp_confirmed %}<span class="badge text-bg-success">{{ _("active") }}</span>{% else %}<span class="badge text-bg-secondary">{{ _("inactive") }}</span>{% endif %}
+     · {{ _("Backup codes remaining:") }} <strong>{{ backup_left }}</strong></p>
 
   <h3 class="h6 mt-4">Passkeys</h3>
   {% if user.credentials %}
   <ul class="list-group mb-3">
     {% for c in user.credentials %}
     <li class="list-group-item d-flex justify-content-between align-items-center">
-      <span>{{ c.name }} <small class="text-secondary">· ajoutée le {{ c.created_at.strftime('%d/%m/%Y') }}</small></span>
+      <span>{{ c.name }} <small class="text-secondary">· {{ _("added on {date}", date=c.created_at | date) }}</small></span>
       <form method="post" action="/account/passkeys/{{ c.id }}/delete" class="m-0">
         <input type="hidden" name="csrf" value="{{ csrf }}">
-        <label class="visually-hidden" for="pk-pw-{{ c.id }}">Mot de passe</label>
-        <input class="form-control form-control-sm d-inline-block w-auto me-1" id="pk-pw-{{ c.id }}" name="password" type="password" autocomplete="current-password" placeholder="Mot de passe" required>
-        <button class="btn btn-sm btn-outline-danger">Supprimer</button>
+        <label class="visually-hidden" for="pk-pw-{{ c.id }}">{{ _("Password") }}</label>
+        <input class="form-control form-control-sm d-inline-block w-auto me-1" id="pk-pw-{{ c.id }}" name="password" type="password" autocomplete="current-password" placeholder="{{ _('Password') }}" required>
+        <button class="btn btn-sm btn-outline-danger">{{ _("Delete") }}</button>
       </form>
     </li>
     {% endfor %}
   </ul>
-  {% else %}<p class="text-secondary">Aucune passkey enregistrée.</p>{% endif %}
+  {% else %}<p class="text-secondary">{{ _("No passkey registered.") }}</p>{% endif %}
   <div class="d-flex gap-2 align-items-center flex-wrap">
-    <label class="visually-hidden" for="pk-add-pw">Mot de passe</label>
-    <input class="form-control w-auto" id="pk-add-pw" type="password" autocomplete="current-password" placeholder="Mot de passe">
-    <button type="button" class="btn btn-outline-primary" data-passkey="register" data-csrf="{{ csrf }}">Ajouter une passkey</button>
+    <label class="visually-hidden" for="pk-add-pw">{{ _("Password") }}</label>
+    <input class="form-control w-auto" id="pk-add-pw" type="password" autocomplete="current-password" placeholder="{{ _('Password') }}">
+    <button type="button" class="btn btn-outline-primary" data-passkey="register" data-csrf="{{ csrf }}">{{ _("Add a passkey") }}</button>
   </div>
   <p id="passkey-error" class="text-danger mt-2" role="alert"></p>
-  <p class="small text-secondary">Les passkeys sont liées au domaine du site : une passkey créée sur le domaine ne fonctionne pas via l'adresse locale (utilisez le TOTP en local).</p>
+  <p class="small text-secondary">{{ _("Passkeys are bound to the site's domain: a passkey created on the domain does not work through the local address (use TOTP locally).") }}</p>
 </section>
 
 <section class="mb-5">
-  <h2 class="h5">Régénérer les codes de secours</h2>
+  <h2 class="h5">{{ _("Regenerate backup codes") }}</h2>
   <form method="post" action="/account/backup-codes" class="row g-2 align-items-end">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <div class="col-md-5"><label class="form-label" for="bc-pw">Mot de passe</label>
+    <div class="col-md-5"><label class="form-label" for="bc-pw">{{ _("Password") }}</label>
       <input class="form-control" id="bc-pw" name="password" type="password" autocomplete="current-password" required></div>
-    <div class="col-auto"><button class="btn btn-outline-secondary">Régénérer</button></div>
+    <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Regenerate") }}</button></div>
   </form>
 </section>
 
 {% if user.totp_confirmed and user.credentials %}
 <section class="mb-5">
-  <h2 class="h5">Désactiver le TOTP</h2>
+  <h2 class="h5">{{ _("Disable TOTP") }}</h2>
   <form method="post" action="/account/totp/remove" class="row g-2 align-items-end">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <div class="col-md-5"><label class="form-label" for="rt-pw">Mot de passe</label>
+    <div class="col-md-5"><label class="form-label" for="rt-pw">{{ _("Password") }}</label>
       <input class="form-control" id="rt-pw" name="password" type="password" autocomplete="current-password" required></div>
-    <div class="col-auto"><button class="btn btn-outline-danger">Désactiver</button></div>
+    <div class="col-auto"><button class="btn btn-outline-danger">{{ _("Disable") }}</button></div>
   </form>
 </section>
 {% endif %}
 
 <section class="mb-5">
-  <h2 class="h5">Changer le mot de passe</h2>
+  <h2 class="h5">{{ _("Change password") }}</h2>
   <form method="post" action="/account/password" class="col-md-5">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <div class="mb-3"><label class="form-label" for="cur">Mot de passe actuel</label>
+    <div class="mb-3"><label class="form-label" for="cur">{{ _("Current password") }}</label>
       <input class="form-control" id="cur" name="current" type="password" autocomplete="current-password" required></div>
-    <div class="mb-3"><label class="form-label" for="new">Nouveau mot de passe (12 caractères minimum)</label>
-      <input class="form-control" id="new" name="new" type="password" autocomplete="new-password" minlength="12" required></div>
-    <div class="mb-3"><label class="form-label" for="conf">Confirmation</label>
+    <div class="mb-3"><label class="form-label" for="new">{{ _("New password ({n} characters minimum)", n=MIN_PASSWORD) }}</label>
+      <input class="form-control" id="new" name="new" type="password" autocomplete="new-password" minlength="{{ MIN_PASSWORD }}" required></div>
+    <div class="mb-3"><label class="form-label" for="conf">{{ _("Confirmation") }}</label>
       <input class="form-control" id="conf" name="confirm" type="password" autocomplete="new-password" required></div>
-    <button class="btn btn-primary">Modifier</button>
+    <button class="btn btn-primary">{{ _("Change") }}</button>
+  </form>
+</section>
+
+<section class="mb-5">
+  <h2 class="h5">{{ _("Language") }}</h2>
+  <form method="post" action="/lang" class="row g-2 align-items-end">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="next" value="/account?m=lang_saved">
+    <div class="col-md-5"><label class="form-label" for="pref-lang">{{ _("Interface language") }}</label>
+      <select class="form-select" id="pref-lang" name="lang">
+        {% for code, label in LANGUAGES %}<option value="{{ code }}" lang="{{ code }}"{% if code == lang %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></div>
+    <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Save") }}</button></div>
   </form>
 </section>
 {% endblock %}

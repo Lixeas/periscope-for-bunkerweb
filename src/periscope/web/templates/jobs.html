@@ -1,39 +1,39 @@
 {% extends "base.html" %}
-{% block title %}Jobs et plugins{% endblock %}
+{% block title %}{{ _("Jobs and plugins") }}{% endblock %}
 {% block head %}<meta http-equiv="refresh" content="60">{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">Jobs planifiés</h1>
-<div class="mb-2"><input class="form-control" type="search" placeholder="Rechercher…" aria-label="Rechercher" data-filter-for="t-jobs"></div>
+<h1 class="h4 mb-3">{{ _("Scheduled jobs") }}</h1>
+<div class="mb-2"><input class="form-control" type="search" placeholder="{{ _('Search…') }}" aria-label="{{ _('Search') }}" data-filter-for="t-jobs"></div>
 <div class="table-responsive mb-5">
 <table class="table align-middle" id="t-jobs" data-table>
-  <thead><tr><th data-sort>Job</th><th data-sort>Plugin</th><th data-sort>Instance</th><th data-sort>Fréquence</th><th data-sort>Dernière exécution</th><th data-sort>Prochaine échéance (estimée)</th><th data-sort>Résultat</th></tr></thead>
+  <thead><tr><th data-sort>{{ _("Job") }}</th><th data-sort>Plugin</th><th data-sort>{{ _("Instance") }}</th><th data-sort>{{ _("Frequency") }}</th><th data-sort>{{ _("Last run") }}</th><th data-sort>{{ _("Next run (estimated)") }}</th><th data-sort>{{ _("Result") }}</th></tr></thead>
   <tbody>
   {% for j in jobs %}
   <tr>
     <td>{{ j.name }}</td><td>{{ j.plugin or '—' }}</td><td>{{ j.instance }}</td><td>{{ j.every or '—' }}</td>
     <td>{{ j.last_run or '—' }}</td>
-    <td>{{ j.next_run|dt }}{% if j.next_run and j.next_run < now %} <span class="badge text-bg-warning">en retard</span>{% endif %}</td>
-    <td>{% if j.success is true %}<span class="badge text-bg-success">Succès</span>
-        {% elif j.success is false %}<span class="badge text-bg-danger">Échec</span>
+    <td>{{ j.next_run|dt }}{% if j.next_run and j.next_run < now %} <span class="badge text-bg-warning">{{ _("overdue") }}</span>{% endif %}</td>
+    <td>{% if j.success is true %}<span class="badge text-bg-success">{{ _("Success") }}</span>
+        {% elif j.success is false %}<span class="badge text-bg-danger">{{ _("Failure") }}</span>
         {% else %}<span class="badge text-bg-secondary">—</span>{% endif %}</td>
   </tr>
-  {% else %}<tr><td colspan="7" class="text-secondary">Aucun job.</td></tr>
+  {% else %}<tr><td colspan="7" class="text-secondary">{{ _("No jobs.") }}</td></tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
 
-<h2 class="h4 mb-3">Plugins par instance</h2>
+<h2 class="h4 mb-3">{{ _("Plugins per instance") }}</h2>
 <div class="table-responsive">
 <table class="table align-middle" data-table>
   <thead><tr><th data-sort>Plugin</th>{% for n in names %}<th data-sort>{{ n }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for row in matrix %}
   <tr class="{% if row.diff %}table-warning{% endif %}">
-    <td>{{ row.id }}{% if row.diff %} <span class="badge text-bg-warning">écart</span>{% endif %}</td>
+    <td>{{ row.id }}{% if row.diff %} <span class="badge text-bg-warning">{{ _("mismatch") }}</span>{% endif %}</td>
     {% for n in names %}<td>{{ row.cells[n] if row.cells[n] else '—' }}</td>{% endfor %}
   </tr>
-  {% else %}<tr><td colspan="{{ names|length + 1 }}" class="text-secondary">Aucun plugin.</td></tr>
+  {% else %}<tr><td colspan="{{ names|length + 1 }}" class="text-secondary">{{ _("No plugins.") }}</td></tr>
   {% endfor %}
   </tbody>
 </table>
