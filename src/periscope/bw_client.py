@@ -5,6 +5,7 @@ from urllib.parse import quote
 import httpx
 
 from periscope import normalize as N
+from periscope.biscuit_version import version_from_token
 
 _OPENAPI_MAX_BYTES = 5 * 1024 * 1024
 
@@ -94,8 +95,11 @@ class BWClient:
         return (time.perf_counter() - t) * 1000, version
 
     async def version(self) -> str | None:
-        """Version lue dans `info.version` du document OpenAPI (GET /openapi.json, public : aucun jeton,
-        donc pas d'aller-retour /auth). Ne lève jamais : tout problème renvoie None."""
+        """Version : d'abord le fait `version` du jeton Biscuit détenu (lecture locale, aucune requête),
+        sinon `info.version` du document OpenAPI (GET /openapi.json, public : aucun jeton, donc pas
+        d'aller-retour /auth). Ne lève jamais : tout problème renvoie None."""
+        if self.token and (from_token := version_from_token(self.token)):
+            return from_token
         try:
             async with self._http.stream("GET", "/openapi.json") as r:
                 if r.status_code != 200:
