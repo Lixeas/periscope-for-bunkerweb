@@ -17,15 +17,29 @@ def _by_instance(db: Session, kind: str) -> dict[str, list]:
             for s in db.query(Snapshot).filter_by(kind=kind) if s.instance_id in names}
 
 
+def _node_view(n: dict) -> dict:
+    return {"hostname": str(n.get("hostname", "")), "name": str(n.get("name", "")), "port": n.get("port"),
+            "type": str(n.get("type", "")), "status": str(n.get("status", "")),
+            "last_seen": diff._parse_ts(n.get("last_seen"))}
+
+
 def instance_cards(db: Session, now: datetime) -> list[dict]:
     cfg = get_settings()
-    return [
-        {"id": i.id, "name": i.name, "status": i.status, "version": i.version,
+    snaps = {s.instance_id: s.payload for s in db.query(Snapshot).filter_by(kind="instances")}
+    cards = [
+        {"role": "scheduler",
+         # None = nœuds jamais collectés (inconnu) ; [] = le scheduler n'en déclare aucun
+         "nodes": None if i.id not in snaps else [_node_view(n) for n in snaps[i.id] if isinstance(n, dict)],
+         "id": i.id, "name": i.name, "status": i.status, "version": i.version,
          "latency_ms": i.latency_ms, "last_ok_at": i.last_ok_at, "last_error": i.last_error,
          "enabled": i.enabled,
          "stale": diff.is_stale(i.last_ok_at, now, cfg.poll_interval, cfg.stale_cycles)}
         for i in db.query(Instance).order_by(Instance.name)
     ]
+    for c in cards:
+        c["nodes_total"] = len(c["nodes"] or [])
+        c["nodes_up"] = sum(n["status"] == "up" for n in c["nodes"] or [])
+    return cards
 
 
 def summary(db: Session, now: datetime) -> dict:

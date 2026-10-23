@@ -110,3 +110,12 @@ def test_jobs_page_with_iso_offset_last_run_and_services_mode(client):
                          "last_run": "2020-05-01T03:00:00+02:00", "success": False}]
     t = client.get("/jobs").text
     assert "02/05/2020 01:00 UTC" in t and "Échec" in t and "en retard" in t
+
+
+def test_dashboard_lists_scheduler_and_worker_nodes(client):
+    t = client.get("/dashboard").text
+    assert t.count(">scheduler<") == 3 and ">worker<" in t
+    assert "1/2 en ligne" in t and "w1.lan:5000" in t and "w2.lan:5000" in t
+    assert "En ligne" in t and "Hors ligne" in t  # libellé texte, pas seulement la couleur
+    assert "<script>x</script>" not in t and "&lt;script&gt;x&lt;/script&gt;" in t
+    assert "inconnus" in t  # bw2 : jamais collecté

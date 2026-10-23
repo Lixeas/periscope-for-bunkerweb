@@ -30,6 +30,11 @@ def seed():
                               "exp": 0, "date": 1760000000, "permanent": True, "country": "", "kind": "crowdsec_lease"}],
             (off.id, "bans"): [{"ip": "9.9.9.9", "reason": "x", "service": "global", "exp": 1, "date": 1}],
             (a.id, "jobs"): [{"name": "renew", "plugin": "letsencrypt", "every": "day", "last_run": "2020-01-01 00:00:00", "success": True}],
+            (a.id, "instances"): [
+                {"hostname": "w1.lan", "name": "worker1", "port": 5000, "type": "static", "status": "up",
+                 "method": "scheduler", "last_seen": "2026-10-22T10:00:00+00:00", "server_name": ""},
+                {"hostname": "w2.lan", "name": "<script>x</script>", "port": 5000, "type": "container",
+                 "status": "down", "method": "autoconf", "last_seen": None, "server_name": ""}],
             (a.id, "plugins"): [{"id": "antibot", "name": "Antibot", "version": "1.0", "type": "core"}],
             (b.id, "plugins"): [{"id": "antibot", "name": "Antibot", "version": "1.1", "type": "core"}],
         }
@@ -133,3 +138,13 @@ def test_ban_row_survives_gigantic_numbers():
     from periscope.queries import PERMANENT_SORT, _ban_row
     row = _ban_row({"ip": "1.1.1.1", "exp": 10**400, "date": 10**400}, "bw1", {})
     assert row["exp_sort"] == PERMANENT_SORT - 1 and row["permanent"] is False
+
+
+def test_instance_cards_carry_role_and_nodes(fresh_db):
+    now = seed()
+    with session_scope() as s:
+        cards = {c["name"]: c for c in queries.instance_cards(s, now)}
+    assert cards["bw1"]["role"] == "scheduler"
+    assert (cards["bw1"]["nodes_up"], cards["bw1"]["nodes_total"]) == (1, 2)
+    assert cards["bw1"]["nodes"][0]["last_seen"].year == 2026 and cards["bw1"]["nodes"][1]["last_seen"] is None
+    assert cards["bw2"]["nodes"] is None and cards["bw2"]["nodes_total"] == 0
