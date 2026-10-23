@@ -18,7 +18,8 @@ async function api(url, body, csrf) {
 }
 
 async function registerPasskey(csrf) {
-  const opts = await api("/webauthn/register/options", null, csrf);
+  const pw = document.getElementById("pk-add-pw");
+  const opts = await api("/webauthn/register/options", {password: pw ? pw.value : ""}, csrf);
   const cred = await navigator.credentials.create({publicKey: PublicKeyCredential.parseCreationOptionsFromJSON(opts)});
   await api("/webauthn/register/verify", cred.toJSON(), csrf);
   location.reload();
