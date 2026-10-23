@@ -11,7 +11,8 @@ from periscope.tlsprobe import CertInfo
 
 
 class Fake:
-    def __init__(self, ping_err=None, fail=(), ping_version="1.6.0", openapi_version=None):
+    def __init__(self, ping_err=None, fail=(), ping_version="1.6.0", openapi_version=None, nodes=()):
+        self.nodes = list(nodes)
         self.ping_err, self.fail = ping_err, fail
         self.ping_version, self.openapi_version, self.version_calls = ping_version, openapi_version, 0
 
@@ -41,6 +42,9 @@ class Fake:
 
     async def plugins(self):
         return await self._kind("plugins", [])
+
+    async def instances(self):
+        return await self._kind("instances", self.nodes)
 
     async def aclose(self):
         pass
@@ -288,3 +292,40 @@ async def test_version_from_token_when_client_built_with_cached_token(fresh_db):
 
     await collector.collect_one(iid, factory)
     assert seen == ["cached-biscuit"] and _version(iid) == "1.6.17"
+
+
+def _node(host, status):
+    return {"hostname": host, "name": host, "port": 5000, "type": "static", "status": status,
+            "method": "scheduler", "last_seen": None, "server_name": ""}
+
+
+async def test_nodes_stored_and_all_up_is_ok(fresh_db):
+    iid = add_instance()
+    await collector.collect_one(iid, lambda inst: Fake(nodes=[_node("w1", "up"), _node("w2", "loading")]))
+    assert [n["hostname"] for n in snap(iid, "instances")] == ["w1", "w2"]
+    with session_scope() as s:
+        inst = s.get(Instance, iid)
+        assert inst.status == "ok" and inst.last_error == ""  # loading n'est pas une erreur
+
+
+async def test_down_node_degrades_instance(fresh_db):
+    iid = add_instance()
+    await collector.collect_one(iid, lambda inst: Fake(nodes=[_node("w1", "up"), _node("w2", "down")]))
+    with session_scope() as s:
+        inst = s.get(Instance, iid)
+        assert inst.status == "degraded" and inst.last_error == "1 nœud hors ligne : w2"
+    await collector.collect_one(iid, lambda inst: Fake(nodes=[_node("a", "down"), _node("b", "failover")]))
+    with session_scope() as s:
+        err = s.get(Instance, iid).last_error
+        assert "1 nœud hors ligne : a" in err and "1 nœud en failover : b" in err
+
+
+async def test_instances_failure_is_partial_and_keeps_snapshot(fresh_db):
+    iid = add_instance()
+    await collector.collect_one(iid, lambda inst: Fake(nodes=[_node("w1", "up")]))
+    await collector.collect_one(iid, lambda inst: Fake(fail=("instances",)))
+    with session_scope() as s:
+        inst = s.get(Instance, iid)
+        assert inst.status == "degraded" and inst.last_error.startswith("instances:")
+    assert [n["hostname"] for n in snap(iid, "instances")] == ["w1"]
+    assert len(snap(iid, "services")) == 2
