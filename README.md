@@ -21,9 +21,11 @@ docker compose exec -it mission-control mc bootstrap-admin --username admin
 
 Ouvrez `http://localhost:8000`, connectez-vous : l'enrôlement d'un second facteur (TOTP) est exigé avant tout accès. Ajoutez ensuite vos instances dans **Instances**.
 
-## Token d'API BunkerWeb (lecture seule)
+## Token d'API BunkerWeb
 
-Créez, côté BunkerWeb (voir la section API de la documentation), une identité dédiée n'ayant que les permissions de lecture : `instances_read`, `service_read`, `global_config_read`, `ban_read`, `job_read`, `plugin_read`. Collez son token dans Mission Control ; il est chiffré en base et n'est jamais réaffiché.
+Mission Control envoie un en-tête fixe `Authorization: Bearer <token>`. D'après la documentation BunkerWeb, le seul jeton statique documenté est `API_TOKEN` (accès **administrateur** complet). Les jetons à droits restreints (Biscuit, permissions `instances_read`, `service_read`, `global_config_read`, `ban_read`, `job_read`, `plugin_read`) s'obtiennent via `POST /auth` ; leur durée de vie n'est pas documentée et Mission Control ne se ré-authentifie pas encore.
+
+Conséquence : l'application ne fait que des `GET` (garanti par le code du client), mais si vous lui donnez `API_TOKEN`, ce token reste un secret d'administration BunkerWeb. Il est chiffré en base et jamais réaffiché ; restreignez par ailleurs l'accès réseau à l'API (liste d'IP autorisées). Si vous utilisez un jeton Biscuit restreint, ressaisissez-le à son expiration.
 
 ## Accès local et par domaine
 

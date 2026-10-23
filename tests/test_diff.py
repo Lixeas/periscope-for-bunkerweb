@@ -61,3 +61,9 @@ def test_next_run_none_cases():
     assert next_run("garbage", "day") is None
     assert next_run("", "day") is None
     assert next_run(True, "day") is None
+
+
+def test_next_run_never_raises_on_hostile_values():
+    from mc.diff import next_run
+    for bad in ("9999-12-31 23:59:59", "0001-01-01T00:00:00+05:00", "inf", "nan", 1e300, -1e300, 2**80):
+        assert next_run(bad, "day") is None or next_run(bad, "day").year >= 1
