@@ -21,11 +21,38 @@ docker compose exec -it mission-control mc bootstrap-admin --username admin
 
 Ouvrez `http://localhost:8000`, connectez-vous : l'enrôlement d'un second facteur (TOTP) est exigé avant tout accès. Ajoutez ensuite vos instances dans **Instances**.
 
-## Token d'API BunkerWeb
+## Authentification auprès de l'API BunkerWeb
 
-Mission Control envoie un en-tête fixe `Authorization: Bearer <token>`. D'après la documentation BunkerWeb, le seul jeton statique documenté est `API_TOKEN` (accès **administrateur** complet). Les jetons à droits restreints (Biscuit, permissions `instances_read`, `service_read`, `global_config_read`, `ban_read`, `job_read`, `plugin_read`) s'obtiennent via `POST /auth` ; leur durée de vie n'est pas documentée et Mission Control ne se ré-authentifie pas encore.
+**Recommandé : un utilisateur d'API dédié et restreint** (non administrateur, droits de lecture uniquement). Dans **Instances**, choisissez le mode « Utilisateur API » et saisissez son nom et son mot de passe. Mission Control les stocke **chiffrés** (Fernet, `MC_SECRET_KEY`), ne les réaffiche jamais, échange ces identifiants contre un jeton via `POST /auth` (HTTP Basic), l'envoie en `Authorization: Bearer <jeton>` et **le renouvelle automatiquement** : le jeton est gardé en mémoire, et sur une réponse 401 (expiration ; par défaut `API_BISCUIT_TTL_SECONDS=3600` s) l'application se ré-authentifie une fois et rejoue la requête. Le test de connexion de l'écran d'ajout exerce `/auth` : un mauvais mot de passe donne « Authentification refusée ».
 
-Conséquence : l'application ne fait que des `GET` (garanti par le code du client), mais si vous lui donnez `API_TOKEN`, ce token reste un secret d'administration BunkerWeb. Il est chiffré en base et jamais réaffiché ; restreignez par ailleurs l'accès réseau à l'API (liste d'IP autorisées). Si vous utilisez un jeton Biscuit restreint, ressaisissez-le à son expiration.
+L'application n'émet que des `GET`, plus ce seul `POST /auth` (garanti par le code du client).
+
+Déclaration de l'utilisateur côté BunkerWeb : fichier JSON référencé par `API_ACL_BOOTSTRAP_FILE` (par ex. monté sur `/var/lib/bunkerweb/api_acl_bootstrap.json`). Schéma d'après la documentation (<https://docs.bunkerweb.io/latest/api/>) : objet `users` indexé par nom ; chaque entrée a `admin` (booléen), un mot de passe (`password` en clair, 8+ caractères avec majuscule, minuscule, chiffre et caractère spécial, ou hash bcrypt `password_hash` / `password_bcrypt`, coût >= 10, à préférer) et `permissions` : type de ressource, puis identifiant (ou `"*"`), puis nom de permission à `true`.
+
+```json
+{
+  "users": {
+    "mission-control": {
+      "admin": false,
+      "password_hash": "$2b$13$<hash bcrypt>",
+      "permissions": {
+        "instances": { "*": { "instances_read": true } },
+        "global_config": { "*": { "global_config_read": true } },
+        "services": { "*": { "service_read": true } },
+        "bans": { "*": { "ban_read": true } },
+        "jobs": { "*": { "job_read": true } },
+        "plugins": { "*": { "plugin_read": true } }
+      }
+    }
+  }
+}
+```
+
+Permissions de lecture nécessaires (noms confirmés dans la documentation) : `instances_read`, `service_read`, `global_config_read`, `ban_read`, `job_read`, `plugin_read`. **Non confirmé** : les noms des types de ressource servant de clés (`instances`, `global_config`, `bans`, `jobs`, `plugins` ci-dessus sont déduits ; seuls `services` et `configs` figurent dans l'exemple de la documentation), les champs exacts de `/auth` (formulaire/JSON) et ses codes d'erreur. Vérifiez avec le `/openapi.json` de votre instance et ajustez ; n'accordez jamais de permission `*_update`, `*_create`, `*_delete` ni `config_update`.
+
+**Mode « Token d'API » (déconseillé)** : un `API_TOKEN` statique est envoyé tel quel en Bearer. Il donne un accès **administrateur** complet à BunkerWeb ; il reste chiffré en base et jamais réaffiché. À réserver à un dépannage ; restreignez par ailleurs l'accès réseau à l'API (liste d'IP autorisées).
+
+Migration d'une instance existante : modifier l'instance, passer en « Utilisateur API » et saisir les nouveaux identifiants (le token est alors effacé).
 
 ## Accès local et par domaine
 
@@ -37,12 +64,12 @@ Conséquence : l'application ne fait que des `GET` (garanti par le code du clien
 ## Sécurité
 
 - Cookies `HttpOnly`, `Secure`, `SameSite=Strict`, sessions serveur (8 h d'inactivité, 24 h max), CSRF, CSP stricte, HSTS.
-- Sauvegardez `MC_SECRET_KEY` : elle chiffre les tokens BunkerWeb. Perdue, il faut les ressaisir.
+- Sauvegardez `MC_SECRET_KEY` : elle chiffre les identifiants et tokens BunkerWeb. Perdue, il faut les ressaisir.
 - Sauvegardez le volume `/data` (SQLite).
 
 ## Validation de bout en bout avec de vraies instances
 
-`dev/docker-compose.bunkerweb.yml` définit deux piles BunkerWeb indépendantes (bw1 : API sur 8081, TLS 8443 ; bw2 : API sur 8082, TLS 9443) avec un upstream trivial. **Ce fichier n'a jamais été exécuté** (Docker absent de la machine de rédaction) : il suit la documentation officielle mais doit être validé ; les points incertains y sont commentés (notamment le token : seul `API_TOKEN`, accès admin, est documenté comme Bearer statique). L'en-tête du fichier explique comment enregistrer les instances dans Mission Control. Ensuite, alignez `src/mc/normalize.py` sur les réponses réelles : voir Plan 3, Task 8 (`docs/superpowers/plans/2026-10-22-plan-3-views-delivery.md`).
+`dev/docker-compose.bunkerweb.yml` définit deux piles BunkerWeb indépendantes (bw1 : API sur 8081, TLS 8443 ; bw2 : API sur 8082, TLS 9443) avec un upstream trivial. **Ce fichier n'a jamais été exécuté** (Docker absent de la machine de rédaction) : il suit la documentation officielle mais doit être validé ; les points incertains y sont commentés (notamment le fichier d'utilisateur ACL `API_ACL_BOOTSTRAP_FILE`, bloc commenté sous bw1-api). L'en-tête du fichier explique comment enregistrer les instances dans Mission Control. Ensuite, alignez `src/mc/normalize.py` sur les réponses réelles : voir Plan 3, Task 8 (`docs/superpowers/plans/2026-10-22-plan-3-views-delivery.md`).
 
 ## Développement
 

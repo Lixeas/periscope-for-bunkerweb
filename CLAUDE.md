@@ -23,7 +23,7 @@ mc bootstrap-admin --username admin    # crée le 1er admin (+ applique les migr
 uvicorn mc.web.app:create_app --factory --port 8000
 ```
 
-Démo sans vraie instance : `dev/fake_bunkerweb.py` (voir son en-tête pour les 2 commandes uvicorn, ports 9001/9002, TLS 9443/9444).
+Démo sans vraie instance : `dev/fake_bunkerweb.py` (voir son en-tête pour les 2 commandes uvicorn, ports 9001/9002, TLS 9443/9444). `FAKE_AUTH=1 FAKE_TTL=<s>` active `POST /auth` (utilisateur `mc`, mot de passe `FAKE_PASSWORD`, défaut `secret`) et exige un Bearer expirant sur les endpoints de données.
 
 Migration : `alembic revision --autogenerate -m "..."` (utilise `alembic.ini`, SQLite jetable `data/autogen.db`) ; l'app applique `alembic upgrade head` au démarrage via `mc.db.migrate()`. Les migrations vivent dans `src/mc/migrations/` (dans le package).
 
@@ -32,7 +32,7 @@ Migration : `alembic revision --autogenerate -m "..."` (utilise `alembic.ini`, S
 Un seul processus : `mc.web.app.create_app()` lance le serveur FastAPI **et**, dans le `lifespan`, la tâche `mc.collector.run_forever()` (désactivable avec `MC_COLLECTOR_ENABLED=false`, ce que font les tests).
 
 Flux de données — **le web ne lit jamais BunkerWeb**, uniquement la base :
-1. `collector` : toutes les `MC_POLL_INTERVAL` s, une tâche par instance → `BWClient` (`bw_client.py`, GET uniquement, aucune méthode d'écriture par construction) → `normalize.py` → upsert d'un `Snapshot` par (instance, type : services/bans/jobs/plugins). Échec réseau = statut `down`, dernier snapshot conservé ; échec partiel = `degraded`.
+1. `collector` : toutes les `MC_POLL_INTERVAL` s, une tâche par instance → `BWClient` (`bw_client.py` : toutes les données via `_get`, GET uniquement ; seule autre requête permise : `POST /auth`, aucune méthode publique d'écriture ; deux modes d'authentification, voir plus bas) → `normalize.py` → upsert d'un `Snapshot` par (instance, type : services/bans/jobs/plugins). Échec réseau = statut `down`, dernier snapshot conservé ; échec partiel = `degraded`.
 2. Sonde TLS (`tlsprobe.py`, boucle plus lente `MC_PROBE_INTERVAL`) : handshake vers `IP_instance:port` avec SNI = domaine de chaque service non-brouillon ; lit le certificat sans le valider (volontaire : détecter expirés/auto-signés). Résultats dans `CertProbe`.
 3. `queries.py` transforme les snapshots en modèles de vue (écarts entre instances via `diff.py`, statuts de certificat 7 j rouge / 21 j orange). `web/routes_views.py` est mince.
 
@@ -43,7 +43,8 @@ Authentification (`src/mc/auth/` logique, `src/mc/web/routes_auth.py` + `routes_
 - Second facteur obligatoire : un utilisateur sans facteur est forcé vers `/enroll` (TOTP). Passkeys WebAuthn ajoutables ensuite depuis `/account`. TOTP anti-rejeu via `User.totp_last_step`.
 - `web/deps.py` : `current_user` / `pending_user` / `require_admin` valident la session **et le CSRF** (champ `csrf` ou en-tête `X-CSRF-Token`) pour toute méthode non-GET ; un middleware refuse les `Origin` hors `MC_ORIGINS`. Toute nouvelle route d'écriture authentifiée doit passer par ces dépendances.
 - Verrouillage par compte (`ratelimit.py`, compteur partagé mot de passe / 2FA / ré-authentification) + limiteur par IP en mémoire (processus unique). Les actions sensibles du compte passent par `reauth()` / `revoke_other_sessions()` (`web/reauth.py`).
-- Les tokens API BunkerWeb sont chiffrés en base (Fernet, clé `MC_SECRET_KEY`, `crypto.py`) et jamais réaffichés.
+- Authentification BunkerWeb (`Instance.auth_mode`) : `user` (recommandé) = utilisateur d'API restreint, `api_username` + `api_password_enc` ; `BWClient(credentials=...)` obtient un jeton Biscuit via `POST /auth` (Basic), l'envoie en Bearer, et sur 401 se ré-authentifie une fois et rejoue une fois (échec de `/auth` = `BWError('auth')`, pas de boucle). `token` = `API_TOKEN` statique (`token_enc`, admin, déconseillé). Le collecteur garde les jetons dans `collector._TOKEN_CACHE` (en mémoire, clé = id instance + empreinte sha256 des identifiants chiffrés, donc invalidé à l'édition). Jamais de mot de passe/jeton dans les messages d'erreur ni les logs.
+- Mots de passe et tokens API BunkerWeb sont chiffrés en base (Fernet, clé `MC_SECRET_KEY`, `crypto.py`) et jamais réaffichés.
 
 Conventions utiles :
 - Datetimes en **UTC naïf** partout (`clock.utcnow()`), car SQLite ne garde pas le fuseau.
