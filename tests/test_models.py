@@ -1,5 +1,5 @@
-from mc.db import session_scope
-from mc.models import CertProbe, Instance, Snapshot
+from periscope.db import session_scope
+from periscope.models import CertProbe, Instance, Snapshot
 
 
 def test_instance_probe_target_defaults_to_base_url_host(fresh_db):

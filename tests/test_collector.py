@@ -1,11 +1,11 @@
 from datetime import datetime
 
-from mc import collector
-from mc.bw_client import BWError
-from mc.crypto import encrypt
-from mc.db import session_scope
-from mc.models import CertProbe, Instance, Snapshot
-from mc.tlsprobe import CertInfo
+from periscope import collector
+from periscope.bw_client import BWError
+from periscope.crypto import encrypt
+from periscope.db import session_scope
+from periscope.models import CertProbe, Instance, Snapshot
+from periscope.tlsprobe import CertInfo
 
 
 class Fake:
@@ -134,7 +134,7 @@ async def test_version_truncated(fresh_db):
 def add_user_instance(password="pw") -> int:
     with session_scope() as s:
         inst = Instance(name="u1", base_url="http://10.0.0.5:8888", auth_mode="user",
-                        api_username="mc", api_password_enc=encrypt(password))
+                        api_username="periscope", api_password_enc=encrypt(password))
         s.add(inst)
         s.flush()
         return inst.id
@@ -153,13 +153,13 @@ def test_default_client_user_mode_caches_token_by_fingerprint(fresh_db):
     with session_scope() as s:
         inst = s.get(Instance, iid)
         c = collector.default_client(inst)
-        assert c._credentials == ("mc", "pw") and c.token is None
+        assert c._credentials == ("periscope", "pw") and c.token is None
         c.token = "bisc"
         collector.remember_token(inst, c)
         assert collector.default_client(inst).token == "bisc"
         inst.api_password_enc = encrypt("other")  # changement d'identifiants : cache invalidé
         c2 = collector.default_client(inst)
-        assert c2.token is None and c2._credentials == ("mc", "other")
+        assert c2.token is None and c2._credentials == ("periscope", "other")
 
 
 async def test_collect_one_stores_token_back_in_cache(fresh_db):

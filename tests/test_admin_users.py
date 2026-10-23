@@ -1,11 +1,11 @@
 import pytest
 
-from mc.auth import mfa
-from mc.auth.passwords import verify_password
-from mc.auth.users import create_user
-from mc.clock import utcnow
-from mc.db import session_scope
-from mc.models import Credential, Session, User
+from periscope.auth import mfa
+from periscope.auth.passwords import verify_password
+from periscope.auth.users import create_user
+from periscope.clock import utcnow
+from periscope.db import session_scope
+from periscope.models import Credential, Session, User
 from tests.helpers import PW, login_as, make_client
 
 
@@ -73,7 +73,7 @@ def test_reset_2fa_clears_factors_and_sessions(client, csrf):
         bob.credentials.append(Credential(credential_id=b"c", public_key=b"k"))
         mfa.reset_backup_codes(s, bob)
         s.flush()
-        from mc.auth import sessions
+        from periscope.auth import sessions
         sessions.create(s, bob, True, utcnow())
     r = post(client, csrf, f"/admin/users/{uid('bob')}/reset-2fa")
     assert r.headers["location"] == "/admin/users?m=reset_ok"

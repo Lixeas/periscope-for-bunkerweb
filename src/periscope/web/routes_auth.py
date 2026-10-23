@@ -8,19 +8,19 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from webauthn.helpers import base64url_to_bytes
 
-from mc.auth import mfa, ratelimit, sessions
-from mc.auth import webauthn_ as wa
-from mc.auth.audit import audit
-from mc.auth.passwords import verify_password
-from mc.clock import utcnow
-from mc.config import get_settings
-from mc.db import get_db
-from mc.models import Credential, User
-from mc.web.deps import current_user, pending_user, session_row
-from mc.web.reauth import ERRORS, reauth, revoke_other_sessions
-from mc.web.render import render
+from periscope.auth import mfa, ratelimit, sessions
+from periscope.auth import webauthn_ as wa
+from periscope.auth.audit import audit
+from periscope.auth.passwords import verify_password
+from periscope.clock import utcnow
+from periscope.config import get_settings
+from periscope.db import get_db
+from periscope.models import Credential, User
+from periscope.web.deps import current_user, pending_user, session_row
+from periscope.web.reauth import ERRORS, reauth, revoke_other_sessions
+from periscope.web.render import render
 
-log = logging.getLogger("mc.auth")
+log = logging.getLogger("periscope.auth")
 router = APIRouter()
 limiter = ratelimit.IPLimiter()
 login_failures = ratelimit.LoginFailures()
@@ -75,7 +75,7 @@ def twofa_page(request: Request, user: User, error: str | None = None, status: i
 
 # --- mot de passe ---------------------------------------------------------
 
-LOGIN_CSRF = "mc_login_csrf"
+LOGIN_CSRF = "periscope_login_csrf"
 
 
 def login_form(request: Request, status: int = 200, error: str | None = None):

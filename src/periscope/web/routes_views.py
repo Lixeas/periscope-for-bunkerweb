@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, Request
 
-from mc import queries
-from mc.clock import utcnow
-from mc.db import get_db
-from mc.models import User
-from mc.web.deps import current_user
-from mc.web.render import render
+from periscope import queries
+from periscope.clock import utcnow
+from periscope.db import get_db
+from periscope.models import User
+from periscope.web.deps import current_user
+from periscope.web.render import render
 
 router = APIRouter()
 

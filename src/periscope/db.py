@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from mc.config import get_settings
+from periscope.config import get_settings
 
 
 class Base(DeclarativeBase):

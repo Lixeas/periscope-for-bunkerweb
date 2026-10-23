@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
-from mc.clock import utcnow
-from mc.web.render import templates
+from periscope.clock import utcnow
+from periscope.web.render import templates
 
 
 def test_dt_and_ago_filters():

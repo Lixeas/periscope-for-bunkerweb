@@ -1,6 +1,6 @@
 import pytest
 
-from mc.auth.passwords import hash_password, verify_password
+from periscope.auth.passwords import hash_password, verify_password
 
 
 def test_hash_is_argon2id_and_verifies():

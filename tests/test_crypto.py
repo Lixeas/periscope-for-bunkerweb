@@ -1,7 +1,7 @@
 import pytest
 from cryptography.fernet import InvalidToken
 
-from mc.crypto import decrypt, encrypt
+from periscope.crypto import decrypt, encrypt
 
 
 def test_roundtrip_and_not_plaintext():

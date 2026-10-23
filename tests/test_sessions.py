@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
 
-from mc.auth import sessions
-from mc.auth.users import create_user
-from mc.db import session_scope
-from mc.models import Session
+from periscope.auth import sessions
+from periscope.auth.users import create_user
+from periscope.db import session_scope
+from periscope.models import Session
 
 T0 = datetime(2026, 1, 1, 12, 0)
 IDLE, MAXAGE = 8 * 3600, 24 * 3600

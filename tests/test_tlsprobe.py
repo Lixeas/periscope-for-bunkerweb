@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
-from mc.tlsprobe import probe
+from periscope.tlsprobe import probe
 
 
 def make_cert(tmp_path, org: str, days: int):

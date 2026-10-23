@@ -1,4 +1,4 @@
-from mc import normalize as N
+from periscope import normalize as N
 
 
 def test_services_accepts_list_dict_and_strings():

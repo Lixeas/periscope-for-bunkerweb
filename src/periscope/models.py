@@ -4,8 +4,8 @@ from urllib.parse import urlparse
 from sqlalchemy import JSON, ForeignKey, LargeBinary, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from mc.clock import utcnow
-from mc.db import Base
+from periscope.clock import utcnow
+from periscope.db import Base
 
 
 class User(Base):

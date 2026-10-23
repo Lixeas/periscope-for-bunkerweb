@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
-from mc.clock import utcnow
+from periscope.clock import utcnow
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 

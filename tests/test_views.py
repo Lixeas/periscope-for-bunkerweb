@@ -57,8 +57,8 @@ def test_certificates_page_status_labels(client):
 
 
 def test_bans_jobs_plugins_render_with_hostile_snapshot_values(client):
-    from mc.db import session_scope
-    from mc.models import Instance, Snapshot
+    from periscope.db import session_scope
+    from periscope.models import Instance, Snapshot
     bad = [["x"], {"a": 1}, None, 5]
     with session_scope() as s:
         inst = s.query(Instance).filter_by(name="bw1").one()

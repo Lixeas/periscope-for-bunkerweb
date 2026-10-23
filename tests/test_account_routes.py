@@ -1,8 +1,8 @@
 import pytest
 
-from mc.auth.passwords import verify_password
-from mc.db import session_scope
-from mc.models import Credential, Session, User
+from periscope.auth.passwords import verify_password
+from periscope.db import session_scope
+from periscope.models import Credential, Session, User
 from tests.helpers import PW, csrf_of, full_login, make_client, make_user
 
 
@@ -49,8 +49,8 @@ def test_change_password_revokes_other_sessions(logged):
     client, csrf = logged
     with session_scope() as s:
         user = s.query(User).one()
-        from mc.auth import sessions
-        from mc.clock import utcnow
+        from periscope.auth import sessions
+        from periscope.clock import utcnow
         sessions.create(s, user, True, utcnow())  # une autre session
         assert s.query(Session).count() == 2
     new = "another long passphrase"
@@ -106,8 +106,8 @@ def test_reauth_failures_lock_the_account(logged):
 
 
 def _other_session():
-    from mc.auth import sessions
-    from mc.clock import utcnow
+    from periscope.auth import sessions
+    from periscope.clock import utcnow
     with session_scope() as s:
         user = s.query(User).one()
         sessions.create(s, user, True, utcnow())
@@ -120,7 +120,7 @@ def _sessions():
 
 
 def _events():
-    from mc.models import AuditLog
+    from periscope.models import AuditLog
     with session_scope() as s:
         return [e.event for e in s.query(AuditLog).order_by(AuditLog.id)]
 
@@ -169,7 +169,7 @@ def test_failed_reauth_keeps_other_sessions(logged):
 
 
 def test_passkey_register_closes_other_sessions(logged, monkeypatch):
-    from mc.auth import webauthn_ as wa
+    from periscope.auth import webauthn_ as wa
     client, csrf = logged
     h = {"X-CSRF-Token": csrf}
     assert client.post("/webauthn/register/options", headers=h, json={"password": PW}).status_code == 200

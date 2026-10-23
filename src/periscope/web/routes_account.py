@@ -1,15 +1,15 @@
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
-from mc.auth import mfa
-from mc.auth.audit import audit
-from mc.auth.passwords import MIN_LENGTH, hash_password
-from mc.db import get_db
-from mc.models import Credential, User
-from mc.web.deps import current_user
-from mc.web.reauth import ERRORS, reauth, revoke_other_sessions
-from mc.web.render import render
-from mc.web.routes_auth import ip_of
+from periscope.auth import mfa
+from periscope.auth.audit import audit
+from periscope.auth.passwords import MIN_LENGTH, hash_password
+from periscope.db import get_db
+from periscope.models import Credential, User
+from periscope.web.deps import current_user
+from periscope.web.reauth import ERRORS, reauth, revoke_other_sessions
+from periscope.web.render import render
+from periscope.web.routes_auth import ip_of
 
 router = APIRouter(prefix="/account")
 

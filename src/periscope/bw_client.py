@@ -3,7 +3,7 @@ from urllib.parse import quote
 
 import httpx
 
-from mc import normalize as N
+from periscope import normalize as N
 
 
 class BWError(Exception):

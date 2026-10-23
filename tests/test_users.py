@@ -1,8 +1,8 @@
 import pytest
 
-from mc.auth.users import create_user
-from mc.db import session_scope
-from mc.models import User
+from periscope.auth.users import create_user
+from periscope.db import session_scope
+from periscope.models import User
 
 
 def test_create_user_and_reject_duplicates_and_bad_input(fresh_db):

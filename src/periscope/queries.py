@@ -2,9 +2,9 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from mc import diff
-from mc.config import get_settings
-from mc.models import CertProbe, Instance, Snapshot
+from periscope import diff
+from periscope.config import get_settings
+from periscope.models import CertProbe, Instance, Snapshot
 
 CERT_ORDER = {"expired": 0, "none": 1, "red": 2, "orange": 3, "ok": 4}
 

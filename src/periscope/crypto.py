@@ -1,6 +1,6 @@
 from cryptography.fernet import Fernet
 
-from mc.config import get_settings
+from periscope.config import get_settings
 
 
 def _fernet() -> Fernet:

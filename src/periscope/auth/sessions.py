@@ -4,9 +4,9 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session as DB
 
-from mc.models import Session, User
+from periscope.models import Session, User
 
-COOKIE = "mc_session"
+COOKIE = "periscope_session"
 PENDING_IDLE = 300  # session « mot de passe OK, 2FA en attente »
 PENDING_MAX = 900
 

@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from mc.web.app import create_app
+from periscope.web.app import create_app
 
 
 @pytest.fixture
@@ -40,3 +40,10 @@ def test_foreign_origin_rejected_on_unsafe_methods(client):
 def test_docs_disabled(client):
     assert client.get("/docs").status_code == 404
     assert client.get("/openapi.json").status_code == 404
+
+
+def test_login_page_shows_name_and_non_affiliation_footer(client):
+    r = client.get("/login")
+    assert r.status_code == 200
+    assert "Periscope for BunkerWeb" in r.text
+    assert "Projet indépendant, non affilié à Bunkerity." in r.text

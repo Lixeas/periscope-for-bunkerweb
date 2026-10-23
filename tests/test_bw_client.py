@@ -2,7 +2,7 @@ import httpx
 import pytest
 import respx
 
-from mc.bw_client import BWClient, BWError
+from periscope.bw_client import BWClient, BWError
 
 BASE = "http://bw:8888"
 
@@ -58,7 +58,7 @@ async def test_services_include_mode_and_quote_names():
                    {"name": "b.example", "draft": False, "mode": None}]
 
 
-CREDS = ("mc", "s3cret!")
+CREDS = ("periscope", "s3cret!")
 
 
 @respx.mock
@@ -71,7 +71,7 @@ async def test_user_mode_authenticates_lazily_with_basic_and_sends_bearer():
     await c.ping()
     assert auth.call_count == 1
     import base64
-    assert auth.calls[0].request.headers["authorization"] == "Basic " + base64.b64encode(b"mc:s3cret!").decode()
+    assert auth.calls[0].request.headers["authorization"] == "Basic " + base64.b64encode(b"periscope:s3cret!").decode()
     assert ping.calls[0].request.headers["authorization"] == "Bearer bisc1"
     assert c.token == "bisc1"
 
