@@ -1,49 +1,49 @@
-> Note : ce document est historique. Le projet s'appelait « BunkerWeb Mission Control » ; il a été renommé « Periscope for BunkerWeb » (paquet `periscope`, préfixe `PERISCOPE_`). Les noms ci-dessous sont ceux d'origine.
+> Note: this document is historical. The project was called "BunkerWeb Mission Control"; it has since been renamed "Periscope for BunkerWeb" (package `periscope`, prefix `PERISCOPE_`). The names below are the original ones.
 
-# BunkerWeb Mission Control — Plan 3/3 : Vues, administration, livraison
+# BunkerWeb Mission Control — Plan 3/3: Views, administration, delivery
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal :** Les 5 vues de supervision (santé, services, bans, jobs/plugins, certificats), l'administration (instances, utilisateurs, audit), l'API JSON de rafraîchissement, et la livraison (Docker, README, licence AGPLv3, CI, serveur BunkerWeb factice de démo, validation sur une vraie instance).
+**Goal:** The 5 monitoring views (health, services, bans, jobs/plugins, certificates), administration (instances, users, audit), the JSON refresh API, and delivery (Docker, README, AGPLv3 license, CI, fake BunkerWeb demo server, validation against a real instance).
 
-**Architecture :** `mc.queries` calcule les modèles de vue à partir de la base (fonctions pures sur la session, testables). Les routes `routes_views` et `routes_admin` sont minces. Les tableaux se trient/filtrent côté navigateur (`table.js`) ; l'accueil se rafraîchit via `/api/summary` (`refresh.js`), les autres pages via `<meta refresh>`.
+**Architecture:** `mc.queries` computes the view models from the database (pure functions over the session, testable). The `routes_views` and `routes_admin` routes are thin. Tables are sorted/filtered in the browser (`table.js`); the home page refreshes via `/api/summary` (`refresh.js`), the other pages via `<meta refresh>`.
 
-**Tech Stack :** FastAPI, Jinja2, Bootstrap (CSS local), JS vanilla sans dépendance.
+**Tech Stack:** FastAPI, Jinja2, Bootstrap (local CSS), dependency-free vanilla JS.
 
-**Prérequis :** Plans 1 et 2 terminés.
+**Prerequisites:** Plans 1 and 2 completed.
 
 ---
 
-## Couverture de la spec
+## Spec coverage
 
 | Spec | Task |
 |---|---|
-| §5 Accueil/Santé, Services, Bans, Jobs+plugins, Certificats | 1, 3 |
-| §5 Administration (instances, utilisateurs, audit) | 4, 5 |
-| §5 Compte | Plan 2 Task 8 |
-| §5 Transverse : thème, tableaux triables/filtrables | 2 |
-| §3 API JSON interne | 3 (`/api/summary`) |
-| §8 Livraison (Docker, compose, CLI, AGPLv3, README, CI) | 6 |
-| §7 Validation de bout en bout | 7 (serveur factice), 8 (vraie instance) |
+| §5 Home/Health, Services, Bans, Jobs+plugins, Certificates | 1, 3 |
+| §5 Administration (instances, users, audit) | 4, 5 |
+| §5 Account | Plan 2 Task 8 |
+| §5 Cross-cutting: theme, sortable/filterable tables | 2 |
+| §3 Internal JSON API | 3 (`/api/summary`) |
+| §8 Delivery (Docker, compose, CLI, AGPLv3, README, CI) | 6 |
+| §7 End-to-end validation | 7 (fake server), 8 (real instance) |
 
-**Écart assumé :** la spec prévoyait un `docker-compose` de dev avec 2 vraies instances BunkerWeb. Le plan fournit un serveur factice reproductible (Task 7) pour la démo/CI, et la validation sur vos vraies instances est une étape manuelle guidée (Task 8) : la configuration d'une instance BunkerWeb dépend de votre environnement.
+**Accepted deviation:** the spec called for a dev `docker-compose` with 2 real BunkerWeb instances. The plan instead provides a reproducible fake server (Task 7) for the demo/CI, and validation against your real instances is a guided manual step (Task 8): configuring a BunkerWeb instance depends on your environment.
 
 ---
 
-## Structure des fichiers
+## File structure
 
 ```
-src/mc/queries.py                 modèles de vue
-src/mc/collector.py               (modif) refresh_instance()
-src/mc/web/render.py              (modif) filtres dt / ago
+src/mc/queries.py                 view models
+src/mc/collector.py               (modified) refresh_instance()
+src/mc/web/render.py              (modified) dt / ago filters
 src/mc/web/routes_views.py        dashboard, services, bans, jobs, certificates, /api/summary
-src/mc/web/routes_admin.py        instances, utilisateurs, audit
-src/mc/web/routes_pages.py        (modif) seulement "/"
-src/mc/web/app.py                 (modif) nouveaux routeurs
-src/mc/web/templates/             base (modif), _macros, dashboard, services, bans, jobs,
+src/mc/web/routes_admin.py        instances, users, audit
+src/mc/web/routes_pages.py        (modified) only "/"
+src/mc/web/app.py                 (modified) new routers
+src/mc/web/templates/             base (modified), _macros, dashboard, services, bans, jobs,
                                   certificates, admin_instances, admin_instance_edit,
                                   admin_users, admin_audit
-src/mc/web/static/                table.js, refresh.js, app.css (modif)
+src/mc/web/static/                table.js, refresh.js, app.css (modified)
 Dockerfile  docker-compose.yml  .env.example  README.md  LICENSE
 .github/workflows/ci.yml
 dev/fake_bunkerweb.py
@@ -52,13 +52,13 @@ tests/test_queries.py  tests/test_views.py  tests/test_admin_instances.py  tests
 
 ---
 
-### Task 1 : Modèles de vue (`queries.py`)
+### Task 1: View models (`queries.py`)
 
 **Files:**
 - Create: `src/mc/queries.py`
 - Test: `tests/test_queries.py`
 
-- [ ] **Step 1 : Écrire le test**
+- [ ] **Step 1: Write the test**
 
 ```python
 from datetime import timedelta
@@ -164,12 +164,12 @@ def test_certs_sorted_worst_first_with_status(fresh_db):
     assert rows[2]["letsencrypt"] is False
 ```
 
-- [ ] **Step 2 : Lancer, vérifier l'échec**
+- [ ] **Step 2: Run, verify it fails**
 
 Run: `python -m pytest tests/test_queries.py -v`
 Expected: FAIL (`ImportError: mc.queries`).
 
-- [ ] **Step 3 : Implémenter `src/mc/queries.py`**
+- [ ] **Step 3: Implement `src/mc/queries.py`**
 
 ```python
 from datetime import datetime
@@ -184,7 +184,7 @@ CERT_ORDER = {"expired": 0, "none": 1, "red": 2, "orange": 3, "ok": 4}
 
 
 def _by_instance(db: Session, kind: str) -> dict[str, list]:
-    """{nom d'instance: dernier snapshot} pour les instances activées ayant un snapshot de ce type."""
+    """{instance name: latest snapshot} for enabled instances that have a snapshot of this type."""
     names = {i.id: i.name for i in db.query(Instance).filter_by(enabled=True)}
     return {names[s.instance_id]: s.payload
             for s in db.query(Snapshot).filter_by(kind=kind) if s.instance_id in names}
@@ -267,16 +267,16 @@ def certs(db: Session, now: datetime) -> list[dict]:
     return rows
 ```
 
-- [ ] **Step 4 : Corriger l'assertion ambiguë du test, lancer**
+- [ ] **Step 4: Fix the ambiguous test assertion, run**
 
-Dans `test_certs_sorted_worst_first_with_status`, remplacer la ligne `assert red["letsencrypt"] is True and red["days"] == 2 or red["days"] == 3` par :
+In `test_certs_sorted_worst_first_with_status`, replace the line `assert red["letsencrypt"] is True and red["days"] == 2 or red["days"] == 3` with:
 ```python
     assert red["letsencrypt"] is True and red["days"] in (2, 3)
 ```
 Run: `python -m pytest tests/test_queries.py -v`
 Expected: 6 passed.
 
-- [ ] **Step 5 : Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add src/mc/queries.py tests/test_queries.py
@@ -285,14 +285,14 @@ git commit -m "feat: view-model queries"
 
 ---
 
-### Task 2 : Gabarit commun, filtres, JS tableaux, rafraîchissement
+### Task 2: Shared layout, filters, table JS, refresh
 
 **Files:**
 - Modify: `src/mc/web/render.py`, `src/mc/web/templates/base.html`, `src/mc/web/static/app.css`
 - Create: `src/mc/web/templates/_macros.html`, `src/mc/web/static/table.js`, `src/mc/web/static/refresh.js`
 - Test: `tests/test_render_filters.py`
 
-- [ ] **Step 1 : Écrire le test**
+- [ ] **Step 1: Write the test**
 
 ```python
 from datetime import datetime, timedelta
@@ -312,12 +312,12 @@ def test_dt_and_ago_filters():
     assert ago(utcnow() - timedelta(days=2, seconds=1)) == "il y a 2 j"
 ```
 
-- [ ] **Step 2 : Lancer, vérifier l'échec**
+- [ ] **Step 2: Run, verify it fails**
 
 Run: `python -m pytest tests/test_render_filters.py -v`
 Expected: FAIL (`KeyError: 'dt'`).
 
-- [ ] **Step 3 : Modifier `src/mc/web/render.py`** (remplacer le fichier)
+- [ ] **Step 3: Modify `src/mc/web/render.py`** (replace the file)
 
 ```python
 from datetime import datetime
@@ -359,7 +359,7 @@ def render(request: Request, name: str, status: int = 200, **ctx):
     return templates.TemplateResponse(request, name, ctx, status_code=status)
 ```
 
-- [ ] **Step 4 : Remplacer `src/mc/web/templates/base.html`**
+- [ ] **Step 4: Replace `src/mc/web/templates/base.html`**
 
 ```html
 <!doctype html>
@@ -408,7 +408,7 @@ def render(request: Request, name: str, status: int = 200, **ctx):
 </html>
 ```
 
-- [ ] **Step 5 : Écrire `_macros.html`, JS et CSS**
+- [ ] **Step 5: Write `_macros.html`, JS and CSS**
 
 `src/mc/web/templates/_macros.html` :
 ```html
@@ -478,19 +478,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!tiles.length) return;
     try {
       const r = await fetch("/api/summary", {credentials: "same-origin"});
-      if (r.redirected || !r.ok) { location.reload(); return; }  // session expirée
+      if (r.redirected || !r.ok) { location.reload(); return; }  // session expired
       const data = await r.json();
       tiles.forEach((el) => {
         const v = data[el.dataset.summary];
         if (v !== undefined) el.textContent = v;
       });
-    } catch (e) { /* réseau indisponible : nouvel essai au prochain tour */ }
+    } catch (e) { /* network unavailable: retry on the next tick */ }
   };
   setInterval(tick, 30000);
 })();
 ```
 
-Remplacer `src/mc/web/static/app.css` :
+Replace `src/mc/web/static/app.css`:
 ```css
 body { min-height: 100vh; }
 nav a { text-decoration: none; }
@@ -502,12 +502,12 @@ th[aria-sort="descending"]::after { content: " ↓"; opacity: 1; }
 .tile .value { font-size: 2rem; font-weight: 600; line-height: 1.1; }
 ```
 
-- [ ] **Step 6 : Lancer, vérifier le succès**
+- [ ] **Step 6: Run, verify it passes**
 
 Run: `python -m pytest tests/test_render_filters.py tests/test_web_shell.py tests/test_auth_routes.py -q`
-Expected: tous passent (le gabarit modifié ne casse pas les pages existantes).
+Expected: all pass (the modified layout does not break existing pages).
 
-- [ ] **Step 7 : Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/mc/web tests/test_render_filters.py
@@ -516,25 +516,25 @@ git commit -m "feat: shared layout, formatting filters, sortable/filterable tabl
 
 ---
 
-### Task 3 : Routes et templates de supervision
+### Task 3: Monitoring routes and templates
 
 **Files:**
-- Create: `src/mc/web/routes_views.py`, `templates/dashboard.html` (remplace), `services.html`, `bans.html`, `jobs.html`, `certificates.html`
+- Create: `src/mc/web/routes_views.py`, `templates/dashboard.html` (replaces the existing one), `services.html`, `bans.html`, `jobs.html`, `certificates.html`
 - Modify: `src/mc/web/routes_pages.py`, `src/mc/web/app.py`, `tests/helpers.py`
 - Test: `tests/test_views.py`
 
-- [ ] **Step 1 : Ajouter un helper de connexion à `tests/helpers.py`** (en fin de fichier)
+- [ ] **Step 1: Add a login helper to `tests/helpers.py`** (at the end of the file)
 
 ```python
 
 def login_as(client, username="alice", role="admin") -> str:
-    """Crée l'utilisateur, se connecte (mot de passe + TOTP) ; retourne le jeton CSRF de la session."""
+    """Create the user, log in (password + TOTP); return the session's CSRF token."""
     secret = make_user(username, role)
     assert full_login(client, secret, username).status_code == 303
     return csrf_of(client.get("/dashboard").text)
 ```
 
-- [ ] **Step 2 : Écrire le test**
+- [ ] **Step 2: Write the test**
 
 ```python
 import pytest
@@ -593,12 +593,12 @@ def test_certificates_page_status_labels(client):
     assert "Critique" in r.text and "Aucun" in r.text and "Valide" in r.text and "Let's Encrypt" in r.text
 ```
 
-- [ ] **Step 3 : Lancer, vérifier l'échec**
+- [ ] **Step 3: Run, verify it fails**
 
 Run: `python -m pytest tests/test_views.py -v`
-Expected: FAIL (404 sur `/services`, etc.).
+Expected: FAIL (404 on `/services`, etc.).
 
-- [ ] **Step 4 : Implémenter les routes**
+- [ ] **Step 4: Implement the routes**
 
 `src/mc/web/routes_views.py` :
 ```python
@@ -649,7 +649,7 @@ async def certificates(request: Request, user: User = Depends(current_user), db=
     return render(request, "certificates.html", user=user, rows=queries.certs(db, utcnow()))
 ```
 
-Remplacer `src/mc/web/routes_pages.py` :
+Replace `src/mc/web/routes_pages.py`:
 ```python
 from fastapi import APIRouter
 from fastapi.responses import RedirectResponse
@@ -662,7 +662,7 @@ async def index():
     return RedirectResponse("/dashboard", 303)
 ```
 
-Dans `src/mc/web/app.py`, remplacer le bloc d'inclusion des routeurs :
+In `src/mc/web/app.py`, replace the router inclusion block:
 ```python
     from mc.web import routes_account, routes_auth, routes_pages, routes_views
 
@@ -672,9 +672,9 @@ Dans `src/mc/web/app.py`, remplacer le bloc d'inclusion des routeurs :
     app.include_router(routes_pages.router)
 ```
 
-- [ ] **Step 5 : Écrire les templates**
+- [ ] **Step 5: Write the templates**
 
-`src/mc/web/templates/dashboard.html` (remplace) :
+`src/mc/web/templates/dashboard.html` (replaces the existing one):
 ```html
 {% extends "base.html" %}
 {% from "_macros.html" import instance_badge %}
@@ -873,12 +873,12 @@ Dans `src/mc/web/app.py`, remplacer le bloc d'inclusion des routeurs :
 {% endblock %}
 ```
 
-- [ ] **Step 6 : Lancer, vérifier le succès**
+- [ ] **Step 6: Run, verify it passes**
 
 Run: `python -m pytest tests/test_views.py tests/test_auth_routes.py tests/test_web_shell.py -q`
 Expected: tous passent.
 
-- [ ] **Step 7 : Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/mc/web tests/helpers.py tests/test_views.py
@@ -887,23 +887,23 @@ git commit -m "feat: supervision views (health, services, bans, jobs/plugins, ce
 
 ---
 
-### Task 4 : Administration des instances
+### Task 4: Instance administration
 
 **Files:**
 - Modify: `src/mc/collector.py` (ajout `refresh_instance`), `src/mc/web/app.py`
 - Create: `src/mc/web/routes_admin.py`, `templates/admin_instances.html`, `templates/admin_instance_edit.html`
 - Test: `tests/test_admin_instances.py`
 
-- [ ] **Step 1 : Ajouter `refresh_instance` à `src/mc/collector.py`** (après `probe_one`)
+- [ ] **Step 1: Add `refresh_instance` to `src/mc/collector.py`** (after `probe_one`)
 
 ```python
 async def refresh_instance(inst_id: int) -> None:
-    """Collecte puis sonde immédiatement une instance (après ajout ou modification)."""
+    """Immediately collect from, then probe, an instance (after it is added or modified)."""
     await collect_one(inst_id)
     await probe_one(inst_id)
 ```
 
-- [ ] **Step 2 : Écrire le test**
+- [ ] **Step 2: Write the test**
 
 ```python
 import pytest
@@ -1035,18 +1035,18 @@ def test_delete_cascades(client, admin):
 
 def test_reader_forbidden_and_csrf_required(client, admin):
     csrf, _, _ = admin
-    assert client.post("/admin/instances", data=FORM).status_code == 403  # sans CSRF
+    assert client.post("/admin/instances", data=FORM).status_code == 403  # without CSRF
     with make_client() as c2:
         login_as(c2, "bob", "reader")
         assert c2.get("/admin/instances").status_code == 403
 ```
 
-- [ ] **Step 3 : Lancer, vérifier l'échec**
+- [ ] **Step 3: Run, verify it fails**
 
 Run: `python -m pytest tests/test_admin_instances.py -v`
 Expected: FAIL (`ImportError: routes_admin`).
 
-- [ ] **Step 4 : Implémenter `src/mc/web/routes_admin.py`** (partie instances ; la partie utilisateurs/audit est ajoutée à la Task 5)
+- [ ] **Step 4: Implement `src/mc/web/routes_admin.py`** (instances part; the users/audit part is added in Task 5)
 
 ```python
 import re
@@ -1078,7 +1078,7 @@ KIND_LABEL = {"network": "Instance injoignable", "auth": "Authentification refus
 
 
 async def check_instance(base_url: str, token: str, verify_tls: bool) -> str | None:
-    """Test de connexion : ping + un appel authentifié. Retourne un message d'erreur ou None."""
+    """Connection test: ping + one authenticated call. Returns an error message or None."""
     client = BWClient(base_url, token, timeout=get_settings().http_timeout, verify=verify_tls)
     try:
         await client.ping()
@@ -1095,7 +1095,7 @@ def clean_url(raw: str) -> str:
     try:
         u = urlparse(raw)
         ok = u.scheme in ("http", "https") and u.hostname and not u.username and not u.password
-        u.port  # lève ValueError si le port est invalide
+        u.port  # raises ValueError if the port is invalid
     except ValueError:
         ok = False
     if not ok:
@@ -1198,7 +1198,7 @@ async def instance_delete(request: Request, inst_id: int, user: User = Depends(r
     return RedirectResponse("/admin/instances?m=deleted", 303)
 ```
 
-- [ ] **Step 5 : Templates**
+- [ ] **Step 5: Templates**
 
 `src/mc/web/templates/admin_instances.html` :
 ```html
@@ -1294,7 +1294,7 @@ async def instance_delete(request: Request, inst_id: int, user: User = Depends(r
 {% endblock %}
 ```
 
-- [ ] **Step 6 : Inclure le routeur** — dans `src/mc/web/app.py` :
+- [ ] **Step 6: Include the router** — in `src/mc/web/app.py`:
 
 ```python
     from mc.web import routes_account, routes_admin, routes_auth, routes_pages, routes_views
@@ -1306,12 +1306,12 @@ async def instance_delete(request: Request, inst_id: int, user: User = Depends(r
     app.include_router(routes_pages.router)
 ```
 
-- [ ] **Step 7 : Lancer, vérifier le succès**
+- [ ] **Step 7: Run, verify it passes**
 
 Run: `python -m pytest tests/test_admin_instances.py -v`
-Expected: tous passent (12 : 4 simples + 5 paramétrés + autres).
+Expected: all pass (12: 4 simple + 5 parametrized + others).
 
-- [ ] **Step 8 : Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add src/mc tests/test_admin_instances.py
@@ -1320,14 +1320,14 @@ git commit -m "feat: instance administration with connection test"
 
 ---
 
-### Task 5 : Administration des utilisateurs et audit
+### Task 5: User administration and audit
 
 **Files:**
 - Modify: `src/mc/web/routes_admin.py`
 - Create: `templates/admin_users.html`, `templates/admin_audit.html`
 - Test: `tests/test_admin_users.py`
 
-- [ ] **Step 1 : Écrire le test**
+- [ ] **Step 1: Write the test**
 
 ```python
 import pytest
@@ -1386,7 +1386,7 @@ def test_cannot_delete_self_or_last_admin_or_demote_last_admin(client, csrf):
         create_user(s, "carol", PW, "admin")
     carol = uid("carol")
     assert post(client, csrf, f"/admin/users/{carol}/role", role="reader").headers["location"] == "/admin/users?m=role_ok"
-    # alice redevient seule admin : ne peut plus se rétrograder
+    # alice is the only admin again: can no longer demote herself
     assert post(client, csrf, f"/admin/users/{me}/role", role="reader").headers["location"] == "/admin/users?m=last_admin"
 
 
@@ -1448,24 +1448,24 @@ def test_audit_page_lists_admin_actions_and_is_admin_only(client, csrf):
         assert c2.get("/admin/users").status_code == 403
 ```
 
-- [ ] **Step 2 : Lancer, vérifier l'échec**
+- [ ] **Step 2: Run, verify it fails**
 
 Run: `python -m pytest tests/test_admin_users.py -v`
-Expected: FAIL (404 sur `/admin/users`).
+Expected: FAIL (404 on `/admin/users`).
 
-- [ ] **Step 3 : Compléter `src/mc/web/routes_admin.py`**
+- [ ] **Step 3: Complete `src/mc/web/routes_admin.py`**
 
-Ajouter aux imports en tête de fichier :
+Add to the imports at the top of the file:
 ```python
 from mc.auth.passwords import MIN_LENGTH, hash_password
 from mc.auth.users import create_user
 from mc.models import AuditLog, Session
 ```
-(et fusionner `from mc.models import Instance, User` en `from mc.models import AuditLog, Instance, Session, User`.)
+(and merge `from mc.models import Instance, User` into `from mc.models import AuditLog, Instance, Session, User`.)
 
-Ajouter à la fin du fichier :
+Add at the end of the file:
 ```python
-# --- utilisateurs ----------------------------------------------------------
+# --- users -----------------------------------------------------------------
 
 USER_MESSAGES = {
     "created": "Utilisateur créé. Il devra enregistrer un second facteur à sa première connexion.",
@@ -1579,7 +1579,7 @@ async def audit_get(request: Request, user: User = Depends(require_admin), db=De
     return render(request, "admin_audit.html", user=user, rows=rows)
 ```
 
-- [ ] **Step 4 : Templates**
+- [ ] **Step 4: Templates**
 
 `src/mc/web/templates/admin_users.html` :
 ```html
@@ -1666,17 +1666,17 @@ async def audit_get(request: Request, user: User = Depends(require_admin), db=De
 {% endblock %}
 ```
 
-- [ ] **Step 5 : Lancer, vérifier le succès**
+- [ ] **Step 5: Run, verify it passes**
 
 Run: `python -m pytest tests/test_admin_users.py -v`
 Expected: 8 passed.
 
-- [ ] **Step 6 : Suite complète**
+- [ ] **Step 6: Full suite**
 
 Run: `python -m pytest -q && ruff check src tests`
-Expected: tout vert.
+Expected: all green.
 
-- [ ] **Step 7 : Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/mc tests/test_admin_users.py
@@ -1685,12 +1685,12 @@ git commit -m "feat: user administration and audit log"
 
 ---
 
-### Task 6 : Livraison (Docker, compose, README, licence, CI)
+### Task 6: Delivery (Docker, compose, README, license, CI)
 
 **Files:**
 - Create: `Dockerfile`, `docker-compose.yml`, `.env.example`, `README.md`, `LICENSE`, `.dockerignore`, `.github/workflows/ci.yml`
 
-- [ ] **Step 1 : `Dockerfile`**
+- [ ] **Step 1: `Dockerfile`**
 
 ```dockerfile
 FROM python:3.12-slim
@@ -1710,7 +1710,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/login').status == 200 else 1)"
 
-# FORWARDED_ALLOW_IPS (lu par uvicorn) : IP du reverse proxy autorisé à fixer X-Forwarded-For.
+# FORWARDED_ALLOW_IPS (read by uvicorn): IP of the reverse proxy allowed to set X-Forwarded-For.
 CMD ["uvicorn", "mc.web.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
 ```
 
@@ -1726,7 +1726,7 @@ __pycache__
 .env
 ```
 
-- [ ] **Step 2 : `docker-compose.yml`**
+- [ ] **Step 2: `docker-compose.yml`**
 
 ```yaml
 services:
@@ -1738,8 +1738,8 @@ services:
       FORWARDED_ALLOW_IPS: "${MC_TRUSTED_PROXY:-127.0.0.1}"
     volumes:
       - mc-data:/data
-    # Accès local uniquement par défaut. Pour exposer via BunkerWeb : retirer "ports" et
-    # rattacher ce service au réseau Docker de BunkerWeb (voir README).
+    # Local access only by default. To expose via BunkerWeb: remove "ports" and
+    # attach this service to BunkerWeb's Docker network (see README).
     ports:
       - "127.0.0.1:8000:8000"
     read_only: true
@@ -1755,91 +1755,91 @@ volumes:
 
 `.env.example` :
 ```
-# Clé de chiffrement des tokens BunkerWeb (OBLIGATOIRE). Génération :
+# Encryption key for BunkerWeb tokens (REQUIRED). Generate with:
 #   python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())"
-# Sauvegardez-la hors du serveur : sans elle, les tokens enregistrés sont perdus.
+# Back it up off the server: without it, stored tokens are lost.
 MC_SECRET_KEY=
 
-# Domaine WebAuthn (passkeys) et origines autorisées (JSON). Mettre TOUTES les URLs d'accès.
+# WebAuthn domain (passkeys) and allowed origins (JSON). Put ALL access URLs.
 MC_RP_ID=mc.example.com
 MC_ORIGINS=["https://mc.example.com","http://localhost:8000"]
 
-# true derrière HTTPS (cookies Secure + HSTS). false uniquement pour un essai en HTTP local.
+# true behind HTTPS (Secure cookies + HSTS). false only for a local HTTP trial.
 MC_COOKIE_SECURE=true
 
-# IP du reverse proxy de confiance (pour l'IP cliente dans l'audit et l'anti-bruteforce)
+# IP of the trusted reverse proxy (for the client IP in the audit log and brute-force protection)
 MC_TRUSTED_PROXY=127.0.0.1
 
-# Optionnel
+# Optional
 # MC_POLL_INTERVAL=30
 # MC_PROBE_INTERVAL=900
 # MC_HTTP_TIMEOUT=5
 ```
 
-- [ ] **Step 3 : Licence AGPLv3**
+- [ ] **Step 3: AGPLv3 license**
 
 Run:
 ```bash
 curl -fsSL -o LICENSE https://www.gnu.org/licenses/agpl-3.0.txt
 head -3 LICENSE
 ```
-Expected : `GNU AFFERO GENERAL PUBLIC LICENSE` / `Version 3, 19 November 2007`.
+Expected: `GNU AFFERO GENERAL PUBLIC LICENSE` / `Version 3, 19 November 2007`.
 
-- [ ] **Step 4 : `README.md`**
+- [ ] **Step 4: `README.md`**
 
 ````markdown
 # BunkerWeb Mission Control
 
-Supervision **en lecture seule** de plusieurs instances [BunkerWeb](https://www.bunkerweb.io/) (2 à 10, même réseau) depuis une seule interface, via l'API BunkerWeb.
+**Read-only** monitoring of several [BunkerWeb](https://www.bunkerweb.io/) instances (2 to 10, same network) from a single interface, via the BunkerWeb API.
 
-- Santé des instances, services protégés, bans actifs, jobs et plugins (avec écarts entre instances)
-- État des certificats réellement servis (sonde TLS directe : existence, émetteur, expiration)
-- Authentification forte : mot de passe (argon2id) + second facteur **obligatoire** (TOTP ou passkey WebAuthn), codes de secours, anti-bruteforce, audit
-- Rôles `admin` / `lecteur`
-- Aucun accès en écriture à BunkerWeb : le client n'émet que des `GET`
+- Instance health, protected services, active bans, jobs and plugins (with differences between instances)
+- Status of the certificates actually served (direct TLS probe: presence, issuer, expiry)
+- Strong authentication: password (argon2id) + **mandatory** second factor (TOTP or WebAuthn passkey), recovery codes, brute-force protection, audit log
+- Roles `admin` / `reader`
+- No write access to BunkerWeb: the client only issues `GET` requests
 
-Licence : AGPL-3.0-or-later.
+License: AGPL-3.0-or-later.
 
-## Démarrage rapide (Docker)
+## Quick start (Docker)
 
 ```bash
 cp .env.example .env
-# renseigner MC_SECRET_KEY (voir le fichier), MC_RP_ID et MC_ORIGINS
+# fill in MC_SECRET_KEY (see the file), MC_RP_ID and MC_ORIGINS
 docker compose up -d --build
 docker compose exec -it mission-control mc bootstrap-admin --username admin
 ```
 
-Ouvrez `http://localhost:8000`, connectez-vous : l'enrôlement d'un second facteur (TOTP) est exigé avant tout accès. Ajoutez ensuite vos instances dans **Instances**.
+Open `http://localhost:8000` and log in: enrolling a second factor (TOTP) is required before any access. Then add your instances under **Instances**.
 
-## Token d'API BunkerWeb (lecture seule)
+## BunkerWeb API token (read-only)
 
-Créez, côté BunkerWeb (voir la section API de la documentation), une identité dédiée n'ayant que les permissions de lecture : `instances_read`, `service_read`, `global_config_read`, `ban_read`, `job_read`, `plugin_read`. Collez son token dans Mission Control ; il est chiffré en base et n'est jamais réaffiché.
+On the BunkerWeb side (see the API section of its documentation), create a dedicated identity with read permissions only: `instances_read`, `service_read`, `global_config_read`, `ban_read`, `job_read`, `plugin_read`. Paste its token into Mission Control; it is encrypted in the database and never displayed again.
 
-## Accès local et par domaine
+## Local and domain access
 
-- Même application pour les deux accès. Listez toutes les URLs dans `MC_ORIGINS` (protection contre les requêtes inter-origines).
-- Les **passkeys sont liées au domaine** (`MC_RP_ID`) : elles fonctionnent via le domaine, pas via `localhost`/IP. En local, utilisez le TOTP.
-- Derrière BunkerWeb : retirez `ports` du `docker-compose.yml`, rattachez le service au réseau de BunkerWeb, déclarez le service dans BunkerWeb avec `USE_REVERSE_PROXY=yes` et l'URL interne `http://mission-control:8000`, et renseignez `MC_TRUSTED_PROXY` avec l'IP de BunkerWeb sur ce réseau.
+- Same application for both accesses. List all URLs in `MC_ORIGINS` (cross-origin request protection).
+- **Passkeys are bound to the domain** (`MC_RP_ID`): they work through the domain, not through `localhost`/IP. Locally, use TOTP.
+- Behind BunkerWeb: remove `ports` from `docker-compose.yml`, attach the service to BunkerWeb's network, declare the service in BunkerWeb with `USE_REVERSE_PROXY=yes` and the internal URL `http://mission-control:8000`, and set `MC_TRUSTED_PROXY` to BunkerWeb's IP on that network.
 
-## Sécurité
+## Security
 
-- Cookies `HttpOnly`, `Secure`, `SameSite=Strict`, sessions serveur (8 h d'inactivité, 24 h max), CSRF, CSP stricte, HSTS.
-- Sauvegardez `MC_SECRET_KEY` : elle chiffre les tokens BunkerWeb. Perdue, il faut les ressaisir.
-- Sauvegardez le volume `/data` (SQLite).
+- `HttpOnly`, `Secure`, `SameSite=Strict` cookies, server-side sessions (8 h idle, 24 h max), CSRF, strict CSP, HSTS.
+- Back up `MC_SECRET_KEY`: it encrypts the BunkerWeb tokens. If lost, they must be re-entered.
+- Back up the `/data` volume (SQLite).
 
-## Développement
+## Development
 
 ```bash
-python -m venv .venv && source .venv/Scripts/activate   # Windows (Git Bash) ; .venv/bin/activate sous Linux
+python -m venv .venv && source .venv/Scripts/activate   # Windows (Git Bash); .venv/bin/activate on Linux
 pip install -e ".[dev]"
 python -m pytest
 ruff check src tests
 ```
 
-Démo sans vraie instance : voir `dev/fake_bunkerweb.py`.
+Demo without a real instance: see `dev/fake_bunkerweb.py`.
 ````
 
-- [ ] **Step 5 : CI** — `.github/workflows/ci.yml`
+- [ ] **Step 5: CI** — `.github/workflows/ci.yml`
 
 ```yaml
 name: ci
@@ -1861,37 +1861,37 @@ jobs:
       - run: python -m pytest -q
 ```
 
-- [ ] **Step 6 : Vérifier le build Docker (si Docker disponible)**
+- [ ] **Step 6: Verify the Docker build (if Docker is available)**
 
 Run: `docker build -t bunkerweb-mission-control .`
-Expected : build réussi. Si Docker n'est pas installé, noter l'étape comme non vérifiée.
+Expected: build succeeds. If Docker is not installed, note the step as unverified.
 
-- [ ] **Step 7 : Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add Dockerfile .dockerignore docker-compose.yml .env.example LICENSE README.md .github
 git commit -m "chore: Docker, compose, README, AGPLv3 license, CI"
 ```
-Note : si `git push` refuse le fichier de workflow (« refusing to allow an OAuth App to create or update workflow »), exécuter `gh auth refresh -s workflow` puis repousser.
+Note: if `git push` rejects the workflow file ("refusing to allow an OAuth App to create or update workflow"), run `gh auth refresh -s workflow` and push again.
 
 ---
 
-### Task 7 : Serveur BunkerWeb factice (démo et essais manuels)
+### Task 7: Fake BunkerWeb server (demo and manual testing)
 
 **Files:**
 - Create: `dev/fake_bunkerweb.py`
 
-Imite l'API BunkerWeb (formes supposées, cf. `normalize.py`) et un serveur TLS auto-signé « Let's Encrypt » pour la sonde. Sert à explorer l'interface sans vraie instance.
+Mimics the BunkerWeb API (assumed shapes, see `normalize.py`) and a self-signed "Let's Encrypt" TLS server for the probe. Used to explore the interface without a real instance.
 
-- [ ] **Step 1 : Écrire `dev/fake_bunkerweb.py`**
+- [ ] **Step 1: Write `dev/fake_bunkerweb.py`**
 
 ```python
-"""Faux BunkerWeb pour la démo. Lancer deux instances :
+"""Fake BunkerWeb for the demo. Start two instances:
 
   FAKE_DAYS=15 FAKE_TLS_PORT=9443 uvicorn --app-dir dev fake_bunkerweb:app --port 9001
   FAKE_DAYS=60 FAKE_TLS_PORT=9444 FAKE_EXTRA=1 uvicorn --app-dir dev fake_bunkerweb:app --port 9002
 
-Dans Mission Control : URL http://127.0.0.1:9001 (token quelconque), hôte sonde vide, port TLS 9443.
+In Mission Control: URL http://127.0.0.1:9001 (any token), empty probe host, TLS port 9443.
 """
 import asyncio
 import os
@@ -1990,18 +1990,18 @@ def plugins():
         {"id": "letsencrypt", "name": "Let's Encrypt", "version": "1.8", "type": "core"}]}
 ```
 
-- [ ] **Step 2 : Vérification manuelle**
+- [ ] **Step 2: Manual verification**
 
-Run (3 terminaux, venv activé, variables `MC_*` du Plan 2 Task 10) :
+Run (3 terminals, venv activated, `MC_*` variables from Plan 2 Task 10):
 ```bash
 FAKE_DAYS=15 FAKE_TLS_PORT=9443 uvicorn --app-dir dev fake_bunkerweb:app --port 9001
 FAKE_DAYS=60 FAKE_TLS_PORT=9444 FAKE_EXTRA=1 uvicorn --app-dir dev fake_bunkerweb:app --port 9002
 MC_COLLECTOR_ENABLED=true uvicorn mc.web.app:create_app --factory --port 8000
 ```
-Dans l'interface, ajouter `bw1` (`http://127.0.0.1:9001`, token `x`, port TLS 9443) et `bw2` (`http://127.0.0.1:9002`, token `x`, port TLS 9444).
-Expected après ~20 s : 2 instances « OK » ; Services : `blog.example.test` signalé « absent sur : bw1 » ; Bans : `198.51.100.9` « absent sur : bw1 » ; Plugins : `antibot` en « écart » ; Certificats : bw1 orange (15 j), bw2 valide (60 j), badge Let's Encrypt.
+In the interface, add `bw1` (`http://127.0.0.1:9001`, token `x`, TLS port 9443) and `bw2` (`http://127.0.0.1:9002`, token `x`, TLS port 9444).
+Expected after ~20 s: 2 instances "OK"; Services: `blog.example.test` flagged "absent sur : bw1"; Bans: `198.51.100.9` "absent sur : bw1"; Plugins: `antibot` shown as "écart"; Certificates: bw1 orange (15 d), bw2 valid (60 d), Let's Encrypt badge.
 
-- [ ] **Step 3 : Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
 git add dev/fake_bunkerweb.py
@@ -2010,13 +2010,13 @@ git commit -m "chore: fake BunkerWeb server for demo"
 
 ---
 
-### Task 8 : Validation sur une vraie instance BunkerWeb et clôture
+### Task 8: Validation against a real BunkerWeb instance and wrap-up
 
-Les formes JSON de l'API BunkerWeb ne sont pas documentées : cette tâche aligne les normaliseurs sur la réalité.
+The JSON shapes of the BunkerWeb API are undocumented: this task aligns the normalizers with reality.
 
-- [ ] **Step 1 : Récupérer le schéma et des réponses réelles**
+- [ ] **Step 1: Fetch the schema and real responses**
 
-Run (remplacer `HOST`, `PORT`, `TOKEN`) :
+Run (replace `HOST`, `PORT`, `TOKEN`):
 ```bash
 mkdir -p tests/fixtures
 B=http://HOST:PORT; H="Authorization: Bearer TOKEN"
@@ -2027,11 +2027,11 @@ done
 S=$(python -c "import json;d=json.load(open('tests/fixtures/real_services.json'));print((d.get('services') or d)[0]['id'])" 2>/dev/null)
 curl -s -H "$H" "$B/services/$S?full=true" | python -m json.tool > tests/fixtures/real_service_full.json
 ```
-Expected : fichiers JSON lisibles. **Ne commitez pas de secrets** : relire les fixtures et masquer IP/domaines sensibles avant tout commit.
+Expected: readable JSON files. **Do not commit secrets**: review the fixtures and mask sensitive IPs/domains before any commit.
 
-- [ ] **Step 2 : Comparer aux hypothèses**
+- [ ] **Step 2: Compare against the assumptions**
 
-Pour chaque fixture, vérifier que `normalize` produit un résultat cohérent :
+For each fixture, check that `normalize` produces a consistent result:
 ```bash
 python - <<'EOF'
 import json
@@ -2045,17 +2045,17 @@ print("plugins", N.plugins(load("plugins")))
 print("ping", load("ping"))
 EOF
 ```
-Vérifier : noms de domaines corrects, `mode` ∈ {block, detect}, bans avec IP et durée, jobs avec dernier résultat, plugins avec version, `ping` contient (ou non) `version`.
+Check: correct domain names, `mode` ∈ {block, detect}, bans with IP and duration, jobs with last result, plugins with version, whether `ping` contains `version` or not.
 
-- [ ] **Step 3 : Ajuster `normalize.py` si besoin (TDD)**
+- [ ] **Step 3: Adjust `normalize.py` if needed (TDD)**
 
-Pour chaque écart : ajouter dans `tests/test_normalize.py` un test qui charge la fixture réelle (anonymisée) et affirme le résultat attendu ; le voir échouer ; adapter `src/mc/normalize.py` (nouveaux noms de champs dans `_pick`, nouvelle forme dans `_items`) ; relancer `python -m pytest tests/test_normalize.py -v` jusqu'au vert. Vérifier aussi la **sémantique du champ d'expiration des bans** (secondes restantes ou date) et ajuster `bans.html` (formatage lisible) en conséquence ; si la version de BunkerWeb est exposée ailleurs que dans `/ping` (ex. `/instances`), adapter `BWClient.ping`.
+For each discrepancy: add to `tests/test_normalize.py` a test that loads the real (anonymized) fixture and asserts the expected result; watch it fail; adapt `src/mc/normalize.py` (new field names in `_pick`, new shape in `_items`); rerun `python -m pytest tests/test_normalize.py -v` until green. Also check the **semantics of the bans expiry field** (remaining seconds or a date) and adjust `bans.html` (readable formatting) accordingly; if the BunkerWeb version is exposed somewhere other than `/ping` (e.g. `/instances`), adapt `BWClient.ping`.
 
-- [ ] **Step 4 : Valider de bout en bout avec 2 vraies instances**
+- [ ] **Step 4: Validate end to end with 2 real instances**
 
-Lancer l'application (Task 7 Step 2, sans les faux serveurs), ajouter les 2 instances (token lecture seule), puis contrôler : état OK, services et modes corrects, bans cohérents avec l'UI BunkerWeb, jobs/plugins, certificats (comparer date d'expiration avec `openssl s_client -connect IP:443 -servername DOMAINE </dev/null 2>/dev/null | openssl x509 -noout -enddate`).
+Start the application (Task 7 Step 2, without the fake servers), add the 2 instances (read-only token), then check: OK status, correct services and modes, bans consistent with the BunkerWeb UI, jobs/plugins, certificates (compare the expiry date with `openssl s_client -connect IP:443 -servername DOMAINE </dev/null 2>/dev/null | openssl x509 -noout -enddate`).
 
-- [ ] **Step 5 : Vérification finale et publication**
+- [ ] **Step 5: Final verification and publication**
 
 Run:
 ```bash
@@ -2065,4 +2065,4 @@ git add -A
 git commit -m "test: align normalizers with real BunkerWeb API responses"
 git push
 ```
-Expected : tout vert, branche `main` à jour sur GitHub.
+Expected: all green, `main` branch up to date on GitHub.
