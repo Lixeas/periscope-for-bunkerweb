@@ -17,6 +17,7 @@
 - **Strong authentication**: argon2id passwords plus a **mandatory** second factor (TOTP or WebAuthn passkey), one-time backup codes, progressive lockout, CSRF protection, strict CSP and an audit log.
 - **Roles**: `admin` (manages users and instances) and `reader` (read-only dashboards).
 - **Read-only by design**: the BunkerWeb client only issues `GET` requests (plus a single `POST /auth` to obtain a token).
+- **English and French UI** with a language switch (footer of every page, and a preference on the account page). English is the default; the language is picked from your saved preference, then a cookie, then the browser's `Accept-Language`.
 - Works both **locally and behind a domain name**.
 
 ## Architecture
@@ -102,7 +103,7 @@ Notes:
 - **Passkeys are bound to the domain** (`PERISCOPE_RP_ID`): they work through the domain name but not through `localhost` or a bare IP. Use TOTP for local access.
 - A wrong `PERISCOPE_TRUSTED_PROXY` makes every client share a single IP bucket for rate limiting, and the audit log shows the proxy's address instead of the client's.
 - **`502 Bad Gateway` troubleshooting:** check `docker compose ps` and `docker compose logs periscope` (is it running? is `PERISCOPE_SECRET_KEY` set?), then test from the BunkerWeb host with `curl -sI http://PERISCOPE_BIND:8000/login`, which must answer `200`. A refused connection means Periscope is not listening on that address (check `PERISCOPE_BIND`); a timeout points to a firewall.
-- **`403 Forbidden` on a form (sign-in, adding an instance...):** Periscope rejects any state-changing request whose `Origin` header is not listed in `PERISCOPE_ORIGINS` (the response body is `Origine refusée`). List every URL you use to reach Periscope, with `https://` and without a trailing slash, for example `["https://periscope.example.com"]`, then restart the container. If you still get a 403 and the access log of `docker compose logs periscope` shows no matching request, the answer came from the WAF in front of Periscope: check the **Reports** page of the BunkerWeb UI for the rule that fired.
+- **`403 Forbidden` on a form (sign-in, adding an instance...):** Periscope rejects any state-changing request whose `Origin` header is not listed in `PERISCOPE_ORIGINS` (the response body is `Origin rejected`). List every URL you use to reach Periscope, with `https://` and without a trailing slash, for example `["https://periscope.example.com"]`, then restart the container. If you still get a 403 and the access log of `docker compose logs periscope` shows no matching request, the answer came from the WAF in front of Periscope: check the **Reports** page of the BunkerWeb UI for the rule that fired.
 - Optional alternative when BunkerWeb runs on the same machine: attach Periscope to BunkerWeb's Docker network and use `http://periscope:8000` as the target. It works only on one machine, which is why the published-port setup above is the default.
 
 ## Authenticating to the BunkerWeb API

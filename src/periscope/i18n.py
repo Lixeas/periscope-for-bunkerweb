@@ -135,7 +135,7 @@ def render(lang: str | None, stored: str | None) -> str:
             data = json.loads(stored)
         except ValueError:
             return stored
-        if isinstance(data, dict) and ("m" in data or "l" in data):
+        if isinstance(data, dict) and (isinstance(data.get("m"), str) or isinstance(data.get("l"), list)):
             return _render_data(lang, data)
     return stored
 
