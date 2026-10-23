@@ -1,46 +1,46 @@
 # =============================================================================
-# Deux VRAIES instances BunkerWeb indépendantes (bw1, bw2) pour valider
-# Periscope de bout en bout (spec section 7).
+# Two REAL, independent BunkerWeb instances (bw1, bw2) to validate
+# Periscope end to end (spec section 7).
 #
-# !!! NON EXÉCUTÉ / NON VÉRIFIÉ !!!
-# Docker n'est pas installé sur la machine où ce fichier a été écrit : il n'a
-# jamais été lancé, même pas validé par `docker compose config`. Il a été
-# composé à partir de la documentation officielle (docs.bunkerweb.io, pages
-# « Integrations » et « API », version 1.6.17). Les points non confirmés sont
-# signalés par « NON CONFIRMÉ » ; lancez `docker compose -f ... config` puis
-# `up` et corrigez au besoin.
+# !!! NOT RUN / NOT VERIFIED !!!
+# Docker is not installed on the machine where this file was written: it has
+# never been started, not even validated with `docker compose config`. It was
+# put together from the official documentation (docs.bunkerweb.io, "Integrations"
+# and "API" pages, version 1.6.17). Unconfirmed points are marked
+# "NOT CONFIRMED"; run `docker compose -f ... config` then
+# `up` and fix as needed.
 #
-# Lancement :   docker compose -f dev/docker-compose.bunkerweb.yml up -d
-# Chaque pile = bunkerweb (proxy) + bunkerweb-scheduler + bunkerweb-api
-#               + MariaDB (base partagée scheduler/API, comme dans l'exemple
-#               officiel) + un upstream trivial (nginx) protégé par BunkerWeb.
+# Start:        docker compose -f dev/docker-compose.bunkerweb.yml up -d
+# Each stack =  bunkerweb (proxy) + bunkerweb-scheduler + bunkerweb-api
+#               + MariaDB (database shared by scheduler/API, as in the official
+#               example) + a trivial upstream (nginx) protected by BunkerWeb.
 #
-# Ports hôte (liés à 127.0.0.1 : la doc dit de ne pas exposer l'API à Internet)
-#   bw1 : API 8081 -> 8888 interne ; TLS 8443 -> 8443 (conteneur bunkerweb)
-#   bw2 : API 8082 -> 8888 interne ; TLS 9443 -> 8443
+# Host ports (bound to 127.0.0.1: the docs say not to expose the API to the Internet)
+#   bw1: API 8081 -> 8888 internal; TLS 8443 -> 8443 (bunkerweb container)
+#   bw2: API 8082 -> 8888 internal; TLS 9443 -> 8443
 #
-# Enregistrer dans Periscope (page Instances) :
-#   bw1 : URL d'API http://127.0.0.1:8081   hôte de sonde 127.0.0.1   port TLS 8443
-#   bw2 : URL d'API http://127.0.0.1:8082   hôte de sonde 127.0.0.1   port TLS 9443
-#   Si Periscope tourne lui-même en conteneur, remplacez 127.0.0.1 par
-#   host.docker.internal (ou rattachez-le aux réseaux ci-dessous).
-#   Token : voir « TOKEN D'API » plus bas. Domaines sondés (SNI) :
-#   app.bw1.test / app.bw2.test (services déclarés ci-dessous).
+# Register in Periscope (Instances page):
+#   bw1: API URL http://127.0.0.1:8081   probe host 127.0.0.1   TLS port 8443
+#   bw2: API URL http://127.0.0.1:8082   probe host 127.0.0.1   TLS port 9443
+#   If Periscope itself runs in a container, replace 127.0.0.1 with
+#   host.docker.internal (or attach it to the networks below).
+#   Token: see "API token" below. Probed domains (SNI):
+#   app.bw1.test / app.bw2.test (services declared below).
 #
-# AUTHENTIFICATION (voir aussi le README)
-#   Recommandé : mode « Utilisateur API » de Periscope avec un utilisateur
-#   ACL restreint (fichier API_ACL_BOOTSTRAP_FILE, bloc commenté sous bw1-api).
-#   Periscope obtient un jeton via `POST /auth` (HTTP Basic ; test manuel :
-#   `curl -u periscope:... -X POST http://127.0.0.1:8081/auth`, champ
-#   `.token`) et le renouvelle seul (durée : API_BISCUIT_TTL_SECONDS, 3600 s par
-#   défaut selon la doc). Permissions de lecture : instances_read, service_read,
+# AUTHENTICATION (see also the README)
+#   Recommended: Periscope's "API user" mode with a restricted
+#   ACL user (API_ACL_BOOTSTRAP_FILE file, commented block under bw1-api).
+#   Periscope obtains a token via `POST /auth` (HTTP Basic; manual test:
+#   `curl -u periscope:... -X POST http://127.0.0.1:8081/auth`, field
+#   `.token`) and renews it on its own (lifetime: API_BISCUIT_TTL_SECONDS, 3600 s by
+#   default according to the docs). Read permissions: instances_read, service_read,
 #   global_config_read, ban_read, job_read, plugin_read.
-#   Alternative déconseillée : API_TOKEN, accès ADMIN COMPLET, en Bearer statique.
-#   Il reste défini ci-dessous pour le dev (`dev-token-bw1` / `dev-token-bw2`) ;
-#   ne jamais le faire en prod.
+#   Discouraged alternative: API_TOKEN, FULL ADMIN access, as a static Bearer.
+#   It stays defined below for dev (`dev-token-bw1` / `dev-token-bw2`);
+#   never do this in prod.
 #
-# Alignement des réponses : une fois les instances enregistrées, comparez les
-# réponses réelles de l'API avec src/periscope/normalize.py (Plan 3, Task 8).
+# Response alignment: once the instances are registered, compare the real
+# API responses with src/periscope/normalize.py (Plan 3, Task 8).
 # =============================================================================
 
 x-db-uri-1: &db-uri-1 "mariadb+pymysql://bunkerweb:changeme@bw1-db:3306/db"
@@ -52,14 +52,14 @@ x-mariadb: &mariadb
   restart: "unless-stopped"
 
 services:
-  # ---------------------------------------------------------------- pile bw1
+  # ---------------------------------------------------------------- bw1 stack
   bw1:
     image: bunkerity/bunkerweb:1.6.17
     ports:
-      - "127.0.0.1:8443:8443/tcp"   # TLS (8443 interne selon la doc)
+      - "127.0.0.1:8443:8443/tcp"   # TLS (8443 internal according to the docs)
     environment:
-      # Doit être identique dans bunkerweb et le scheduler (doc). Sous-réseau
-      # statique choisi par nous (10.20.31.0/24) : NON CONFIRMÉ.
+      # Must be identical in bunkerweb and the scheduler (docs). Static subnet
+      # chosen by us (10.20.31.0/24): NOT CONFIRMED.
       API_WHITELIST_IP: "127.0.0.0/8 10.20.31.0/24"
       API_TOKEN: "dev-token-bw1"
     restart: "unless-stopped"
@@ -75,10 +75,10 @@ services:
       BUNKERWEB_INSTANCES: "bw1"
       MULTISITE: "yes"
       SERVER_NAME: "app.bw1.test"
-      # Service protégé minimal. La syntaxe <serveur>_<RÉGLAGE> est confirmée
-      # dans la section all-in-one de la doc ; REVERSE_PROXY_URL "/" dans
-      # l'exemple de la page API. Le certificat par défaut (auto-signé) est
-      # attendu pour la sonde TLS : NON CONFIRMÉ.
+      # Minimal protected service. The <server>_<SETTING> syntax is confirmed
+      # in the all-in-one section of the docs; REVERSE_PROXY_URL "/" in
+      # the example on the API page. The default (self-signed) certificate is
+      # expected for the TLS probe: NOT CONFIRMED.
       app.bw1.test_USE_REVERSE_PROXY: "yes"
       app.bw1.test_REVERSE_PROXY_URL: "/"
       app.bw1.test_REVERSE_PROXY_HOST: "http://bw1-app:80"
@@ -90,28 +90,28 @@ services:
     image: bunkerity/bunkerweb-api:1.6.17
     depends_on: [bw1-db]
     ports:
-      - "127.0.0.1:8081:8888"       # API (8888 interne selon la doc)
+      - "127.0.0.1:8081:8888"       # API (8888 internal according to the docs)
     environment:
-      # NON CONFIRMÉ : IP source vue via le port publié (passerelle du bridge,
-      # normalement dans le sous-réseau ci-dessous).
+      # NOT CONFIRMED: source IP seen through the published port (bridge
+      # gateway, normally within the subnet below).
       API_WHITELIST_IPS: "127.0.0.0/8 10.20.31.0/24"
       API_TOKEN: "dev-token-bw1"
       DATABASE_URI: *db-uri-1
       API_USERNAME: "admin"
       API_PASSWORD: "Dev-Only-Passw0rd!"
-      # Utilisateur restreint (recommandé, doc) : monter un fichier JSON via `volumes`
+      # Restricted user (recommended, docs): mount a JSON file via `volumes`
       # (./bw-acl-bootstrap.json:/var/lib/bunkerweb/api_acl_bootstrap.json:ro)
-      # et décommenter la ligne suivante.
+      # and uncomment the next line.
       # API_ACL_BOOTSTRAP_FILE: "/var/lib/bunkerweb/api_acl_bootstrap.json"
-      # Contenu (schéma général confirmé par la doc : users -> admin, password /
-      # password_hash, permissions -> type -> id|"*" -> permission: true) :
+      # Content (general schema confirmed by the docs: users -> admin, password /
+      # password_hash, permissions -> type -> id|"*" -> permission: true):
       # {"users":{"periscope":{"admin":false,"password_hash":"<bcrypt>",
       #   "permissions":{"instances":{"*":{"instances_read":true}},
       #   "global_config":{"*":{"global_config_read":true}},
       #   "services":{"*":{"service_read":true}},"bans":{"*":{"ban_read":true}},
       #   "jobs":{"*":{"job_read":true}},"plugins":{"*":{"plugin_read":true}}}}}}
-      # NON CONFIRMÉ : les types de ressource autres que « services » (clés ci-dessus
-      # déduites) ; fichier jamais testé.
+      # NOT CONFIRMED: resource types other than "services" (keys above
+      # inferred); file never tested.
     restart: "unless-stopped"
     networks: [bw1-universe, bw1-db]
 
@@ -125,11 +125,11 @@ services:
     volumes: [bw1-data:/var/lib/mysql]
     networks: [bw1-db]
 
-  bw1-app:   # upstream trivial (image générique, hors doc BunkerWeb)
+  bw1-app:   # trivial upstream (generic image, not part of the BunkerWeb docs)
     image: nginx:alpine
     networks: [bw1-services]
 
-  # ---------------------------------------------------------------- pile bw2
+  # ---------------------------------------------------------------- bw2 stack
   bw2:
     image: bunkerity/bunkerweb:1.6.17
     ports:
