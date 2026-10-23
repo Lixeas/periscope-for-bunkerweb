@@ -27,18 +27,17 @@
 #   Token : voir « TOKEN D'API » plus bas. Domaines sondés (SNI) :
 #   app.bw1.test / app.bw2.test (services déclarés ci-dessous).
 #
-# TOKEN D'API (point important, doc ambiguë)
-#   Mission Control envoie un en-tête fixe `Authorization: Bearer <token>`.
-#   La doc ne documente de Bearer statique que via API_TOKEN, qui donne un accès
-#   ADMIN COMPLET (pas lecture seule). Pour le dev on l'utilise donc ici
-#   (valeurs `dev-token-bw1` / `dev-token-bw2`) ; ne jamais le faire en prod.
-#   Alternative lecture seule documentée : un utilisateur ACL (fichier
-#   API_ACL_BOOTSTRAP_FILE, voir le bloc commenté sous bw1-api) qui obtient un
-#   token via `POST /auth` en HTTP Basic (`curl -u reader:... -X POST
-#   http://127.0.0.1:8081/auth`, champ `.token`). NON CONFIRMÉ : durée de vie de
-#   ce token ; s'il expire, il ne convient pas à Mission Control, qui ne se
-#   ré-authentifie pas. Les permissions en lecture existent : instances_read,
-#   service_read, global_config_read, ban_read, job_read, plugin_read.
+# AUTHENTIFICATION (voir aussi le README)
+#   Recommandé : mode « Utilisateur API » de Mission Control avec un utilisateur
+#   ACL restreint (fichier API_ACL_BOOTSTRAP_FILE, bloc commenté sous bw1-api).
+#   Mission Control obtient un jeton via `POST /auth` (HTTP Basic ; test manuel :
+#   `curl -u mission-control:... -X POST http://127.0.0.1:8081/auth`, champ
+#   `.token`) et le renouvelle seul (durée : API_BISCUIT_TTL_SECONDS, 3600 s par
+#   défaut selon la doc). Permissions de lecture : instances_read, service_read,
+#   global_config_read, ban_read, job_read, plugin_read.
+#   Alternative déconseillée : API_TOKEN, accès ADMIN COMPLET, en Bearer statique.
+#   Il reste défini ci-dessous pour le dev (`dev-token-bw1` / `dev-token-bw2`) ;
+#   ne jamais le faire en prod.
 #
 # Alignement des réponses : une fois les instances enregistrées, comparez les
 # réponses réelles de l'API avec src/mc/normalize.py (Plan 3, Task 8).
@@ -100,14 +99,19 @@ services:
       DATABASE_URI: *db-uri-1
       API_USERNAME: "admin"
       API_PASSWORD: "Dev-Only-Passw0rd!"
-      # Alternative lecture seule (doc) : monter un fichier JSON via `volumes`
+      # Utilisateur restreint (recommandé, doc) : monter un fichier JSON via `volumes`
       # (./bw-acl-bootstrap.json:/var/lib/bunkerweb/api_acl_bootstrap.json:ro)
       # et décommenter la ligne suivante.
       # API_ACL_BOOTSTRAP_FILE: "/var/lib/bunkerweb/api_acl_bootstrap.json"
-      # Contenu : {"users":{"reader":{"admin":false,"password_hash":"<bcrypt>",
+      # Contenu (schéma général confirmé par la doc : users -> admin, password /
+      # password_hash, permissions -> type -> id|"*" -> permission: true) :
+      # {"users":{"mission-control":{"admin":false,"password_hash":"<bcrypt>",
       #   "permissions":{"instances":{"*":{"instances_read":true}},
-      #   "services":{"*":{"service_read":true}},"bans":{"*":{"ban_read":true}}}}}}
-      # (compléter avec job_read / plugin_read ; schéma exact NON CONFIRMÉ.)
+      #   "global_config":{"*":{"global_config_read":true}},
+      #   "services":{"*":{"service_read":true}},"bans":{"*":{"ban_read":true}},
+      #   "jobs":{"*":{"job_read":true}},"plugins":{"*":{"plugin_read":true}}}}}}
+      # NON CONFIRMÉ : les types de ressource autres que « services » (clés ci-dessus
+      # déduites) ; fichier jamais testé.
     restart: "unless-stopped"
     networks: [bw1-universe, bw1-db]
 
