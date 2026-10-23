@@ -41,3 +41,9 @@ def test_epoch_filter_never_raises():
     for bad in (None, 0, 0.0, "x", "1760000000", ["x"], {"a": 1}, True, -1, -(10**30), 10**30, 10**18,
                 float("nan"), float("inf"), 253402300800):
         assert e(bad) == "—", bad
+
+
+def test_duration_and_epoch_accept_gigantic_ints_without_raising():
+    dur, ep = templates.env.filters["duration"], templates.env.filters["epoch"]
+    assert ep(10**400) == "—" and isinstance(dur(10**400), str)
+    assert ep(-(10**400)) == "—" and dur(-(10**400)) == "—"
