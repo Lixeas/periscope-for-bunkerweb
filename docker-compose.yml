@@ -7,10 +7,10 @@ services:
       FORWARDED_ALLOW_IPS: "${PERISCOPE_TRUSTED_PROXY:-127.0.0.1}"
     volumes:
       - periscope-data:/data
-    # Port publié sur l'adresse PERISCOPE_BIND (127.0.0.1 par défaut = accès local uniquement).
-    # Pour qu'un reverse proxy (BunkerWeb) l'atteigne, que ce soit sur la même machine ou sur un
-    # autre serveur, mettre l'IP PRIVÉE de cette machine dans PERISCOPE_BIND (voir README) et
-    # n'autoriser que l'IP du proxy dans le pare-feu. Ne jamais publier sur une interface publique.
+    # Port published on the PERISCOPE_BIND address (127.0.0.1 by default = local access only).
+    # For a reverse proxy (BunkerWeb) to reach it, whether on the same machine or on another
+    # server, put this machine's PRIVATE IP in PERISCOPE_BIND (see README) and
+    # allow only the proxy IP in the firewall. Never publish on a public interface.
     ports:
       - "${PERISCOPE_BIND:-127.0.0.1}:${PERISCOPE_PORT:-8000}:8000"
     read_only: true
