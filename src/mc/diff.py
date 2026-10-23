@@ -62,9 +62,9 @@ def _parse_ts(value) -> datetime | None:
         except ValueError:
             try:
                 d = datetime.fromisoformat(v)
-            except ValueError:
+                return d.astimezone(UTC).replace(tzinfo=None) if d.tzinfo else d
+            except (ValueError, OverflowError, OSError):
                 return None
-            return d.astimezone(UTC).replace(tzinfo=None) if d.tzinfo else d
     if isinstance(value, (int, float)):
         if value > 1e11:  # millisecondes
             value /= 1000
@@ -79,4 +79,9 @@ def next_run(last_run, every) -> datetime | None:
     """Prochaine échéance estimée (naïf UTC) ; None pour 'once', fréquence inconnue ou dernière exécution illisible."""
     delta = _EVERY.get(every) if isinstance(every, str) else None
     last = _parse_ts(last_run)
-    return None if delta is None or last is None else last + delta
+    if delta is None or last is None:
+        return None
+    try:
+        return last + delta
+    except OverflowError:  # date proche de datetime.max
+        return None

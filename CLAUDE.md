@@ -42,7 +42,7 @@ Authentification (`src/mc/auth/` logique, `src/mc/web/routes_auth.py` + `routes_
 - Connexion en 2 temps : le mot de passe crée une session `mfa_ok=False` (TTL 5 min) ; le second facteur la remplace par une session pleine avec **rotation du jeton** (`sessions.promote`). Les sessions sont côté serveur (table `sessions`, jeton stocké haché).
 - Second facteur obligatoire : un utilisateur sans facteur est forcé vers `/enroll` (TOTP). Passkeys WebAuthn ajoutables ensuite depuis `/account`. TOTP anti-rejeu via `User.totp_last_step`.
 - `web/deps.py` : `current_user` / `pending_user` / `require_admin` valident la session **et le CSRF** (champ `csrf` ou en-tête `X-CSRF-Token`) pour toute méthode non-GET ; un middleware refuse les `Origin` hors `MC_ORIGINS`. Toute nouvelle route d'écriture authentifiée doit passer par ces dépendances.
-- Verrouillage par compte (`ratelimit.py`, compteur partagé mot de passe / 2FA / ré-authentification) + limiteur par IP en mémoire (processus unique). Les actions sensibles du compte passent par `routes_account.reauth()`.
+- Verrouillage par compte (`ratelimit.py`, compteur partagé mot de passe / 2FA / ré-authentification) + limiteur par IP en mémoire (processus unique). Les actions sensibles du compte passent par `reauth()` / `revoke_other_sessions()` (`web/reauth.py`).
 - Les tokens API BunkerWeb sont chiffrés en base (Fernet, clé `MC_SECRET_KEY`, `crypto.py`) et jamais réaffichés.
 
 Conventions utiles :
