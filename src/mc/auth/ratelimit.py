@@ -72,3 +72,46 @@ class IPLimiter:
         self._events.clear()
         self._blocked_until.clear()
         self._violations.clear()
+
+
+class LoginFailures:
+    """Échecs de mot de passe par (identifiant en minuscules, IP), en mémoire (processus unique).
+
+    Même escalade que le verrou de compte (lock_seconds) mais sans jamais toucher au compte :
+    un attaquant ne peut pas verrouiller le vrai utilisateur depuis une autre IP.
+    Une entrée est oubliée après 1 h sans échec ; balayage à chaque appel pour borner la mémoire."""
+
+    FORGET = 3600
+
+    def __init__(self):
+        self._state: dict[tuple[str, str], list[float]] = {}  # clé -> [échecs, verrouillé jusqu'à, dernier échec]
+
+    @staticmethod
+    def _key(username: str, ip: str) -> tuple[str, str]:
+        return username.lower(), ip
+
+    def _sweep(self, now: float) -> None:
+        for k in [k for k, v in self._state.items() if now - v[2] > self.FORGET]:
+            del self._state[k]
+
+    def retry_after(self, username: str, ip: str, now: float | None = None) -> int:
+        """Secondes de verrouillage restantes pour cette paire (0 = libre)."""
+        now = time.monotonic() if now is None else now
+        self._sweep(now)
+        st = self._state.get(self._key(username, ip))
+        return max(0, math.ceil(st[1] - now)) if st else 0
+
+    def register_failure(self, username: str, ip: str, now: float | None = None) -> None:
+        now = time.monotonic() if now is None else now
+        self._sweep(now)
+        st = self._state.setdefault(self._key(username, ip), [0, 0.0, now])
+        st[0] += 1
+        st[2] = now
+        if secs := lock_seconds(int(st[0])):
+            st[1] = now + secs
+
+    def clear(self, username: str, ip: str) -> None:
+        self._state.pop(self._key(username, ip), None)
+
+    def reset(self) -> None:
+        self._state.clear()

@@ -7,7 +7,7 @@ from mc.auth import mfa
 from mc.auth import webauthn_ as wa
 from mc.db import session_scope
 from mc.models import AuditLog, BackupCode, Credential, User
-from tests.helpers import PW, csrf_of, make_client, make_user, post_login
+from tests.helpers import PW, csrf_of, full_login, make_client, make_user, post_login
 
 
 @pytest.fixture
@@ -76,13 +76,68 @@ def test_wrong_password_and_unknown_user_look_identical(client):
     assert audit_events() == ["login_failed", "login_failed"]
 
 
-def test_account_locks_after_five_failures_even_with_good_password(client):
+def test_password_failures_lock_the_username_ip_pair_not_the_account(client):
     make_user()
     for _ in range(5):
         post_login(client, "alice", "wrong password here")
     r = post_login(client)
     assert r.status_code == 401
     assert "login_locked" in audit_events()
+    with session_scope() as s:
+        u = s.query(User).one()
+        assert u.failed_attempts == 0 and u.locked_until is None
+
+
+def test_password_lock_is_per_ip(client, monkeypatch):
+    from mc.web import routes_auth
+    make_user()
+    monkeypatch.setattr(routes_auth, "ip_of", lambda request: "10.0.0.1")
+    for _ in range(5):
+        post_login(client, "alice", "wrong password here")
+    assert post_login(client).status_code == 401  # IP A verrouillée pour alice
+    monkeypatch.setattr(routes_auth, "ip_of", lambda request: "10.0.0.2")
+    r = post_login(client)  # IP B : le bon mot de passe passe
+    assert r.status_code == 303 and r.headers["location"] == "/login/2fa"
+
+
+def test_attacker_failures_do_not_block_legitimate_user_elsewhere(client, monkeypatch):
+    from mc.web import routes_auth
+    make_user()
+    monkeypatch.setattr(routes_auth, "ip_of", lambda request: "6.6.6.6")
+    for _ in range(8):
+        post_login(client, "alice", "wrong password here")
+    monkeypatch.setattr(routes_auth, "ip_of", lambda request: "7.7.7.7")
+    r = post_login(client)
+    assert r.status_code == 303 and r.headers["location"] == "/login/2fa"
+    assert client.get("/login/2fa").status_code == 200
+
+
+def test_unknown_and_known_username_lock_identically(client):
+    make_user()
+    for name in ("alice", "nobody"):
+        for _ in range(5):
+            post_login(client, name, "wrong password here")
+    r1, r2 = post_login(client, "alice", "wrong password here"), post_login(client, "nobody", "wrong password here")
+    assert r1.status_code == r2.status_code == 401 and r1.text == r2.text
+    ev = audit_events()
+    assert ev.count("login_locked") == 2 and ev.count("login_failed") == 10
+
+
+def test_username_case_insensitive_for_lock(client):
+    make_user()
+    for _ in range(5):
+        post_login(client, "ALICE", "wrong password here")
+    assert post_login(client, "alice").status_code == 401
+
+
+def test_successful_login_clears_pair(client):
+    secret = make_user()
+    for _ in range(3):
+        post_login(client, "alice", "wrong password here")
+    assert full_login(client, secret).status_code == 303
+    from mc.web import routes_auth
+    assert routes_auth.login_failures.retry_after("alice", "testclient") == 0
+    assert not routes_auth.login_failures._state
 
 
 def test_ip_throttle(client):

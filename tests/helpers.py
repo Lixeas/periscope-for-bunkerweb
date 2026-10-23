@@ -14,6 +14,7 @@ PW = "correct horse battery"
 
 def make_client() -> TestClient:
     routes_auth.limiter.reset()
+    routes_auth.login_failures.reset()
     return TestClient(create_app(run_migrations=False))
 
 
