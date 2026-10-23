@@ -54,3 +54,22 @@ def test_jobs_page_has_matrix_and_job(client):
 def test_certificates_page_status_labels(client):
     r = client.get("/certificates")
     assert "Critique" in r.text and "Aucun" in r.text and "Valide" in r.text and "Let's Encrypt" in r.text
+
+
+def test_bans_jobs_plugins_render_with_hostile_snapshot_values(client):
+    from mc.db import session_scope
+    from mc.models import Instance, Snapshot
+    bad = [["x"], {"a": 1}, None, 5]
+    with session_scope() as s:
+        inst = s.query(Instance).filter_by(name="bw1").one()
+        for kind, rows in {
+            "bans": [{"ip": v, "reason": v, "service": v, "exp": v, "date": v} for v in bad],
+            "jobs": [{"name": v, "plugin": v, "every": v, "last_run": v, "success": v} for v in bad],
+            "plugins": [{"id": v, "name": v, "version": v, "type": v} for v in bad],
+            "services": [{"name": v, "draft": False, "mode": v} for v in bad],
+        }.items():
+            snap = s.query(Snapshot).filter_by(instance_id=inst.id, kind=kind).one()
+            snap.payload = rows
+    for path in ("/bans", "/jobs", "/services", "/dashboard", "/api/summary"):
+        assert client.get(path).status_code == 200, path
+    assert client.get("/bans", params={"q": "x"}).status_code == 200

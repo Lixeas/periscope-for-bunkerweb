@@ -39,3 +39,32 @@ def test_jobs_reads_last_run_from_history():
 def test_plugins():
     out = N.plugins({"plugins": [{"id": "antibot", "name": "Antibot", "version": "1.0", "type": "core"}]})
     assert out == [{"id": "antibot", "name": "Antibot", "version": "1.0", "type": "core"}]
+
+
+HOSTILE = [["x"], {"a": 1}, None, 5]
+
+
+def test_bans_coerce_identifier_fields_to_hashable_str():
+    for v in HOSTILE:
+        (b,) = N.bans([{"ip": v, "reason": v, "service": v, "exp": v, "date": v}])
+        for k in ("ip", "reason", "service"):
+            assert isinstance(b[k], str)
+            hash(b[k])
+    assert N.bans([{"ip": None}])[0]["ip"] == "" and N.bans([{"ip": None}])[0]["service"] == "global"
+    assert N.bans([{"ip": 5}])[0]["ip"] == "5"
+
+
+def test_plugins_coerce_id_and_name():
+    for v in HOSTILE:
+        (p,) = N.plugins([{"id": v, "name": v, "version": v, "type": v}])
+        for k in ("id", "name", "version", "type"):
+            assert isinstance(p[k], str)
+    assert N.plugins([{"id": ["a"]}])[0]["id"] == "['a']"
+    assert N.plugins([{"id": None, "name": None}])[0]["id"] == ""
+
+
+def test_jobs_coerce_name_plugin_every():
+    for v in HOSTILE:
+        (j,) = N.jobs([{"name": v, "plugin": v, "every": v, "last_run": v, "success": v}])
+        for k in ("name", "plugin", "every"):
+            assert isinstance(j[k], str)

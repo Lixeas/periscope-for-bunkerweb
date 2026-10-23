@@ -29,7 +29,7 @@ def instance_cards(db: Session, now: datetime) -> list[dict]:
 
 def summary(db: Session, now: datetime) -> dict:
     active = [c for c in instance_cards(db, now) if c["enabled"]]
-    ips = {b["ip"] for payload in _by_instance(db, "bans").values() for b in payload}
+    ips = {str(b.get("ip", "")) for payload in _by_instance(db, "bans").values() for b in payload}
     statuses = [diff.cert_status(p.present, p.not_after, now)
                 for p, _ in db.query(CertProbe, Instance)
                 .join(Instance, CertProbe.instance_id == Instance.id).filter(Instance.enabled.is_(True))]
@@ -45,9 +45,9 @@ def summary(db: Session, now: datetime) -> dict:
 
 def services(db: Session, instance: str = "", mode: str = "") -> tuple[list[dict], list[str]]:
     per = _by_instance(db, "services")
-    missing = diff.gaps({n: {s["name"] for s in p if not s.get("draft")} for n, p in per.items()})
-    rows = [{"instance": n, "name": s["name"], "mode": s.get("mode"), "draft": bool(s.get("draft")),
-             "missing_on": [] if s.get("draft") else missing.get(s["name"], [])}
+    missing = diff.gaps({n: {str(s.get("name", "")) for s in p if not s.get("draft")} for n, p in per.items()})
+    rows = [{"instance": n, "name": str(s.get("name", "")), "mode": s.get("mode"), "draft": bool(s.get("draft")),
+             "missing_on": [] if s.get("draft") else missing.get(str(s.get("name", "")), [])}
             for n, p in per.items() for s in p]
     if instance:
         rows = [r for r in rows if r["instance"] == instance]
@@ -59,8 +59,9 @@ def services(db: Session, instance: str = "", mode: str = "") -> tuple[list[dict
 
 def bans(db: Session, q: str = "") -> list[dict]:
     per = _by_instance(db, "bans")
-    missing = diff.gaps({n: {b["ip"] for b in p} for n, p in per.items()})
-    rows = [{**b, "instance": n, "missing_on": missing.get(b["ip"], [])} for n, p in per.items() for b in p]
+    missing = diff.gaps({n: {str(b.get("ip", "")) for b in p} for n, p in per.items()})
+    rows = [{**b, "ip": str(b.get("ip", "")), "instance": n,
+             "missing_on": missing.get(str(b.get("ip", "")), [])} for n, p in per.items() for b in p]
     if q.strip():
         rows = [r for r in rows if q.strip() in str(r["ip"])]
     rows.sort(key=lambda r: (str(r["ip"]), r["instance"]))
@@ -74,7 +75,7 @@ def jobs(db: Session) -> list[dict]:
 
 def plugins(db: Session) -> tuple[list[str], list[dict]]:
     per = _by_instance(db, "plugins")
-    matrix = diff.plugin_matrix({n: {p["id"]: p.get("version", "") for p in pl} for n, pl in per.items()})
+    matrix = diff.plugin_matrix({n: {str(p.get("id", "")): str(p.get("version", "")) for p in pl} for n, pl in per.items()})
     return sorted(per), matrix
 
 
