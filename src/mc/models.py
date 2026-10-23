@@ -60,7 +60,10 @@ class Instance(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(64), unique=True)
     base_url: Mapped[str] = mapped_column(String(255))
-    token_enc: Mapped[str] = mapped_column(String(512))
+    token_enc: Mapped[str] = mapped_column(String(512), default="", server_default="")  # mode token
+    auth_mode: Mapped[str] = mapped_column(String(8), default="token", server_default="token")  # token | user
+    api_username: Mapped[str] = mapped_column(String(128), default="", server_default="")
+    api_password_enc: Mapped[str] = mapped_column(String(512), default="", server_default="")
     verify_tls: Mapped[bool] = mapped_column(default=True)
     probe_host: Mapped[str] = mapped_column(String(255), default="")  # vide = hôte de base_url
     tls_port: Mapped[int] = mapped_column(default=443)

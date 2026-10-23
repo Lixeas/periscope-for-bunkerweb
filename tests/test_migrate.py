@@ -31,3 +31,16 @@ def test_migrate_creates_parent_dir_and_engine_sets_pragmas(tmp_path, monkeypatc
         eng.dispose()
     finally:
         get_settings.cache_clear()
+
+
+def test_migrate_adds_api_user_columns_with_defaults(tmp_path, monkeypatch):
+    url = f"sqlite:///{(tmp_path / 'm.db').as_posix()}"
+    monkeypatch.setenv("MC_DATABASE_URL", url)
+    get_settings.cache_clear()
+    try:
+        migrate()
+        cols = {c["name"]: c for c in inspect(create_engine(url)).get_columns("instances")}
+    finally:
+        get_settings.cache_clear()
+    assert {"auth_mode", "api_username", "api_password_enc"} <= set(cols)
+    assert "token" in str(cols["auth_mode"]["default"])
