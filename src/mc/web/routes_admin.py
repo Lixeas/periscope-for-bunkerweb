@@ -19,18 +19,22 @@ from mc.web.routes_auth import ip_of
 
 router = APIRouter(prefix="/admin")
 
+AUTH_MODES = ("token", "user")
 MESSAGES = {
     "added": "Instance ajoutée ; première collecte en cours.",
     "saved": "Instance enregistrée.",
     "deleted": "Instance supprimée.",
 }
-KIND_LABEL = {"network": "Instance injoignable", "auth": "Authentification refusée (token ou droits insuffisants)",
+KIND_LABEL = {"network": "Instance injoignable", "auth": "Authentification refusée (token, identifiants ou droits insuffisants)",
               "http": "Réponse HTTP inattendue", "data": "Réponse non JSON (est-ce bien l'API BunkerWeb ?)"}
 
 
-async def check_instance(base_url: str, token: str, verify_tls: bool) -> str | None:
-    """Test de connexion : ping + un appel authentifié. Retourne un message d'erreur ou None."""
-    client = BWClient(base_url, token, timeout=get_settings().http_timeout, verify=verify_tls)
+async def check_instance(base_url: str, verify_tls: bool, token: str | None = None,
+                         credentials: tuple[str, str] | None = None) -> str | None:
+    """Test de connexion : ping + un appel authentifié (en mode utilisateur, cela exerce POST /auth).
+    Retourne un message d'erreur ou None."""
+    client = BWClient(base_url, token, credentials=credentials,
+                      timeout=get_settings().http_timeout, verify=verify_tls)
     try:
         await client.ping()
         await client.bans()
@@ -81,28 +85,40 @@ async def instances_get(request: Request, user: User = Depends(require_admin), d
 
 @router.post("/instances")
 async def instances_add(request: Request, background: BackgroundTasks,
-                        name: str = Form(""), base_url: str = Form(""), token: str = Form(""),
+                        name: str = Form(""), base_url: str = Form(""), auth_mode: str = Form("token"),
+                        token: str = Form(""), api_username: str = Form(""), api_password: str = Form(""),
                         probe_host: str = Form(""), tls_port: int = Form(443),
                         verify_tls: bool = Form(False), force: bool = Form(False),
                         user: User = Depends(require_admin), db=Depends(get_db)):
     form = {"name": name, "base_url": base_url, "probe_host": probe_host, "tls_port": tls_port,
-            "verify_tls": verify_tls}
+            "verify_tls": verify_tls, "auth_mode": auth_mode, "api_username": api_username}
+    token, api_username = token.strip(), api_username.strip()
     try:
         name, base_url = validate_fields(db, name, base_url, tls_port)
-        if not token.strip():
+        if auth_mode not in AUTH_MODES:
+            raise ValueError("Mode d'authentification invalide")
+        if auth_mode == "token" and not token:
             raise ValueError("Token requis")
+        if auth_mode == "user" and not (api_username and api_password):
+            raise ValueError("Nom d'utilisateur et mot de passe de l'API requis")
     except ValueError as e:
         return instances_page(request, db, user, str(e), form, 400)
     if not force:
         db.commit()  # libère le verrou d'écriture SQLite pendant l'appel réseau
-        err = await check_instance(base_url, token.strip(), verify_tls)
+        err = await check_instance(base_url, verify_tls,
+                                   token=token if auth_mode == "token" else None,
+                                   credentials=(api_username, api_password) if auth_mode == "user" else None)
         if err:
             return instances_page(request, db, user, f"Test de connexion échoué : {err}", {**form, "failed": True}, 400)
-    inst = Instance(name=name, base_url=base_url, token_enc=encrypt(token.strip()), verify_tls=verify_tls,
-                    probe_host=probe_host.strip(), tls_port=tls_port)
+    inst = Instance(name=name, base_url=base_url, verify_tls=verify_tls,
+                    probe_host=probe_host.strip(), tls_port=tls_port, auth_mode=auth_mode)
+    if auth_mode == "user":
+        inst.api_username, inst.api_password_enc = api_username, encrypt(api_password)
+    else:
+        inst.token_enc = encrypt(token)
     db.add(inst)
     db.flush()
-    audit(db, "instance_added", user.username, detail=name, ip=ip_of(request))
+    audit(db, "instance_added", user.username, detail=f"{name} ({auth_mode})", ip=ip_of(request))
     db.commit()
     background.add_task(collector.refresh_instance, inst.id)
     return RedirectResponse("/admin/instances?m=added", 303)
@@ -118,25 +134,53 @@ async def instance_edit_get(request: Request, inst_id: int, user: User = Depends
 
 @router.post("/instances/{inst_id}")
 async def instance_edit_post(request: Request, inst_id: int, background: BackgroundTasks,
-                             name: str = Form(""), base_url: str = Form(""), token: str = Form(""),
+                             name: str = Form(""), base_url: str = Form(""), auth_mode: str = Form(""),
+                             token: str = Form(""), api_username: str = Form(""), api_password: str = Form(""),
                              probe_host: str = Form(""), tls_port: int = Form(443),
                              verify_tls: bool = Form(False), enabled: bool = Form(False),
                              user: User = Depends(require_admin), db=Depends(get_db)):
     inst = db.get(Instance, inst_id)
     if inst is None:
         return RedirectResponse("/admin/instances", 303)
+
+    def fail(msg: str):
+        return render(request, "admin_instance_edit.html", status=400, user=user, inst=inst, error=msg)
+
     try:
         name, base_url = validate_fields(db, name, base_url, tls_port, exclude_id=inst_id)
     except ValueError as e:
-        return render(request, "admin_instance_edit.html", status=400, user=user, inst=inst, error=str(e))
-    if base_url != inst.base_url and not token.strip():
-        return render(request, "admin_instance_edit.html", status=400, user=user, inst=inst,
-                      error="Changer l'URL exige de ressaisir le token")
+        return fail(str(e))
+    mode = auth_mode or inst.auth_mode
+    token, api_username = token.strip(), api_username.strip()
+    if mode not in AUTH_MODES:
+        return fail("Mode d'authentification invalide")
+    switching = mode != inst.auth_mode
+    url_changed = base_url != inst.base_url
+    if mode == "token":
+        if (switching or url_changed) and not token:
+            return fail("Changer le mode exige de saisir le token" if switching
+                        else "Changer l'URL exige de ressaisir le token")
+    else:
+        username = api_username or inst.api_username
+        if switching and not (api_username and api_password):
+            return fail("Changer le mode exige de saisir le nom d'utilisateur et le mot de passe de l'API")
+        if not username:
+            return fail("Nom d'utilisateur de l'API requis")
+        if (url_changed or username != inst.api_username) and not api_password:
+            return fail("Changer l'URL ou l'utilisateur exige de ressaisir le mot de passe de l'API")
     inst.name, inst.base_url, inst.probe_host = name, base_url, probe_host.strip()
     inst.tls_port, inst.verify_tls, inst.enabled = tls_port, verify_tls, enabled
-    if token.strip():
-        inst.token_enc = encrypt(token.strip())
-    audit(db, "instance_edited", user.username, detail=name, ip=ip_of(request))
+    inst.auth_mode = mode
+    if mode == "token":
+        inst.api_username, inst.api_password_enc = "", ""
+        if token:
+            inst.token_enc = encrypt(token)
+    else:
+        inst.token_enc = ""
+        inst.api_username = api_username or inst.api_username
+        if api_password:
+            inst.api_password_enc = encrypt(api_password)
+    audit(db, "instance_edited", user.username, detail=f"{name} ({mode})", ip=ip_of(request))
     db.commit()
     if inst.enabled:
         background.add_task(collector.refresh_instance, inst.id)

@@ -8,12 +8,13 @@
 
 <div class="table-responsive mb-5">
 <table class="table align-middle">
-  <thead><tr><th>Nom</th><th>URL de l'API</th><th>Sonde TLS</th><th>État</th><th>Dernière collecte</th><th></th></tr></thead>
+  <thead><tr><th>Nom</th><th>URL de l'API</th><th>Authentification</th><th>Sonde TLS</th><th>État</th><th>Dernière collecte</th><th></th></tr></thead>
   <tbody>
   {% for i in instances %}
   <tr>
     <td>{{ i.name }}</td>
     <td>{{ i.base_url }}</td>
+    <td>{% if i.auth_mode == 'user' %}Utilisateur API <code>{{ i.api_username }}</code>{% else %}Token d'API{% endif %}</td>
     <td>{{ i.probe_target }}:{{ i.tls_port }}</td>
     <td>{% if i.enabled %}{{ instance_badge(i.status) }}{% else %}<span class="badge text-bg-secondary">Désactivée</span>{% endif %}
         {% if i.last_error %}<div class="small text-danger">{{ i.last_error }}</div>{% endif %}</td>
@@ -26,7 +27,7 @@
       </form>
     </td>
   </tr>
-  {% else %}<tr><td colspan="6" class="text-secondary">Aucune instance.</td></tr>
+  {% else %}<tr><td colspan="7" class="text-secondary">Aucune instance.</td></tr>
   {% endfor %}
   </tbody>
 </table>
@@ -39,9 +40,25 @@
     <input class="form-control" id="name" name="name" value="{{ form.name or '' }}" required></div>
   <div class="mb-3"><label class="form-label" for="base_url">URL de l'API BunkerWeb</label>
     <input class="form-control" id="base_url" name="base_url" placeholder="http://10.0.0.5:8888" value="{{ form.base_url or '' }}" required></div>
-  <div class="mb-3"><label class="form-label" for="token">Token d'API (lecture seule recommandé)</label>
-    <input class="form-control" id="token" name="token" type="password" autocomplete="off" required>
-    <div class="form-text">Chiffré en base, jamais réaffiché.</div></div>
+  <div class="mb-3"><label class="form-label" for="auth_mode">Mode d'authentification</label>
+    <select class="form-select" id="auth_mode" name="auth_mode">
+      <option value="user" {% if form.auth_mode != 'token' %}selected{% endif %}>Utilisateur API (recommandé)</option>
+      <option value="token" {% if form.auth_mode == 'token' %}selected{% endif %}>Token d'API</option>
+    </select></div>
+  <fieldset class="border rounded p-3 mb-3">
+    <legend class="fs-6">Mode « Utilisateur API » : à remplir seulement dans ce mode</legend>
+    <div class="mb-3"><label class="form-label" for="api_username">Nom d'utilisateur de l'API</label>
+      <input class="form-control" id="api_username" name="api_username" autocomplete="off" value="{{ form.api_username or '' }}"></div>
+    <div class="mb-0"><label class="form-label" for="api_password">Mot de passe de l'API</label>
+      <input class="form-control" id="api_password" name="api_password" type="password" autocomplete="off">
+      <div class="form-text">Utilisateur restreint (droits de lecture). Chiffré en base, jamais réaffiché ; le jeton est renouvelé automatiquement.</div></div>
+  </fieldset>
+  <fieldset class="border rounded p-3 mb-3">
+    <legend class="fs-6">Mode « Token d'API » : à remplir seulement dans ce mode</legend>
+    <label class="form-label" for="token">Token d'API (<code>API_TOKEN</code>, accès administrateur : déconseillé)</label>
+    <input class="form-control" id="token" name="token" type="password" autocomplete="off">
+    <div class="form-text">Chiffré en base, jamais réaffiché.</div>
+  </fieldset>
   <div class="row">
     <div class="col-8 mb-3"><label class="form-label" for="probe_host">Hôte de la sonde TLS</label>
       <input class="form-control" id="probe_host" name="probe_host" placeholder="vide = hôte de l'API" value="{{ form.probe_host or '' }}"></div>

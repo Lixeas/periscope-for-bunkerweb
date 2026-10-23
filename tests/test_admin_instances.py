@@ -19,9 +19,10 @@ def client(fresh_db):
 @pytest.fixture
 def admin(client, monkeypatch):
     calls = []
-    state = {"error": None}
+    state = {"error": None, "checks": []}
 
-    async def check(base_url, token, verify_tls):
+    async def check(base_url, verify_tls, token=None, credentials=None):
+        state["checks"].append({"token": token, "credentials": credentials})
         return state["error"]
 
     async def refresh(inst_id):
@@ -145,3 +146,105 @@ def test_edit_url_change_requires_token(client, admin):
         assert s.get(Instance, iid).base_url == "http://10.0.0.5:8888"
     r = post(client, csrf, f"/admin/instances/{iid}", **{**data, "token": "newtok"})
     assert r.status_code == 303
+
+
+USER_FORM = {"name": "bwu", "base_url": "http://10.0.0.5:8888", "auth_mode": "user", "api_username": "mc",
+             "api_password": "pw-secret", "tls_port": "443", "verify_tls": "on"}
+
+
+def only_instance():
+    with session_scope() as s:
+        return s.query(Instance).one().id
+
+
+def test_add_user_mode_encrypts_password_and_tests_with_credentials(client, admin):
+    csrf, calls, state = admin
+    r = post(client, csrf, **USER_FORM)
+    assert r.status_code == 303
+    assert state["checks"] == [{"token": None, "credentials": ("mc", "pw-secret")}]
+    with session_scope() as s:
+        i = s.query(Instance).one()
+        assert (i.auth_mode, i.api_username, i.token_enc) == ("user", "mc", "")
+        assert i.api_password_enc != "pw-secret" and decrypt(i.api_password_enc) == "pw-secret"
+        assert calls == [i.id]
+    page = client.get("/admin/instances").text
+    assert "pw-secret" not in page and "Utilisateur API" in page
+
+
+def test_add_user_mode_requires_username_and_password(client, admin):
+    csrf, _, _ = admin
+    for override in ({"api_username": ""}, {"api_password": ""}):
+        r = client.post("/admin/instances", data={"csrf": csrf, **USER_FORM, **override})
+        assert r.status_code == 400 and "requis" in r.text
+    r = client.post("/admin/instances", data={"csrf": csrf, **FORM, "auth_mode": "bogus"})
+    assert r.status_code == 400 and "Mode d&#39;authentification invalide" in r.text
+
+
+def test_add_user_mode_wrong_password_reports_auth_message(client, admin):
+    csrf, _, state = admin
+    state["error"] = "Authentification refusée (token, identifiants ou droits insuffisants) — HTTP 401 on /auth"
+    r = client.post("/admin/instances", data={"csrf": csrf, **USER_FORM})
+    assert r.status_code == 400 and "Authentification refusée" in r.text and "pw-secret" not in r.text
+
+
+def test_check_instance_user_mode_exercises_auth(monkeypatch):
+    import asyncio
+
+    import respx
+    from httpx import Response
+    with respx.mock:
+        auth = respx.post("http://bw:8888/auth").mock(return_value=Response(401))
+        respx.get("http://bw:8888/ping").respond(json={})
+        msg = asyncio.run(routes_admin.check_instance("http://bw:8888", True, credentials=("mc", "bad")))
+    assert auth.called and "Authentification refusée" in msg and "bad" not in msg
+
+
+def test_edit_user_mode_blank_password_keeps_and_new_replaces(client, admin):
+    csrf, _, _ = admin
+    post(client, csrf, **USER_FORM)
+    iid = only_instance()
+    data = {"name": "bwu", "base_url": "http://10.0.0.5:8888", "auth_mode": "user", "api_username": "mc",
+            "api_password": "", "tls_port": "443", "enabled": "on"}
+    assert post(client, csrf, f"/admin/instances/{iid}", **data).status_code == 303
+    with session_scope() as s:
+        assert decrypt(s.get(Instance, iid).api_password_enc) == "pw-secret"
+    post(client, csrf, f"/admin/instances/{iid}", **{**data, "api_password": "new-pw"})
+    with session_scope() as s:
+        assert decrypt(s.get(Instance, iid).api_password_enc) == "new-pw"
+    page = client.get(f"/admin/instances/{iid}").text
+    assert "new-pw" not in page and 'value="mc"' in page
+
+
+def test_edit_user_mode_url_or_username_change_requires_password(client, admin):
+    csrf, _, _ = admin
+    post(client, csrf, **USER_FORM)
+    iid = only_instance()
+    base = {"name": "bwu", "base_url": "http://10.0.0.5:8888", "auth_mode": "user", "api_username": "mc",
+            "api_password": "", "tls_port": "443", "enabled": "on"}
+    for override in ({"base_url": "http://evil:8888"}, {"api_username": "other"}):
+        r = client.post(f"/admin/instances/{iid}", data={"csrf": csrf, **base, **override})
+        assert r.status_code == 400 and "ressaisir le mot de passe" in r.text
+    r = post(client, csrf, f"/admin/instances/{iid}", **{**base, "base_url": "http://ok:8888", "api_password": "x"})
+    assert r.status_code == 303
+
+
+def test_edit_switch_mode_requires_new_secrets_and_clears_old(client, admin):
+    csrf, _, _ = admin
+    post(client, csrf, **FORM)  # mode token
+    iid = only_instance()
+    base = {"name": "bw1", "base_url": "http://10.0.0.5:8888", "tls_port": "443", "enabled": "on",
+            "auth_mode": "user", "api_username": "mc", "api_password": ""}
+    r = client.post(f"/admin/instances/{iid}", data={"csrf": csrf, **base})
+    assert r.status_code == 400 and "Changer le mode" in r.text
+    assert post(client, csrf, f"/admin/instances/{iid}", **{**base, "api_password": "pw"}).status_code == 303
+    with session_scope() as s:
+        i = s.get(Instance, iid)
+        assert (i.auth_mode, i.token_enc) == ("user", "") and decrypt(i.api_password_enc) == "pw"
+    back = {**base, "auth_mode": "token", "token": ""}
+    r = client.post(f"/admin/instances/{iid}", data={"csrf": csrf, **back})
+    assert r.status_code == 400 and "Changer le mode" in r.text
+    assert post(client, csrf, f"/admin/instances/{iid}", **{**back, "token": "tk"}).status_code == 303
+    with session_scope() as s:
+        i = s.get(Instance, iid)
+        assert (i.auth_mode, i.api_username, i.api_password_enc) == ("token", "", "")
+        assert decrypt(i.token_enc) == "tk"
