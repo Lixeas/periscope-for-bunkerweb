@@ -127,3 +127,9 @@ def test_bans_rows_legacy_snapshot_exp_zero_is_permanent_and_hostile_exp_safe(fr
     assert rows["7.7.7.7"]["permanent"] is True
     assert rows["8.8.8.8"]["permanent"] is False and rows["8.8.8.8"]["exp_sort"] == 0
     assert rows["9.9.9.9"]["permanent"] is False
+
+
+def test_ban_row_survives_gigantic_numbers():
+    from periscope.queries import PERMANENT_SORT, _ban_row
+    row = _ban_row({"ip": "1.1.1.1", "exp": 10**400, "date": 10**400}, "bw1", {})
+    assert row["exp_sort"] == PERMANENT_SORT - 1 and row["permanent"] is False

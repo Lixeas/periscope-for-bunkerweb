@@ -28,7 +28,11 @@ def _ago(d: datetime | None) -> str:
 
 
 def _finite(v) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+    if isinstance(v, bool):
+        return False
+    if isinstance(v, int):
+        return True  # math.isfinite lève OverflowError au-delà de ~1e308
+    return isinstance(v, float) and math.isfinite(v)
 
 
 def _epoch(v) -> str:
