@@ -71,8 +71,8 @@ def test_jobs_coerce_name_plugin_every():
             assert isinstance(j[k], str)
 
 
-# --- Formes réelles : dérivées du SOURCE de BunkerWeb v1.6.17 (routers/*.py, Database.py, api.lua,
-# banlease.lua), PAS capturées sur une instance vivante. ---
+# --- Real shapes: derived from the BunkerWeb v1.6.17 SOURCE (routers/*.py, Database.py, api.lua,
+# banlease.lua), NOT captured from a live instance. ---
 
 REAL_SERVICES = {"status": "success", "services": [
     {"id": "www.example.test", "method": "ui", "is_draft": False, "creation_date": "2026-01-01T00:00:00+00:00",
@@ -82,7 +82,7 @@ REAL_SERVICES = {"status": "success", "services": [
 
 
 def test_services_real_shape_reads_mode_from_list():
-    """Forme dérivée du source BunkerWeb v1.6.17, non capturée en live."""
+    """Shape derived from the BunkerWeb v1.6.17 source, not captured live."""
     assert N.services(REAL_SERVICES) == [
         {"name": "www.example.test", "draft": False, "mode": "block"},
         {"name": "api.example.test", "draft": True, "mode": "detect"}]
@@ -94,7 +94,7 @@ def test_services_item_without_security_mode_has_none_mode():
 
 
 def test_security_mode_from_full_config_shape():
-    """GET /services/{id}?full=true (source v1.6.17, non capturé en live)."""
+    """GET /services/{id}?full=true (v1.6.17 source, not captured live)."""
     cfg = {"status": "success", "service": "a", "config": {
         "USE_GZIP": {"value": "yes", "global": True, "method": "default", "default": "yes", "template": None},
         "SECURITY_MODE": {"value": "Block", "global": False, "method": "ui", "default": "detect", "template": None}}}
@@ -113,7 +113,7 @@ def _inst(*bans, status="success"):
 
 
 def test_bans_real_per_instance_dict():
-    """Dict par instance nginx (source v1.6.17, non capturé en live)."""
+    """Dict per nginx instance (v1.6.17 source, not captured live)."""
     out = N.bans({"nginx-1": _inst(REAL_BAN), "nginx-2": _inst({**REAL_BAN, "ip": "198.51.100.9", "exp": 0,
                                                                   "permanent": True, "kind": "crowdsec_lease"})})
     assert out == [
@@ -165,7 +165,7 @@ REAL_JOBS = {"status": "success", "jobs": {
 
 
 def test_jobs_real_dict_keyed_shape():
-    """Dict indexé par nom de job (source v1.6.17, non capturé en live)."""
+    """Dict indexed by job name (v1.6.17 source, not captured live)."""
     assert N.jobs(REAL_JOBS) == [
         {"name": "certbot-renew", "plugin": "letsencrypt", "every": "day",
          "last_run": "2026-10-22T03:00:05+00:00", "success": False},
@@ -174,7 +174,7 @@ def test_jobs_real_dict_keyed_shape():
 
 def test_jobs_latest_history_entry_chosen_regardless_of_order():
     old = {"end_date": "2026-01-01T00:00:00+00:00", "success": True}
-    new = {"end_date": "2026-03-01T01:00:00+01:00", "success": False}  # 00:00 UTC, plus récent
+    new = {"end_date": "2026-03-01T01:00:00+01:00", "success": False}  # 00:00 UTC, more recent
     for hist in ([old, new], [new, old]):
         (j,) = N.jobs({"jobs": {"j": {"plugin_id": "p", "every": "hour", "history": hist}}})
         assert j["last_run"] == new["end_date"] and j["success"] is False
@@ -190,7 +190,7 @@ def test_jobs_next_run_computed_from_iso_with_offset():
 
 
 def test_plugins_real_shape_without_method():
-    """Forme dérivée du source v1.6.17, non capturée en live."""
+    """Shape derived from the v1.6.17 source, not captured live."""
     payload = {"status": "success", "plugins": [
         {"id": "antibot", "stream": "no", "name": "Antibot", "description": "d", "version": "1.9", "type": "core",
          "method": "manual", "page": False, "settings": {}, "checksum": "c"},
@@ -229,7 +229,7 @@ def test_nodes_real_shape():
 def test_nodes_tolerant_of_odd_input():
     assert N.nodes(None) == [] and N.nodes("x") == [] and N.nodes({"status": "success"}) == []
     out = N.nodes([{"hostname": "h", "status": "Weird", "port": "80", "last_seen": ["x"]}, 7, {"name": "n"}, {}])
-    assert [n["hostname"] for n in out] == ["h", "n"]  # sans hostname ni name : ignoré ; nom seul accepté
+    assert [n["hostname"] for n in out] == ["h", "n"]  # without hostname or name: ignored; name alone accepted
     assert out[0]["status"] == "weird" and out[0]["port"] is None and out[0]["last_seen"] is None
     assert out[1]["status"] == "" and out[1]["name"] == "n"
     assert N.nodes({"instances": [{"hostname": ["a"], "port": True}]})[0]["hostname"] == "['a']"

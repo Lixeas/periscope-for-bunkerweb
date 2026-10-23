@@ -51,7 +51,7 @@ def test_change_password_revokes_other_sessions(logged):
         user = s.query(User).one()
         from periscope.auth import sessions
         from periscope.clock import utcnow
-        sessions.create(s, user, True, utcnow())  # une autre session
+        sessions.create(s, user, True, utcnow())  # another session
         assert s.query(Session).count() == 2
     new = "another long passphrase"
     client.post("/account/password", data={"csrf": csrf, "current": PW, "new": new, "confirm": new})
@@ -87,7 +87,7 @@ def test_remove_totp_when_passkey_exists_and_delete_passkey_guard(logged):
     r = client.post("/account/totp/remove", data={"csrf": csrf, "password": PW}, follow_redirects=False)
     assert r.headers["location"] == "/account?m=totp_removed"
     r = client.post(f"/account/passkeys/{cred_id}/delete", data={"csrf": csrf, "password": PW}, follow_redirects=False)
-    assert r.headers["location"] == "/account?m=last_factor"  # c'est maintenant le dernier facteur
+    assert r.headers["location"] == "/account?m=last_factor"  # it is now the last factor
     with session_scope() as s:
         assert s.query(Credential).count() == 1
 
@@ -142,7 +142,7 @@ def test_passkey_delete_closes_other_sessions(logged):
     assert r.headers["location"] == "/account?m=pk_deleted"
     assert _sessions() == 1
     assert "sessions_revoked" in _events()
-    assert client.get("/account").status_code == 200  # la session courante survit
+    assert client.get("/account").status_code == 200  # the current session survives
 
 
 def test_totp_remove_closes_other_sessions(logged):

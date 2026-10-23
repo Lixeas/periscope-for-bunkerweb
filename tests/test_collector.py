@@ -128,7 +128,7 @@ async def test_deleted_instance_mid_cycle_is_ignored(fresh_db):
     await collector.probe_one(iid, deleting_probe)
     with session_scope() as s:
         assert s.query(CertProbe).count() == 0
-    collector._finish(iid, datetime(2026, 1, 1), "ok", "", 1.0, "1.0", {})  # ne lève pas
+    collector._finish(iid, datetime(2026, 1, 1), "ok", "", 1.0, "1.0", {})  # does not raise
 
 
 async def test_version_truncated(fresh_db):
@@ -239,7 +239,7 @@ def test_default_client_user_mode_caches_token_by_fingerprint(fresh_db):
         c.token = "bisc"
         collector.remember_token(inst, c)
         assert collector.default_client(inst).token == "bisc"
-        inst.api_password_enc = encrypt("other")  # changement d'identifiants : cache invalidé
+        inst.api_password_enc = encrypt("other")  # credentials changed: cache invalidated
         c2 = collector.default_client(inst)
         assert c2.token is None and c2._credentials == ("periscope", "other")
 
@@ -263,7 +263,7 @@ async def test_collect_one_stores_token_back_in_cache(fresh_db):
 
 
 async def test_version_from_token_when_client_built_with_cached_token(fresh_db):
-    """Mode utilisateur, jeton venant du cache en processus : version() (lue dans le jeton) alimente instance.version."""
+    """User mode, token coming from the in-process cache: version() (read from the token) feeds instance.version."""
     collector._TOKEN_CACHE.clear()
     collector._VERSION_CHECKED.clear()
     iid = add_user_instance()
@@ -282,7 +282,7 @@ async def test_version_from_token_when_client_built_with_cached_token(fresh_db):
 
     def factory(inst):
         f = Cached()
-        f.token = collector.default_client(inst).token  # jeton déjà présent avant tout appel réseau
+        f.token = collector.default_client(inst).token  # token already present before any network call
         seen.append(f.token)
 
         async def version():
@@ -305,7 +305,7 @@ async def test_nodes_stored_and_all_up_is_ok(fresh_db):
     assert [n["hostname"] for n in snap(iid, "instances")] == ["w1", "w2"]
     with session_scope() as s:
         inst = s.get(Instance, iid)
-        assert inst.status == "ok" and inst.last_error == ""  # loading n'est pas une erreur
+        assert inst.status == "ok" and inst.last_error == ""  # loading is not an error
 
 
 async def test_down_node_degrades_instance(fresh_db):
