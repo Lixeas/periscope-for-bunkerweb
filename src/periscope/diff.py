@@ -21,7 +21,7 @@ def days_left(not_after: datetime | None, now: datetime) -> int | None:
 
 
 def gaps(per_instance: dict[str, set[str]]) -> dict[str, list[str]]:
-    """élément -> instances qui ne l'ont pas ; seulement les éléments absents quelque part."""
+    """item -> instances that lack it; only items missing somewhere."""
     seen = set().union(*per_instance.values()) if per_instance else set()
     out = {}
     for item in seen:
@@ -50,7 +50,7 @@ _EVERY = {"minute": timedelta(minutes=1), "hour": timedelta(hours=1),
 
 
 def _parse_ts(value) -> datetime | None:
-    """Horodatage tolérant -> UTC naïf ; None si absent ou illisible."""
+    """Lenient timestamp -> naive UTC; None if missing or unreadable."""
     if value is None or isinstance(value, bool):
         return None
     if isinstance(value, str):
@@ -76,7 +76,7 @@ def _parse_ts(value) -> datetime | None:
 
 
 def next_run(last_run, every) -> datetime | None:
-    """Prochaine échéance estimée (naïf UTC) ; None pour 'once', fréquence inconnue ou dernière exécution illisible."""
+    """Estimated next due date (naive UTC); None for 'once', unknown frequency or unreadable last run."""
     delta = _EVERY.get(every) if isinstance(every, str) else None
     last = _parse_ts(last_run)
     if delta is None or last is None:

@@ -15,12 +15,12 @@ log = logging.getLogger("periscope.collector")
 KINDS = ("services", "bans", "jobs", "plugins", "instances")
 
 
-# Jetons Biscuit en mémoire (processus unique) : (id instance, empreinte des identifiants) -> jeton.
-# Changer identifiant ou mot de passe change l'empreinte, donc invalide l'entrée.
+# Biscuit tokens in memory (single process): (instance id, credentials fingerprint) -> token.
+# Changing the username or password changes the fingerprint, hence invalidates the entry.
 _TOKEN_CACHE: dict[tuple[int, str], str] = {}
 
 
-# Dernière recherche de version (OpenAPI) par instance : évite une requête par cycle.
+# Last version lookup (OpenAPI) per instance: avoids one request per cycle.
 _VERSION_CHECKED: dict[int, datetime] = {}
 VERSION_RECHECK = timedelta(hours=1)
 
@@ -34,7 +34,7 @@ def remember_token(inst: Instance, client) -> None:
     if inst.auth_mode != "user":
         return
     key = _cache_key(inst)
-    # purge les entrées périmées de cette instance (anciens identifiants)
+    # purge stale entries of this instance (old credentials)
     for k in [k for k in _TOKEN_CACHE if k[0] == inst.id and k != key]:
         del _TOKEN_CACHE[k]
     tok = getattr(client, "token", None)
@@ -53,7 +53,7 @@ def default_client(inst: Instance) -> BWClient:
 
 
 def _node_problems(nodes: list[dict]) -> str:
-    """Message d'erreur pour les nœuds en défaut ('loading' n'en est pas un) ; '' si tout va bien."""
+    """Error message for faulty nodes ('loading' is not one); '' if all is well."""
     parts = []
     for status, label in (("down", "hors ligne"), ("failover", "en failover")):
         names = [str(n.get("hostname") or n.get("name") or "?") for n in nodes if n.get("status") == status]
@@ -73,7 +73,7 @@ def _save_snapshot(s, inst_id: int, kind: str, payload: list, now) -> None:
 def _finish(inst_id, now, status, error, latency, version, results) -> None:
     with session_scope() as s:
         inst = s.get(Instance, inst_id)
-        if inst is None:  # supprimée pendant le cycle
+        if inst is None:  # deleted during the cycle
             return
         inst.status, inst.last_attempt_at, inst.last_error = status, now, error[:1024]
         if status != "down":
@@ -84,7 +84,7 @@ def _finish(inst_id, now, status, error, latency, version, results) -> None:
 
 
 async def collect_one(inst_id: int, client_factory=default_client) -> None:
-    # ponytail: accès DB synchrones dans la boucle async ; OK pour SQLite et <= 10 instances.
+    # ponytail: synchronous DB access in the async loop; fine for SQLite and <= 10 instances.
     with session_scope() as s:
         inst = s.get(Instance, inst_id)
         if inst is None or not inst.enabled:
@@ -102,8 +102,8 @@ async def collect_one(inst_id: int, client_factory=default_client) -> None:
                             or now - _VERSION_CHECKED.get(inst_id, datetime.min) > VERSION_RECHECK):
             _VERSION_CHECKED[inst_id] = now
             try:
-                version = await client.version()  # ne lève pas ; None = on garde la valeur connue
-            except Exception:  # noqa: BLE001 - la version ne doit jamais affecter la collecte
+                version = await client.version()  # does not raise; None = keep the known value
+            except Exception:  # noqa: BLE001 - the version must never affect collection
                 version = None
         for kind in KINDS:
             try:
@@ -111,7 +111,7 @@ async def collect_one(inst_id: int, client_factory=default_client) -> None:
             except BWError as e:
                 errors.append(f"{kind}: {e.kind}: {e}")
     finally:
-        remember_token(inst, client)  # réutilisé au cycle suivant (évite un POST /auth par cycle)
+        remember_token(inst, client)  # reused on the next cycle (avoids one POST /auth per cycle)
         await client.aclose()
     if problem := _node_problems(results.get("instances") or []):
         errors.append(problem)
@@ -131,7 +131,7 @@ async def probe_one(inst_id: int, probe_fn=probe) -> None:
     infos = dict(zip(domains, await asyncio.gather(*[probe_fn(target, port, d, timeout) for d in domains])))
     now = utcnow()
     with session_scope() as s:
-        if s.get(Instance, inst_id) is None:  # supprimée pendant la sonde
+        if s.get(Instance, inst_id) is None:  # deleted during the probe
             return
         for row in s.query(CertProbe).filter_by(instance_id=inst_id).all():
             if row.domain not in infos:
@@ -145,7 +145,7 @@ async def probe_one(inst_id: int, probe_fn=probe) -> None:
 
 
 async def refresh_instance(inst_id: int) -> None:
-    """Collecte puis sonde immédiatement une instance (après ajout ou modification)."""
+    """Immediately collect then probe an instance (after addition or modification)."""
     await collect_one(inst_id)
     await probe_one(inst_id)
 
@@ -183,5 +183,5 @@ async def run_forever() -> None:
     cfg = get_settings()
     await asyncio.gather(
         _every(collect_all, cfg.poll_interval),
-        _every(probe_all, cfg.probe_interval, first_delay=15),  # laisse la 1re collecte remplir les services
+        _every(probe_all, cfg.probe_interval, first_delay=15),  # lets the 1st collection fill in the services
     )

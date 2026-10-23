@@ -21,7 +21,7 @@ def seed():
                                  {"name": "y.example", "draft": False, "mode": "detect"},
                                  {"name": "d.example", "draft": True, "mode": None}],
             (b.id, "services"): [{"name": "x.example", "draft": False, "mode": "detect"}],
-            # forme normalisée (cf. normalize.bans ; API dérivée du source BunkerWeb v1.6.17)
+            # normalized shape (see normalize.bans; API derived from the BunkerWeb v1.6.17 source)
             (a.id, "bans"): [{"ip": "1.1.1.1", "reason": "bot", "service": "x.example", "ban_scope": "service",
                               "exp": 60, "date": 1760000000, "permanent": False, "country": "FR", "kind": "ban"}],
             (b.id, "bans"): [{"ip": "1.1.1.1", "reason": "bot", "service": "x.example", "ban_scope": "service",

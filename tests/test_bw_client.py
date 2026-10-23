@@ -48,7 +48,7 @@ async def test_http_and_data_error_kinds():
     assert (e1.value.kind, e2.value.kind) == ("http", "data")
 
 
-# Formes ci-dessous : dérivées du source BunkerWeb v1.6.17, pas capturées sur une instance vivante.
+# Shapes below: derived from the BunkerWeb v1.6.17 source, not captured from a live instance.
 
 @respx.mock
 async def test_ping_without_version_field():
@@ -166,7 +166,7 @@ async def test_user_mode_token_under_data_and_cached_initial_token():
     assert c.token == "nested"
     c2 = BWClient(BASE, token="cached", credentials=CREDS)
     await c2.ping()
-    assert auth.call_count == 1  # le jeton en cache évite /auth
+    assert auth.call_count == 1  # the cached token avoids /auth
     assert ping.calls[-1].request.headers["authorization"] == "Bearer cached"
 
 
@@ -226,7 +226,7 @@ def test_constructor_requires_a_secret():
 
 @respx.mock
 async def test_client_is_read_only():
-    """Seule requête non-GET autorisée : POST /auth (échange identifiants -> jeton)."""
+    """Only non-GET request allowed: POST /auth (credentials -> token exchange)."""
     respx.post(f"{BASE}/auth").respond(json={"token": "t"})
     respx.route(method="GET").respond(json={"services": [], "bans": [], "jobs": {}, "plugins": [], "instances": []})
     other = respx.route(method__in=["POST", "PUT", "PATCH", "DELETE"], path__regex=r"^(?!/auth$).*")
@@ -242,7 +242,7 @@ async def test_client_is_read_only():
     assert all(call.request.url.path == "/auth" for call in respx.calls if call.request.method != "GET")
 
 
-# --- version() : lue dans le document OpenAPI public (info.version) ---
+# --- version(): read from the public OpenAPI document (info.version) ---
 
 @respx.mock
 async def test_version_from_openapi_info():
@@ -297,7 +297,7 @@ async def test_version_sends_no_auth_and_no_auth_roundtrip():
     assert "authorization" not in route.calls[0].request.headers
 
 
-# --- version() : d'abord le fait `version` du jeton Biscuit, sans requête réseau ---
+# --- version(): first the `version` fact of the Biscuit token, no network request ---
 
 def _biscuit(symbols):
     import base64

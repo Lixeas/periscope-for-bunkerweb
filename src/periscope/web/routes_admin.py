@@ -31,8 +31,8 @@ KIND_LABEL = {"network": "Instance injoignable", "auth": "Authentification refus
 
 async def check_instance(base_url: str, verify_tls: bool, token: str | None = None,
                          credentials: tuple[str, str] | None = None) -> str | None:
-    """Test de connexion : ping + un appel authentifié (en mode utilisateur, cela exerce POST /auth).
-    Retourne un message d'erreur ou None."""
+    """Connection test: ping + one authenticated call (in user mode, this exercises POST /auth).
+    Returns an error message or None."""
     client = BWClient(base_url, token, credentials=credentials,
                       timeout=get_settings().http_timeout, verify=verify_tls)
     try:
@@ -50,7 +50,7 @@ def clean_url(raw: str) -> str:
     try:
         u = urlparse(raw)
         ok = u.scheme in ("http", "https") and u.hostname and not u.username and not u.password
-        _ = u.port  # lève ValueError si le port est invalide
+        _ = u.port  # raises ValueError if the port is invalid
     except ValueError:
         ok = False
     if not ok:
@@ -104,7 +104,7 @@ async def instances_add(request: Request, background: BackgroundTasks,
     except ValueError as e:
         return instances_page(request, db, user, str(e), form, 400)
     if not force:
-        db.commit()  # libère le verrou d'écriture SQLite pendant l'appel réseau
+        db.commit()  # releases the SQLite write lock during the network call
         err = await check_instance(base_url, verify_tls,
                                    token=token if auth_mode == "token" else None,
                                    credentials=(api_username, api_password) if auth_mode == "user" else None)

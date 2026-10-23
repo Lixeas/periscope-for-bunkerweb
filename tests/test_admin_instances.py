@@ -128,7 +128,7 @@ def test_delete_cascades(client, admin):
 
 def test_reader_forbidden_and_csrf_required(client, admin):
     _csrf, _, _ = admin
-    assert client.post("/admin/instances", data=FORM).status_code == 403  # sans CSRF
+    assert client.post("/admin/instances", data=FORM).status_code == 403  # without CSRF
     with make_client() as c2:
         login_as(c2, "bob", "reader")
         assert c2.get("/admin/instances").status_code == 403

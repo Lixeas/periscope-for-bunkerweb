@@ -1,8 +1,8 @@
-"""Vecteurs encodés à la main selon le schéma Biscuit v3 (schema.proto) :
-Biscuit{rootKeyId=1, authority=2: SignedBlock{block=1: Block{symbols=1 (string répété), ...}}}.
-Le bloc d'autorité d'un vrai jeton BunkerWeb contient en plus des faits/chiffres ; ils sont simulés ici
-par un champ varint (version=5) et un champ 6 opaque, qui doivent être ignorés. Aucun vrai jeton n'a pu être
-généré (biscuit-python indisponible pour Python 3.14)."""
+"""Hand-encoded vectors following the Biscuit v3 schema (schema.proto):
+Biscuit{rootKeyId=1, authority=2: SignedBlock{block=1: Block{symbols=1 (repeated string), ...}}}.
+The authority block of a real BunkerWeb token also contains facts/figures; they are simulated here
+by a varint field (version=5) and an opaque field 6, which must be ignored. No real token could be
+generated (biscuit-python unavailable for Python 3.14)."""
 import base64
 
 import pytest
@@ -54,7 +54,7 @@ def test_missing_version_none_ipv4_not_returned():
 @pytest.mark.parametrize("pad", [True, False])
 @pytest.mark.parametrize("urlsafe", [True, False])
 def test_base64_variants(pad, urlsafe):
-    # octets 0xfb/0xff dans la signature => '+' '/' en alphabet standard
+    # bytes 0xfb/0xff in the signature => '+' '/' in the standard alphabet
     raw = token_bytes(["x", "1.6.17"]).replace(b"\x00" * 8, b"\xfb\xff\xfe" * 3)
     assert version_from_token(b64(raw, urlsafe, pad)) == "1.6.17"
 
@@ -62,12 +62,12 @@ def test_base64_variants(pad, urlsafe):
 def test_truncated_protobuf_none():
     raw = token_bytes(SYMS)
     for cut in range(0, len(raw) - 1, 7):
-        version_from_token(b64(raw[:cut]))  # ne lève jamais
+        version_from_token(b64(raw[:cut]))  # never raises
     assert version_from_token(b64(raw[:30])) is None
 
 
 def test_malformed_wire_none():
-    assert version_from_token(b64(b"\x12\xff\xff\xff\xff\x0f")) is None  # longueur énorme
+    assert version_from_token(b64(b"\x12\xff\xff\xff\xff\x0f")) is None  # huge length
     assert version_from_token(b64(b"\x13\x00")) is None  # type de fil 3
     assert version_from_token(b64(b"\x80" * 20)) is None  # varint interminable
 

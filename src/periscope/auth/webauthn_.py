@@ -48,7 +48,7 @@ def authentication_options(user: User) -> tuple[dict, bytes]:
 
 
 def verify_authentication(credential: dict, challenge: bytes, stored: Credential) -> int:
-    """Retourne le nouveau compteur de signatures."""
+    """Return the new signature counter."""
     cfg = get_settings()
     v = verify_authentication_response(
         credential=credential, expected_challenge=challenge,

@@ -28,7 +28,7 @@ def test_idle_and_absolute_expiry(fresh_db):
         token, _ = sessions.create(s, user, True, T0)
         assert sessions.lookup(s, token, T0 + timedelta(hours=9), IDLE, MAXAGE) is None
         token, _ = sessions.create(s, user, True, T0)
-        for h in (7, 14, 21):  # actif toutes les 7 h : idle OK mais plafond 24 h
+        for h in (7, 14, 21):  # active every 7 h: idle OK but 24 h cap
             assert sessions.lookup(s, token, T0 + timedelta(hours=h), IDLE, MAXAGE) is not None
         assert sessions.lookup(s, token, T0 + timedelta(hours=25), IDLE, MAXAGE) is None
 
@@ -58,5 +58,5 @@ def test_destroy_and_purge(fresh_db):
         sessions.destroy(s, token)
         assert s.query(Session).count() == 0
         sessions.create(s, user, True, T0)
-        sessions.create(s, user, True, T0 + timedelta(days=3))  # purge les sessions de plus de 24 h d'inactivité
+        sessions.create(s, user, True, T0 + timedelta(days=3))  # purges sessions inactive for more than 24 h
         assert s.query(Session).count() == 1
