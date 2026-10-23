@@ -2,55 +2,55 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Application web de supervision **en lecture seule** de 2 à 10 instances BunkerWeb (même réseau) via leur API. Python 3.11+, FastAPI, SQLAlchemy, Jinja2. Spec : `docs/superpowers/specs/`, plans d'implémentation : `docs/superpowers/plans/`. Interface et messages en français.
+**Read-only** monitoring web application for 2 to 10 BunkerWeb instances (same network) through their API. Python 3.11+, FastAPI, SQLAlchemy, Jinja2. Spec: `docs/superpowers/specs/`, implementation plans: `docs/superpowers/plans/`. UI and user-facing messages are currently French; an English/French language switch is being added.
 
-## Commandes
+## Commands
 
 ```bash
-python -m venv .venv && source .venv/Scripts/activate   # Git Bash sous Windows
+python -m venv .venv && source .venv/Scripts/activate   # Git Bash on Windows
 pip install -e ".[dev]"
-python -m pytest -q                                      # suite complète
-python -m pytest tests/test_collector.py::test_collect_ok_stores_snapshots -v   # un seul test
-ruff check src tests dev                                 # lint (doit rester propre)
+python -m pytest -q                                      # full suite
+python -m pytest tests/test_collector.py::test_collect_ok_stores_snapshots -v   # a single test
+ruff check src tests dev                                 # lint (must stay clean)
 ```
 
-Lancer l'app en local (variables `PERISCOPE_*` lues par `periscope.config.Settings`, `PERISCOPE_SECRET_KEY` obligatoire) :
+Run the app locally (`PERISCOPE_*` variables read by `periscope.config.Settings`, `PERISCOPE_SECRET_KEY` is required):
 
 ```bash
 export PERISCOPE_SECRET_KEY=$(python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())")
-export PERISCOPE_COOKIE_SECURE=false          # HTTP local uniquement
-periscope bootstrap-admin --username admin    # crée le 1er admin (+ applique les migrations)
+export PERISCOPE_COOKIE_SECURE=false          # local HTTP only
+periscope bootstrap-admin --username admin    # creates the first admin (+ applies migrations)
 uvicorn periscope.web.app:create_app --factory --port 8000
 ```
 
-Démo sans vraie instance : `dev/fake_bunkerweb.py` (voir son en-tête pour les 2 commandes uvicorn, ports 9001/9002, TLS 9443/9444). `FAKE_AUTH=1 FAKE_TTL=<s>` active `POST /auth` (utilisateur `periscope`, mot de passe `FAKE_PASSWORD`, défaut `secret`) et exige un Bearer expirant sur les endpoints de données.
+Demo without a real instance: `dev/fake_bunkerweb.py` (see its header for the 2 uvicorn commands, ports 9001/9002, TLS 9443/9444). `FAKE_AUTH=1 FAKE_TTL=<s>` enables `POST /auth` (user `periscope`, password `FAKE_PASSWORD`, default `secret`) and requires an expiring Bearer on the data endpoints.
 
-Migration : `alembic revision --autogenerate -m "..."` (utilise `alembic.ini`, SQLite jetable `data/autogen.db`) ; l'app applique `alembic upgrade head` au démarrage via `periscope.db.migrate()`. Les migrations vivent dans `src/periscope/migrations/` (dans le package).
+Migration: `alembic revision --autogenerate -m "..."` (uses `alembic.ini`, throwaway SQLite `data/autogen.db`); the app applies `alembic upgrade head` at startup via `periscope.db.migrate()`. Migrations live in `src/periscope/migrations/` (inside the package).
 
 ## Architecture
 
-Un seul processus : `periscope.web.app.create_app()` lance le serveur FastAPI **et**, dans le `lifespan`, la tâche `periscope.collector.run_forever()` (désactivable avec `PERISCOPE_COLLECTOR_ENABLED=false`, ce que font les tests).
+A single process: `periscope.web.app.create_app()` starts the FastAPI server **and**, in the `lifespan`, the `periscope.collector.run_forever()` task (can be disabled with `PERISCOPE_COLLECTOR_ENABLED=false`, which the tests do).
 
-Flux de données — **le web ne lit jamais BunkerWeb**, uniquement la base :
-1. `collector` : toutes les `PERISCOPE_POLL_INTERVAL` s, une tâche par instance → `BWClient` (`bw_client.py` : toutes les données via `_get`, GET uniquement ; seule autre requête permise : `POST /auth`, aucune méthode publique d'écriture ; deux modes d'authentification, voir plus bas) → `normalize.py` → upsert d'un `Snapshot` par (instance, type : services/bans/jobs/plugins/instances). Échec réseau = statut `down`, dernier snapshot conservé ; échec partiel = `degraded`.
-2. Sonde TLS (`tlsprobe.py`, boucle plus lente `PERISCOPE_PROBE_INTERVAL`) : handshake vers `IP_instance:port` avec SNI = domaine de chaque service non-brouillon ; lit le certificat sans le valider (volontaire : détecter expirés/auto-signés). Résultats dans `CertProbe`.
-3. `queries.py` transforme les snapshots en modèles de vue (écarts entre instances via `diff.py`, statuts de certificat 7 j rouge / 21 j orange). `web/routes_views.py` est mince.
+Data flow — **the web layer never reads BunkerWeb**, only the database:
+1. `collector`: every `PERISCOPE_POLL_INTERVAL` s, one task per instance → `BWClient` (`bw_client.py`: all data goes through `_get`, GET only; the only other allowed request is `POST /auth`, no public write method; two authentication modes, see below) → `normalize.py` → upsert of one `Snapshot` per (instance, type: services/bans/jobs/plugins/instances). Network failure = `down` status, last snapshot kept; partial failure = `degraded`.
+2. TLS probe (`tlsprobe.py`, slower loop `PERISCOPE_PROBE_INTERVAL`): handshake to `instance_IP:port` with SNI = domain of each non-draft service; reads the certificate without validating it (deliberate: detect expired/self-signed ones). Results go in `CertProbe`.
+3. `queries.py` turns snapshots into view models (differences between instances via `diff.py`, certificate statuses 7 d red / 21 d orange). `web/routes_views.py` is thin.
 
-Rôles : une instance Periscope = un endpoint d'API BunkerWeb, donc le **scheduler** (badge fixe `scheduler`). Le snapshot `instances` (`GET /instances`, permission `instances_read`, parsé par `normalize.nodes`) liste les nœuds nginx qu'il gère, affichés dessous avec le badge fixe `worker`. Un nœud `down` ou `failover` force le statut `degraded` avec un `last_error` du type « 1 nœud hors ligne : <hostname> » (`collector._node_problems`) ; `loading` n'est pas une erreur ; l'échec de l'appel lui-même est un échec partiel comme les autres types. Le fake sert `/instances` (le 2e nœud est `down` avec `FAKE_EXTRA=1`). Forme dérivée du source, non validée en réel.
+Roles: one Periscope instance = one BunkerWeb API endpoint, hence the **scheduler** (fixed `scheduler` badge). The `instances` snapshot (`GET /instances`, permission `instances_read`, parsed by `normalize.nodes`) lists the nginx nodes it manages, shown below it with the fixed `worker` badge. A `down` or `failover` node forces the `degraded` status with a `last_error` such as « 1 nœud hors ligne : <hostname> » (a French user-facing string, i.e. "1 node offline"; `collector._node_problems`); `loading` is not an error; failure of the call itself is a partial failure like the other types. The fake serves `/instances` (the 2nd node is `down` with `FAKE_EXTRA=1`). Shape derived from the source, not validated on a real instance.
 
-`normalize.py` est le **seul point couplé à la forme JSON de l'API BunkerWeb**, qui n'est pas documentée. Les formes sont désormais **dérivées de la lecture du source de BunkerWeb v1.6.17** (routers/*.py, Database.py, api.lua, banlease.lua), pas capturées sur une instance vivante : `/services` fournit `security_mode` par service (repli sur `/services/{id}?full=true` → `config` seulement s'il manque), `/bans` est un dict par instance nginx (dédupliqué par (ip, service, ban_scope, kind), `exp` = secondes restantes, 0 = permanent ; HTTP 502 accepté si le corps est ce dict), `/jobs` est un dict indexé par nom (`plugin_id`, `history` par `end_date` décroissante), `/ping` n'a pas de `version` : elle est lue par `BWClient.version()` : d'abord dans le fait `version` du jeton Biscuit détenu (mode `user` ; `biscuit_version.py`, extracteur protobuf sans dépendance lisant la table de symboles du bloc d'autorité, sans clé ni requête), sinon dans `info.version` du document public `GET /openapi.json` (qui renvoie un 500 sur au moins une vraie instance 1.6.17 ; le fake le imite sauf `FAKE_OPENAPI=1`) (sous le préfixe racine de l'API, déjà inclus dans `base_url` ; jamais fatal, renvoie None au moindre problème ; le collecteur ne la demande que si inconnue ou datée de plus d'1 h, `collector._VERSION_CHECKED`). Un 500 y a été observé sur une vraie instance sans le préfixe racine ; non confirmé en réel. Les formes historiques supposées restent acceptées. Si l'API réelle diffère, n'ajuster que ce fichier et ses tests. La validation sur une vraie instance reste à faire (Plan 3, tâche 8).
+`normalize.py` is the **only place coupled to the JSON shape of the BunkerWeb API**, which is undocumented. The shapes are now **derived from reading the BunkerWeb v1.6.17 source** (routers/*.py, Database.py, api.lua, banlease.lua), not captured from a live instance: `/services` provides `security_mode` per service (falls back to `/services/{id}?full=true` → `config` only if it is missing), `/bans` is a dict per nginx instance (deduplicated by (ip, service, ban_scope, kind), `exp` = remaining seconds, 0 = permanent; HTTP 502 accepted if the body is that dict), `/jobs` is a dict indexed by name (`plugin_id`, `history` by descending `end_date`), `/ping` has no `version`: it is read by `BWClient.version()`: first from the `version` fact of the held Biscuit token (`user` mode; `biscuit_version.py`, a dependency-free protobuf extractor reading the symbol table of the authority block, with no key and no request), otherwise from `info.version` of the public document `GET /openapi.json` (which returns a 500 on at least one real 1.6.17 instance; the fake imitates this unless `FAKE_OPENAPI=1`) (under the API root prefix, already included in `base_url`; never fatal, returns None at the slightest problem; the collector only requests it if unknown or older than 1 h, `collector._VERSION_CHECKED`). A 500 was observed there on a real instance without the root prefix; not confirmed on a real instance. The historical assumed shapes remain accepted. If the real API differs, adjust only this file and its tests. Validation on a real instance is still to be done (Plan 3, task 8).
 
-Authentification (`src/periscope/auth/` logique, `src/periscope/web/routes_auth.py` + `routes_account.py` routes) :
-- Connexion en 2 temps : le mot de passe crée une session `mfa_ok=False` (TTL 5 min) ; le second facteur la remplace par une session pleine avec **rotation du jeton** (`sessions.promote`). Les sessions sont côté serveur (table `sessions`, jeton stocké haché).
-- Second facteur obligatoire : un utilisateur sans facteur est forcé vers `/enroll` (TOTP). Passkeys WebAuthn ajoutables ensuite depuis `/account`. TOTP anti-rejeu via `User.totp_last_step`.
-- `web/deps.py` : `current_user` / `pending_user` / `require_admin` valident la session **et le CSRF** (champ `csrf` ou en-tête `X-CSRF-Token`) pour toute méthode non-GET ; un middleware refuse les `Origin` hors `PERISCOPE_ORIGINS`. Toute nouvelle route d'écriture authentifiée doit passer par ces dépendances.
-- Verrouillage : à l'étape mot de passe, par (identifiant, IP) en mémoire (`ratelimit.LoginFailures`, jamais sur le compte réel, anti-DoS) ; le verrou de compte (`User.failed_attempts`, `ratelimit.register_failure`) ne s'applique qu'à partir du 2FA/enrôlement/passkey et à la ré-authentification. + limiteur par IP en mémoire (processus unique). Les actions sensibles du compte passent par `reauth()` / `revoke_other_sessions()` (`web/reauth.py`).
-- Authentification BunkerWeb (`Instance.auth_mode`) : `user` (recommandé) = utilisateur d'API restreint, `api_username` + `api_password_enc` ; `BWClient(credentials=...)` obtient un jeton Biscuit via `POST /auth` (Basic), l'envoie en Bearer, et sur 401 se ré-authentifie une fois et rejoue une fois (échec de `/auth` = `BWError('auth')`, pas de boucle). `token` = `API_TOKEN` statique (`token_enc`, admin, déconseillé). Le collecteur garde les jetons dans `collector._TOKEN_CACHE` (en mémoire, clé = id instance + empreinte sha256 des identifiants chiffrés, donc invalidé à l'édition). Jamais de mot de passe/jeton dans les messages d'erreur ni les logs.
-- Mots de passe et tokens API BunkerWeb sont chiffrés en base (Fernet, clé `PERISCOPE_SECRET_KEY`, `crypto.py`) et jamais réaffichés.
+Authentication (`src/periscope/auth/` logic, `src/periscope/web/routes_auth.py` + `routes_account.py` routes):
+- Two-step login: the password creates a session with `mfa_ok=False` (TTL 5 min); the second factor replaces it with a full session with **token rotation** (`sessions.promote`). Sessions are server-side (`sessions` table, token stored hashed).
+- Mandatory second factor: a user without a factor is forced to `/enroll` (TOTP). WebAuthn passkeys can then be added from `/account`. TOTP replay protection via `User.totp_last_step`.
+- `web/deps.py`: `current_user` / `pending_user` / `require_admin` validate the session **and the CSRF** (`csrf` field or `X-CSRF-Token` header) for every non-GET method; a middleware rejects `Origin`s outside `PERISCOPE_ORIGINS`. Every new authenticated write route must go through these dependencies.
+- Lockout: at the password step, per (username, IP) in memory (`ratelimit.LoginFailures`, never on the real account, anti-DoS); the account lock (`User.failed_attempts`, `ratelimit.register_failure`) only applies from 2FA/enrollment/passkey onward and to re-authentication. + in-memory per-IP limiter (single process). Sensitive account actions go through `reauth()` / `revoke_other_sessions()` (`web/reauth.py`).
+- BunkerWeb authentication (`Instance.auth_mode`): `user` (recommended) = restricted API user, `api_username` + `api_password_enc`; `BWClient(credentials=...)` obtains a Biscuit token via `POST /auth` (Basic), sends it as Bearer, and on 401 re-authenticates once and replays once (failure of `/auth` = `BWError('auth')`, no loop). `token` = static `API_TOKEN` (`token_enc`, admin, discouraged). The collector keeps tokens in `collector._TOKEN_CACHE` (in memory, key = instance id + sha256 fingerprint of the encrypted credentials, hence invalidated on edit). Never a password/token in error messages or logs.
+- BunkerWeb passwords and API tokens are encrypted in the database (Fernet, key `PERISCOPE_SECRET_KEY`, `crypto.py`) and never displayed again.
 
-Conventions utiles :
-- Datetimes en **UTC naïf** partout (`clock.utcnow()`), car SQLite ne garde pas le fuseau.
-- Accès DB synchrones dans le code async (assumé, ≤ 10 instances) ; en tests, utiliser la fixture `fresh_db` (SQLite mémoire) et `session_scope()`, jamais de session ouverte pendant l'appel au collecteur.
-- Front sans CDN : Bootstrap en copie locale, JS vanilla dans `web/static/`, CSP stricte (`script-src 'self'`, pas de JS ni de style inline).
-- Les passkeys sont liées à `PERISCOPE_RP_ID` (domaine) : inutilisables via IP/localhost, où le TOTP sert de repli.
-- Tests web : helpers dans `tests/helpers.py` (`login_as`, `make_user`, `csrf_of`) ; dans les tests SQLAlchemy, lier l'objet à une variable avant `x.relation.append(...)` (sinon `ObjectDereferencedError`).
+Useful conventions:
+- Datetimes are **naive UTC** everywhere (`clock.utcnow()`), because SQLite does not keep the time zone.
+- Synchronous DB access in async code (accepted, ≤ 10 instances); in tests, use the `fresh_db` fixture (in-memory SQLite) and `session_scope()`, never an open session during the collector call.
+- Front end without CDN: local copy of Bootstrap, vanilla JS in `web/static/`, strict CSP (`script-src 'self'`, no inline JS or style).
+- Passkeys are bound to `PERISCOPE_RP_ID` (domain): unusable via IP/localhost, where TOTP is the fallback.
+- Web tests: helpers in `tests/helpers.py` (`login_as`, `make_user`, `csrf_of`); in SQLAlchemy tests, bind the object to a variable before `x.relation.append(...)` (otherwise `ObjectDereferencedError`).
