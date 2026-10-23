@@ -232,7 +232,7 @@ async def test_client_is_read_only():
     other = respx.route(method__in=["POST", "PUT", "PATCH", "DELETE"], path__regex=r"^(?!/auth$).*")
     other.respond(500)
     for c in (BWClient(BASE, "t"), BWClient(BASE, credentials=CREDS)):
-        for name in ("ping", "services", "bans", "jobs", "plugins"):
+        for name in ("ping", "version", "services", "bans", "jobs", "plugins"):
             await getattr(c, name)()
         assert not [m for m in dir(c) if not m.startswith("_") and m in
                     ("post", "put", "patch", "delete", "request", "send", "authenticate")]
@@ -240,3 +240,58 @@ async def test_client_is_read_only():
     assert not other.called
     assert all(call.request.method in ("GET", "POST") for call in respx.calls)
     assert all(call.request.url.path == "/auth" for call in respx.calls if call.request.method != "GET")
+
+
+# --- version() : lue dans le document OpenAPI public (info.version) ---
+
+@respx.mock
+async def test_version_from_openapi_info():
+    route = respx.get(f"{BASE}/openapi.json").respond(json={"info": {"title": "BunkerWeb API", "version": "1.6.17"}})
+    assert await BWClient(BASE, "tok").version() == "1.6.17"
+    assert route.called
+
+
+@respx.mock
+@pytest.mark.parametrize("kwargs", [
+    {"status_code": 500}, {"status_code": 404}, {"text": "<html>"}, {"json": {}}, {"json": []},
+    {"json": {"info": {}}}, {"json": {"info": "x"}}, {"json": {"info": {"version": 1}}},
+    {"json": {"info": {"version": ""}}}, {"json": {"info": {"version": None}}},
+])
+async def test_version_none_on_any_problem(kwargs):
+    respx.get(f"{BASE}/openapi.json").respond(**kwargs)
+    assert await BWClient(BASE, "tok").version() is None
+
+
+@respx.mock
+async def test_version_none_on_network_error():
+    respx.get(f"{BASE}/openapi.json").mock(side_effect=httpx.ConnectError("refused"))
+    assert await BWClient(BASE, "tok").version() is None
+
+
+@respx.mock
+async def test_version_truncated_to_32():
+    respx.get(f"{BASE}/openapi.json").respond(json={"info": {"version": "v" * 100}})
+    assert await BWClient(BASE, "tok").version() == "v" * 32
+
+
+@respx.mock
+async def test_version_none_when_document_too_large():
+    big = b'{"info":{"version":"1"},"pad":"' + b"x" * (5 * 1024 * 1024 + 10) + b'"}'
+    respx.get(f"{BASE}/openapi.json").respond(content=big)
+    assert await BWClient(BASE, "tok").version() is None
+
+
+@respx.mock
+async def test_version_under_root_path_prefix():
+    route = respx.get("http://bw:8888/bwapi/openapi.json").respond(json={"info": {"version": "1.6.17"}})
+    assert await BWClient("http://bw:8888/bwapi", "tok").version() == "1.6.17"
+    assert route.called
+
+
+@respx.mock
+async def test_version_sends_no_auth_and_no_auth_roundtrip():
+    auth = respx.post(f"{BASE}/auth").respond(json={"token": "t"})
+    route = respx.get(f"{BASE}/openapi.json").respond(json={"info": {"version": "1.6.17"}})
+    assert await BWClient(BASE, credentials=CREDS).version() == "1.6.17"
+    assert not auth.called
+    assert "authorization" not in route.calls[0].request.headers

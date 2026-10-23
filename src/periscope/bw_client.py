@@ -1,9 +1,12 @@
+import json
 import time
 from urllib.parse import quote
 
 import httpx
 
 from periscope import normalize as N
+
+_OPENAPI_MAX_BYTES = 5 * 1024 * 1024
 
 
 class BWError(Exception):
@@ -89,6 +92,27 @@ class BWClient:
         data = await self._get("/ping")
         version = data.get("version") if isinstance(data, dict) else None
         return (time.perf_counter() - t) * 1000, version
+
+    async def version(self) -> str | None:
+        """Version lue dans `info.version` du document OpenAPI (GET /openapi.json, public : aucun jeton,
+        donc pas d'aller-retour /auth). Ne lève jamais : tout problème renvoie None."""
+        try:
+            async with self._http.stream("GET", "/openapi.json") as r:
+                if r.status_code != 200:
+                    return None
+                declared = r.headers.get("content-length", "")
+                if declared.isdigit() and int(declared) > _OPENAPI_MAX_BYTES:
+                    return None
+                body = bytearray()
+                async for chunk in r.aiter_bytes():
+                    body += chunk
+                    if len(body) > _OPENAPI_MAX_BYTES:
+                        return None
+            info = json.loads(bytes(body)).get("info")
+            version = info.get("version") if isinstance(info, dict) else None
+        except (httpx.HTTPError, ValueError, AttributeError):
+            return None
+        return version[:32] if isinstance(version, str) and version else None
 
     async def services(self) -> list[dict]:
         payload = await self._get("/services")
