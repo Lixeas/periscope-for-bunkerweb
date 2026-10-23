@@ -228,11 +228,11 @@ def test_constructor_requires_a_secret():
 async def test_client_is_read_only():
     """Seule requête non-GET autorisée : POST /auth (échange identifiants -> jeton)."""
     respx.post(f"{BASE}/auth").respond(json={"token": "t"})
-    respx.route(method="GET").respond(json={"services": [], "bans": [], "jobs": {}, "plugins": []})
+    respx.route(method="GET").respond(json={"services": [], "bans": [], "jobs": {}, "plugins": [], "instances": []})
     other = respx.route(method__in=["POST", "PUT", "PATCH", "DELETE"], path__regex=r"^(?!/auth$).*")
     other.respond(500)
     for c in (BWClient(BASE, "t"), BWClient(BASE, credentials=CREDS)):
-        for name in ("ping", "version", "services", "bans", "jobs", "plugins"):
+        for name in ("ping", "version", "services", "bans", "jobs", "plugins", "instances"):
             await getattr(c, name)()
         assert not [m for m in dir(c) if not m.startswith("_") and m in
                     ("post", "put", "patch", "delete", "request", "send", "authenticate")]
@@ -327,3 +327,12 @@ async def test_version_static_token_falls_back_to_openapi():
     route = respx.get(f"{BASE}/openapi.json").respond(json={"info": {"version": "1.6.17"}})
     assert await BWClient(BASE, "static-api-token").version() == "1.6.17"
     assert route.called and "authorization" not in route.calls[0].request.headers
+
+
+@respx.mock
+async def test_instances_nodes_from_real_shape():
+    respx.get(f"{BASE}/instances").respond(json={"status": "success", "instances": [
+        {"hostname": "w1", "name": "worker1", "port": 5000, "type": "static", "status": "up",
+         "method": "scheduler", "server_name": "bwapi", "last_seen": "2026-10-22T10:00:00+00:00"}]})
+    out = await BWClient(BASE, "t").instances()
+    assert out[0]["hostname"] == "w1" and out[0]["status"] == "up"

@@ -9,6 +9,7 @@
 ## Features
 
 - **Fleet health** at a glance: status, version, latency and last successful collection per instance, with a stale-data indicator.
+- **Scheduler and nodes**: each Periscope instance is one BunkerWeb API endpoint, i.e. the scheduler, and is tagged `scheduler`. The nginx nodes it manages (including workers on other VMs, from `GET /instances`) are listed under it, each tagged `worker` with its status (up, loading, down, failover) and last-seen time. A node that is `down` or in `failover` makes the instance `degraded`; `loading` is not treated as an error.
 - **Protected services** across all instances, with their security mode (`detect` / `block`) and a flag for services that exist on some instances but not others.
 - **Active bans** merged across instances, searchable by IP, with a flag for IPs banned on only some instances.
 - **Jobs and plugins**: job schedule and last result, and an instance × plugin matrix highlighting missing plugins and version drift.
@@ -35,7 +36,7 @@
 
 - **One process, two parts.** `periscope.web.app.create_app()` serves the web UI and, in its lifespan, starts the background collector.
 - **The web layer never talks to BunkerWeb.** It only reads what the collector stored, so pages stay fast, an unreachable instance shows as `down` with its last known data, and the browser never sees instance credentials.
-- **Collector.** Every `PERISCOPE_POLL_INTERVAL` seconds it queries each enabled instance in parallel (health, services, bans, jobs, plugins) and stores the latest snapshot per instance and type. A network failure marks the instance `down` and keeps the previous snapshot; a partial failure marks it `degraded`.
+- **Collector.** Every `PERISCOPE_POLL_INTERVAL` seconds it queries each enabled instance in parallel (health, services, bans, jobs, plugins, nodes) and stores the latest snapshot per instance and type. A network failure marks the instance `down` and keeps the previous snapshot; a partial failure marks it `degraded`.
 - **TLS probe.** Every `PERISCOPE_PROBE_INTERVAL` seconds it connects to `instance_host:tls_port` with SNI set to each service's domain and reads the certificate that is actually served. The certificate is inspected, not validated, so expired and self-signed certificates are reported rather than hidden. No HTTP request is sent.
 - **API response parsing** lives in a single module, `src/periscope/normalize.py`, which is the only part coupled to the shape of BunkerWeb's JSON.
 - **Authentication.** Password login creates a short-lived "pending" session; completing the second factor replaces it with a full server-side session (the token is rotated). Every state-changing request is protected by CSRF tokens and an `Origin` allow-list.
@@ -163,7 +164,7 @@ About plain-text passwords: you can use `"password": "..."` instead of a hash, b
 ```
 
 - `"admin": false` makes it a restricted user.
-- Each line under `permissions` reads: *resource type*, then `"*"` (all resources), then *permission name* set to `true`. These six read permissions are exactly what Periscope needs (instances, global configuration, services, bans, jobs and plugins).
+- Each line under `permissions` reads: *resource type*, then `"*"` (all resources), then *permission name* set to `true`. These six read permissions are exactly what Periscope needs (instances, global configuration, services, bans, jobs and plugins). The `instances_read` permission is the one that gives visibility of the scheduler's nodes (workers): without it, the node listing fails and the instance shows as `degraded`.
 - **Never** grant `*_update`, `*_create`, `*_delete`, `*_execute` or `config_update`: BunkerWeb documents configuration, service, plugin, global-settings and instance write permissions as admin-equivalent.
 
 **4. Give the file to the API container.** This takes **two** settings in the API service, and you need both: a **volume** that makes the file visible inside the container, and the `API_ACL_BOOTSTRAP_FILE` **environment variable** that tells the API where to find it. The variable holds a path **inside the container**, never a path on the host.

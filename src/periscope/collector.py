@@ -12,7 +12,7 @@ from periscope.models import CertProbe, Instance, Snapshot
 from periscope.tlsprobe import probe
 
 log = logging.getLogger("periscope.collector")
-KINDS = ("services", "bans", "jobs", "plugins")
+KINDS = ("services", "bans", "jobs", "plugins", "instances")
 
 
 # Jetons Biscuit en mémoire (processus unique) : (id instance, empreinte des identifiants) -> jeton.
@@ -50,6 +50,16 @@ def default_client(inst: Instance) -> BWClient:
         return BWClient(inst.base_url, token=_TOKEN_CACHE.get(_cache_key(inst)),
                         credentials=(inst.api_username, decrypt(inst.api_password_enc)), **kw)
     return BWClient(inst.base_url, decrypt(inst.token_enc), **kw)
+
+
+def _node_problems(nodes: list[dict]) -> str:
+    """Message d'erreur pour les nœuds en défaut ('loading' n'en est pas un) ; '' si tout va bien."""
+    parts = []
+    for status, label in (("down", "hors ligne"), ("failover", "en failover")):
+        names = [str(n.get("hostname") or n.get("name") or "?") for n in nodes if n.get("status") == status]
+        if names:
+            parts.append(f"{len(names)} {'nœud' if len(names) == 1 else 'nœuds'} {label} : {', '.join(names)}")
+    return "; ".join(parts)
 
 
 def _save_snapshot(s, inst_id: int, kind: str, payload: list, now) -> None:
@@ -103,6 +113,8 @@ async def collect_one(inst_id: int, client_factory=default_client) -> None:
     finally:
         remember_token(inst, client)  # réutilisé au cycle suivant (évite un POST /auth par cycle)
         await client.aclose()
+    if problem := _node_problems(results.get("instances") or []):
+        errors.append(problem)
     _finish(inst_id, now, "degraded" if errors else "ok", "; ".join(errors), latency, version, results)
 
 
