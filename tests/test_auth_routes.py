@@ -233,3 +233,57 @@ def test_enroll_ip_throttle(client):
     finally:
         routes_auth.limiter.max = 20
     assert codes == [401, 429]
+
+
+def test_enroll_page_offers_passkey_button(client):
+    make_user(totp=False)
+    post_login(client)
+    assert 'data-passkey="enroll"' in client.get("/enroll").text
+
+
+def test_first_enrollment_with_passkey(client, monkeypatch):
+    make_user(totp=False)
+    post_login(client)
+    h = {"X-CSRF-Token": csrf_of(client.get("/enroll").text)}
+    opts = client.post("/webauthn/enroll/options", headers=h, json={})
+    assert opts.status_code == 200 and "challenge" in opts.json()
+    monkeypatch.setattr(wa, "verify_registration", lambda cred, ch: (b"pk-1", b"pub", 3))
+    r = client.post("/webauthn/enroll/verify", headers=h, json={})
+    assert r.status_code == 200 and r.json() == {"ok": True, "redirect": "/account?m=codes_hint"}
+    page = client.get("/account?m=codes_hint")
+    assert page.status_code == 200 and "Pensez à générer vos codes de secours" in page.text
+    with session_scope() as s:
+        c = s.query(Credential).one()
+        assert c.credential_id == b"pk-1" and c.sign_count == 3
+    assert audit_events()[-1] == "login"
+
+
+def test_passkey_enroll_failure_keeps_session_pending(client, monkeypatch):
+    make_user(totp=False)
+    post_login(client)
+    h = {"X-CSRF-Token": csrf_of(client.get("/enroll").text)}
+    client.post("/webauthn/enroll/options", headers=h, json={})
+
+    def boom(*a):
+        raise ValueError("bad")
+
+    monkeypatch.setattr(wa, "verify_registration", boom)
+    assert client.post("/webauthn/enroll/verify", headers=h, json={}).status_code == 400
+    assert client.get("/dashboard", follow_redirects=False).status_code == 303
+    with session_scope() as s:
+        assert s.query(Credential).count() == 0
+
+
+def test_passkey_enroll_refused_when_user_has_second_factor(client):
+    make_user()  # TOTP déjà actif
+    post_login(client)
+    h = {"X-CSRF-Token": csrf_of(client.get("/login/2fa").text)}
+    assert client.post("/webauthn/enroll/options", headers=h, json={}).status_code == 403
+    assert client.post("/webauthn/enroll/verify", headers=h, json={}).status_code == 403
+
+
+def test_passkey_enroll_requires_pending_session_and_csrf(client):
+    make_user(totp=False)
+    assert client.post("/webauthn/enroll/options", json={}, follow_redirects=False).status_code == 303
+    post_login(client)
+    assert client.post("/webauthn/enroll/options", json={}).status_code == 403  # pas de CSRF

@@ -225,6 +225,46 @@ async def enroll_post(request: Request, code: str = Form(...), user: User = Depe
     return set_cookie(render(request, "backup_codes.html", codes=codes), token, final=True)
 
 
+def _enroll_denied(request: Request, db, user: User, detail: str):
+    """Réponse JSON d'erreur si l'enrôlement par passkey n'est pas permis, sinon None."""
+    if mfa.has_second_factor(user):
+        return JSONResponse({"error": "Un second facteur est déjà configuré."}, status_code=403)
+    if wait := throttle(request, "enroll"):
+        audit(db, "login_throttled", user.username, detail=detail, ip=ip_of(request))
+        db.commit()
+        return JSONResponse({"error": THROTTLED}, status_code=429, headers={"Retry-After": str(wait)})
+    return None
+
+
+@router.post("/webauthn/enroll/options")
+async def passkey_enroll_options(request: Request, user: User = Depends(pending_user), db=Depends(get_db)):
+    if denied := _enroll_denied(request, db, user, "passkey_enroll"):
+        return denied
+    opts, challenge = wa.registration_options(user)
+    request.state.session.challenge = challenge
+    db.commit()
+    return opts
+
+
+@router.post("/webauthn/enroll/verify")
+async def passkey_enroll_verify(request: Request, user: User = Depends(pending_user), db=Depends(get_db)):
+    if denied := _enroll_denied(request, db, user, "passkey_enroll"):
+        return denied
+    row = request.state.session
+    body = await request.json()
+    challenge, row.challenge = row.challenge, None
+    try:
+        cid, pub, count = wa.verify_registration(body, challenge)
+    except Exception:
+        log.info("passkey enrollment failed for %s", user.username, exc_info=True)
+        fail_2fa(request, db, user, "enroll_failed")
+        return JSONResponse({"error": "Enregistrement de la passkey échoué"}, status_code=400)
+    db.add(Credential(user_id=user.id, credential_id=cid, public_key=pub, sign_count=count, name="Passkey 1"))
+    audit(db, "passkey_enrolled", user.username, ip=ip_of(request))
+    token = finish_login(request, db, user, "enroll_passkey")
+    return set_cookie(JSONResponse({"ok": True, "redirect": "/account?m=codes_hint"}), token, final=True)
+
+
 # --- déconnexion ----------------------------------------------------------
 
 @router.post("/logout")
