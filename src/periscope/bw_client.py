@@ -143,5 +143,9 @@ class BWClient:
     async def plugins(self) -> list[dict]:
         return N.plugins(await self._get("/plugins"))
 
+    async def instances(self) -> list[dict]:
+        """Nœuds nginx gérés par ce scheduler (GET /instances, permission instances_read)."""
+        return N.nodes(await self._get("/instances"))
+
     async def aclose(self) -> None:
         await self._http.aclose()
