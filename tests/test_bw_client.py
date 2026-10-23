@@ -295,3 +295,35 @@ async def test_version_sends_no_auth_and_no_auth_roundtrip():
     assert await BWClient(BASE, credentials=CREDS).version() == "1.6.17"
     assert not auth.called
     assert "authorization" not in route.calls[0].request.headers
+
+
+# --- version() : d'abord le fait `version` du jeton Biscuit, sans requête réseau ---
+
+def _biscuit(symbols):
+    import base64
+    block = b"".join(b"\x0a" + bytes([len(s)]) + s.encode() for s in symbols)
+    signed = b"\x0a" + bytes([len(block)]) + block
+    return base64.urlsafe_b64encode(b"\x12" + bytes([len(signed)]) + signed).decode().rstrip("=")
+
+
+@respx.mock
+async def test_version_from_token_makes_no_request():
+    openapi = respx.get(f"{BASE}/openapi.json").respond(json={"info": {"version": "9.9.9"}})
+    client = BWClient(BASE, credentials=CREDS)
+    client.token = _biscuit(["periscope", "10.0.0.1", "1.6.17", "api_user"])
+    assert await client.version() == "1.6.17"
+    assert not openapi.called and not respx.calls
+
+
+@respx.mock
+async def test_version_token_without_version_falls_back_to_openapi():
+    route = respx.get(f"{BASE}/openapi.json").respond(json={"info": {"version": "1.6.18"}})
+    assert await BWClient(BASE, _biscuit(["periscope", "10.0.0.1"])).version() == "1.6.18"
+    assert route.called
+
+
+@respx.mock
+async def test_version_static_token_falls_back_to_openapi():
+    route = respx.get(f"{BASE}/openapi.json").respond(json={"info": {"version": "1.6.17"}})
+    assert await BWClient(BASE, "static-api-token").version() == "1.6.17"
+    assert route.called and "authorization" not in route.calls[0].request.headers
