@@ -33,7 +33,9 @@ def csrf_of(html: str) -> str:
 
 
 def post_login(client, username="alice", password=PW):
-    return client.post("/login", data={"username": username, "password": password}, follow_redirects=False)
+    page = client.get("/login")
+    return client.post("/login", data={"username": username, "password": password, "csrf": csrf_of(page.text)},
+                       follow_redirects=False)
 
 
 def full_login(client, secret: str, username="alice"):
