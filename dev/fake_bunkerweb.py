@@ -9,7 +9,8 @@ Les réponses reprennent les formes RÉELLES de l'API BunkerWeb v1.6.17, dériv�
 (pas capturées sur une instance vivante) : /ping sans version, /services avec security_mode,
 /services/{id}?full=true avec `config`, /bans agrégé par instance nginx (2 instances nginx simulées qui
 rapportent le même ban ; `exp` = secondes restantes, 0 = permanent), /jobs en dict indexé par nom avec
-plugin_id et history triée par end_date décroissante, /plugins avec les clés supplémentaires.
+plugin_id et history triée par end_date décroissante, /plugins avec les clés supplémentaires, /instances
+avec les nœuds du scheduler (2 nœuds ; avec FAKE_EXTRA=1 le second est `down`, pour démontrer l'état dégradé).
 
 Authentification (optionnelle) : POST /auth (HTTP Basic, ou champs/JSON `username` + `password` ; utilisateur
 `periscope`, mot de passe FAKE_PASSWORD, défaut `secret`) renvoie {"token":...}. Avec FAKE_AUTH=1, tous les
@@ -211,3 +212,19 @@ def plugins():
          "type": "core", "method": "manual", "page": False, "settings": {}, "checksum": "a"},
         {"id": "letsencrypt", "stream": "no", "name": "Let's Encrypt", "description": "LE", "version": "1.8",
          "type": "core", "method": "manual", "page": True, "settings": {}, "checksum": "b"}]}
+
+
+@app.get("/instances", dependencies=[Depends(require_token)])
+def instances():
+    """Nœuds nginx gérés par ce scheduler (forme réelle) ; le 2e est `down` avec FAKE_EXTRA=1."""
+    seen = datetime.now(UTC) - timedelta(seconds=5)
+
+    def node(host, name, status, last_seen):
+        return {"hostname": host, "name": name, "port": 5000, "listen_https": False, "https_port": 5443,
+                "server_name": "bwapi", "type": "static", "status": status, "method": "scheduler",
+                "creation_date": "2026-01-01T00:00:00+00:00",
+                "last_seen": last_seen.isoformat() if last_seen else None}
+    return {"status": "success", "instances": [
+        node("bunkerweb", "local nginx", "up", seen),
+        node("bw-worker-vm2", "worker vm2", "down" if EXTRA else "up",
+             seen - timedelta(minutes=10) if EXTRA else seen)]}
