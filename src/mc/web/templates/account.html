@@ -25,7 +25,11 @@
     {% endfor %}
   </ul>
   {% else %}<p class="text-secondary">Aucune passkey enregistrée.</p>{% endif %}
-  <button type="button" class="btn btn-outline-primary" data-passkey="register" data-csrf="{{ csrf }}">Ajouter une passkey</button>
+  <div class="d-flex gap-2 align-items-center flex-wrap">
+    <label class="visually-hidden" for="pk-add-pw">Mot de passe</label>
+    <input class="form-control w-auto" id="pk-add-pw" type="password" autocomplete="current-password" placeholder="Mot de passe">
+    <button type="button" class="btn btn-outline-primary" data-passkey="register" data-csrf="{{ csrf }}">Ajouter une passkey</button>
+  </div>
   <p id="passkey-error" class="text-danger mt-2" role="alert"></p>
   <p class="small text-secondary">Les passkeys sont liées au domaine du site : une passkey créée sur le domaine ne fonctionne pas via l'adresse locale (utilisez le TOTP en local).</p>
 </section>

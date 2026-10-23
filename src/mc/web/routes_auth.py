@@ -17,6 +17,7 @@ from mc.config import get_settings
 from mc.db import get_db
 from mc.models import Credential, User
 from mc.web.deps import current_user, pending_user, session_row
+from mc.web.reauth import ERRORS, reauth, revoke_other_sessions
 from mc.web.render import render
 
 log = logging.getLogger("mc.auth")
@@ -240,6 +241,13 @@ async def logout(request: Request, user: User = Depends(current_user), db=Depend
 
 @router.post("/webauthn/register/options")
 async def passkey_register_options(request: Request, user: User = Depends(current_user), db=Depends(get_db)):
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    password = body.get("password") if isinstance(body, dict) else None
+    if err := reauth(request, db, user, password if isinstance(password, str) else ""):
+        return JSONResponse({"error": ERRORS[err]}, status_code=403)
     opts, challenge = wa.registration_options(user)
     request.state.session.challenge = challenge
     db.commit()
@@ -260,5 +268,6 @@ async def passkey_register_verify(request: Request, user: User = Depends(current
     db.add(Credential(user_id=user.id, credential_id=cid, public_key=pub, sign_count=count,
                       name=f"Passkey {len(user.credentials) + 1}"))
     audit(db, "passkey_added", user.username, ip=ip_of(request))
+    revoke_other_sessions(request, db, user, "passkey_added")
     db.commit()
     return {"ok": True}

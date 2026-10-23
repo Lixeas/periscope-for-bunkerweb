@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
-from mc.auth import mfa, ratelimit
+from mc.auth import mfa
 from mc.auth.audit import audit
-from mc.auth.passwords import MIN_LENGTH, hash_password, verify_password
-from mc.clock import utcnow
+from mc.auth.passwords import MIN_LENGTH, hash_password
 from mc.db import get_db
-from mc.models import Credential, Session, User
+from mc.models import Credential, User
 from mc.web.deps import current_user
+from mc.web.reauth import ERRORS, reauth, revoke_other_sessions
 from mc.web.render import render
 from mc.web.routes_auth import ip_of
 
@@ -15,32 +15,18 @@ router = APIRouter(prefix="/account")
 
 MESSAGES = {
     "pwd_ok": "Mot de passe modifié ; les autres sessions ont été fermées.",
-    "pwd_bad": "Mot de passe actuel incorrect.",
-    "locked": "Trop d'échecs : compte temporairement verrouillé.",
+    **ERRORS,
     "pwd_short": f"Mot de passe trop court ({MIN_LENGTH} caractères minimum).",
     "pwd_mismatch": "La confirmation ne correspond pas.",
     "last_factor": "Impossible : c'est votre dernier second facteur.",
     "totp_removed": "TOTP désactivé.",
     "pk_deleted": "Passkey supprimée.",
+    "codes_hint": "Passkey enregistrée. Pensez à générer vos codes de secours.",
 }
 
 
 def back(code: str) -> RedirectResponse:
     return RedirectResponse(f"/account?m={code}", 303)
-
-
-def reauth(request: Request, db, user: User, password: str) -> str | None:
-    """Ré-authentification par mot de passe, avec le même verrouillage que la connexion.
-    Retourne un code de message d'erreur, ou None si le mot de passe est correct."""
-    now = utcnow()
-    if ratelimit.is_locked(user, now):
-        return "locked"
-    if verify_password(user.password_hash, password):
-        return None
-    ratelimit.register_failure(user, now)
-    audit(db, "reauth_failed", user.username, ip=ip_of(request))
-    db.commit()
-    return "pwd_bad"
 
 
 def factor_count(user: User) -> int:
@@ -63,8 +49,8 @@ async def change_password(request: Request, current: str = Form(...), new: str =
     if new != confirm:
         return back("pwd_mismatch")
     user.password_hash = hash_password(new)
-    db.query(Session).filter(Session.user_id == user.id, Session.id != request.state.session.id).delete()
     audit(db, "password_changed", user.username, ip=ip_of(request))
+    revoke_other_sessions(request, db, user, "password_changed")
     db.commit()
     return back("pwd_ok")
 
@@ -76,6 +62,7 @@ async def regenerate_codes(request: Request, password: str = Form(...), user: Us
         return back(err)
     codes = mfa.reset_backup_codes(db, user)
     audit(db, "backup_codes_regenerated", user.username, ip=ip_of(request))
+    revoke_other_sessions(request, db, user, "backup_codes")
     db.commit()
     return render(request, "backup_codes.html", user=user, codes=codes)
 
@@ -89,6 +76,7 @@ async def remove_totp(request: Request, password: str = Form(...), user: User = 
         return back("last_factor")
     user.totp_confirmed, user.totp_secret_enc = False, None
     audit(db, "totp_removed", user.username, ip=ip_of(request))
+    revoke_other_sessions(request, db, user, "totp_removed")
     db.commit()
     return back("totp_removed")
 
@@ -105,5 +93,6 @@ async def delete_passkey(request: Request, cred_id: int, password: str = Form(..
         return back("last_factor")
     user.credentials.remove(cred)
     audit(db, "passkey_deleted", user.username, ip=ip_of(request))
+    revoke_other_sessions(request, db, user, "passkey_deleted")
     db.commit()
     return back("pk_deleted")
