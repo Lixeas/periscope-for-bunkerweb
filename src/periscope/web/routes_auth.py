@@ -15,6 +15,7 @@ from periscope.auth.passwords import verify_password
 from periscope.clock import utcnow
 from periscope.config import get_settings
 from periscope.db import get_db
+from periscope.i18n import N_, tr
 from periscope.models import Credential, User
 from periscope.web.deps import current_user, pending_user, session_row
 from periscope.web.reauth import ERRORS, reauth, revoke_other_sessions
@@ -24,14 +25,14 @@ log = logging.getLogger("periscope.auth")
 router = APIRouter()
 limiter = ratelimit.IPLimiter()
 login_failures = ratelimit.LoginFailures()
-GENERIC = "Identifiants invalides ou compte temporairement verrouillé."
+GENERIC = N_("Invalid credentials or account temporarily locked.")
 
 
 def ip_of(request: Request) -> str:
     return request.client.host if request.client else ""
 
 
-THROTTLED = "Trop de tentatives, réessayez plus tard."
+THROTTLED = N_("Too many attempts, please try again later.")
 
 
 def throttle(request: Request, family: str) -> int:
@@ -73,7 +74,7 @@ def twofa_page(request: Request, user: User, error: str | None = None, status: i
                   has_totp=user.totp_confirmed, has_passkey=bool(user.credentials))
 
 
-# --- mot de passe ---------------------------------------------------------
+# --- password ---------------------------------------------------------
 
 LOGIN_CSRF = "periscope_login_csrf"
 
@@ -101,11 +102,11 @@ async def login(request: Request, username: str = Form(...), password: str = For
     ip, now = ip_of(request), utcnow()
     cookie = request.cookies.get(LOGIN_CSRF, "")
     if not cookie or not hmac.compare_digest(csrf.encode(), cookie.encode()):
-        raise HTTPException(403, "CSRF invalide")
+        raise HTTPException(403, tr(request, "Invalid CSRF token"))
     if wait := throttle(request, "login"):
         audit(db, "login_throttled", username, ip=ip)
         db.commit()
-        return retry_after(login_form(request, 429, THROTTLED), wait)
+        return retry_after(login_form(request, 429, tr(request, THROTTLED)), wait)
     # Password lock by (username, IP) only: never on the real account (anti-DoS).
     user = db.query(User).filter_by(username=username).one_or_none()
     locked = bool(login_failures.retry_after(username, ip))
@@ -114,7 +115,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
             login_failures.register_failure(username, ip)
         audit(db, "login_locked" if locked else "login_failed", username, ip=ip)
         db.commit()
-        return login_form(request, 401, GENERIC)
+        return login_form(request, 401, tr(request, GENERIC))
     token, _ = sessions.create(db, user, False, now)
     audit(db, "password_ok", username, ip=ip)
     db.commit()
@@ -122,7 +123,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     return set_cookie(RedirectResponse(dest, 303), token, final=False)
 
 
-# --- second facteur -------------------------------------------------------
+# --- second factor -------------------------------------------------------
 
 @router.get("/login/2fa")
 async def twofa_get(request: Request, user: User = Depends(pending_user)):
@@ -137,11 +138,11 @@ async def twofa_post(request: Request, code: str = Form(...), user: User = Depen
     if wait := throttle(request, "2fa"):
         audit(db, "login_throttled", user.username, detail="2fa", ip=ip_of(request))
         db.commit()
-        return retry_after(twofa_page(request, user, THROTTLED, 429), wait)
+        return retry_after(twofa_page(request, user, tr(request, THROTTLED), 429), wait)
     if ratelimit.is_locked(user, utcnow()):
         audit(db, "login_locked", user.username, ip=ip_of(request))
         db.commit()
-        return twofa_page(request, user, "Compte temporairement verrouillé.", 429)
+        return twofa_page(request, user, tr(request, "Account temporarily locked."), 429)
     method = None
     if user.totp_confirmed and re.fullmatch(r"\d{6}", code.strip().replace(" ", "")):
         step = mfa.verify_totp(user.totp_secret_enc, code, user.totp_last_step)
@@ -151,7 +152,7 @@ async def twofa_post(request: Request, code: str = Form(...), user: User = Depen
         method = "backup_code"
     if method is None:
         fail_2fa(request, db, user)
-        return twofa_page(request, user, "Code invalide.", 401)
+        return twofa_page(request, user, tr(request, "Invalid code."), 401)
     token = finish_login(request, db, user, method)
     return set_cookie(RedirectResponse("/", 303), token, final=True)
 
@@ -169,11 +170,11 @@ async def passkey_auth_verify(request: Request, user: User = Depends(pending_use
     if wait := throttle(request, "2fa"):
         audit(db, "login_throttled", user.username, detail="passkey", ip=ip_of(request))
         db.commit()
-        return JSONResponse({"error": THROTTLED}, status_code=429, headers={"Retry-After": str(wait)})
+        return JSONResponse({"error": tr(request, THROTTLED)}, status_code=429, headers={"Retry-After": str(wait)})
     if ratelimit.is_locked(user, utcnow()):
         audit(db, "login_locked", user.username, ip=ip_of(request))
         db.commit()
-        return JSONResponse({"error": "Compte temporairement verrouillé."}, status_code=429)
+        return JSONResponse({"error": tr(request, "Account temporarily locked.")}, status_code=429)
     row = request.state.session
     body = await request.json()
     challenge, row.challenge = row.challenge, None
@@ -184,7 +185,7 @@ async def passkey_auth_verify(request: Request, user: User = Depends(pending_use
     except Exception:
         log.info("passkey verification failed for %s", user.username, exc_info=True)
         fail_2fa(request, db, user, "login_passkey_failed")
-        return JSONResponse({"error": "Vérification de la passkey échouée"}, status_code=401)
+        return JSONResponse({"error": tr(request, "Passkey verification failed")}, status_code=401)
     token = finish_login(request, db, user, "passkey")
     return set_cookie(JSONResponse({"ok": True, "redirect": "/"}), token, final=True)
 
@@ -215,27 +216,27 @@ async def enroll_post(request: Request, code: str = Form(...), user: User = Depe
     if wait := throttle(request, "enroll"):
         audit(db, "login_throttled", user.username, detail="enroll", ip=ip_of(request))
         db.commit()
-        return retry_after(enroll_page(request, db, user, THROTTLED, 429), wait)
+        return retry_after(enroll_page(request, db, user, tr(request, THROTTLED), 429), wait)
     step = mfa.verify_totp(user.totp_secret_enc, code, 0) if user.totp_secret_enc else None
     if not step:
         fail_2fa(request, db, user, "enroll_failed")
-        return enroll_page(request, db, user, "Code invalide.", 401)
+        return enroll_page(request, db, user, tr(request, "Invalid code."), 401)
     user.totp_confirmed, user.totp_last_step = True, step
     codes = mfa.reset_backup_codes(db, user)
     audit(db, "totp_enrolled", user.username, ip=ip_of(request))
     token = finish_login(request, db, user, "enroll")
-    request.state.session = None  # l'ancienne session n'existe plus
+    request.state.session = None  # the old session no longer exists
     return set_cookie(render(request, "backup_codes.html", codes=codes), token, final=True)
 
 
 def _enroll_denied(request: Request, db, user: User, detail: str):
     """JSON error response if passkey enrollment is not allowed, otherwise None."""
     if mfa.has_second_factor(user):
-        return JSONResponse({"error": "Un second facteur est déjà configuré."}, status_code=403)
+        return JSONResponse({"error": tr(request, "A second factor is already configured.")}, status_code=403)
     if wait := throttle(request, "enroll"):
         audit(db, "login_throttled", user.username, detail=detail, ip=ip_of(request))
         db.commit()
-        return JSONResponse({"error": THROTTLED}, status_code=429, headers={"Retry-After": str(wait)})
+        return JSONResponse({"error": tr(request, THROTTLED)}, status_code=429, headers={"Retry-After": str(wait)})
     return None
 
 
@@ -261,7 +262,7 @@ async def passkey_enroll_verify(request: Request, user: User = Depends(pending_u
     except Exception:
         log.info("passkey enrollment failed for %s", user.username, exc_info=True)
         fail_2fa(request, db, user, "enroll_failed")
-        return JSONResponse({"error": "Enregistrement de la passkey échoué"}, status_code=400)
+        return JSONResponse({"error": tr(request, "Passkey registration failed")}, status_code=400)
     db.add(Credential(user_id=user.id, credential_id=cid, public_key=pub, sign_count=count, name="Passkey 1"))
     audit(db, "passkey_enrolled", user.username, ip=ip_of(request))
     token = finish_login(request, db, user, "enroll_passkey")
@@ -290,7 +291,7 @@ async def passkey_register_options(request: Request, user: User = Depends(curren
         body = {}
     password = body.get("password") if isinstance(body, dict) else None
     if err := reauth(request, db, user, password if isinstance(password, str) else ""):
-        return JSONResponse({"error": ERRORS[err]}, status_code=403)
+        return JSONResponse({"error": tr(request, ERRORS[err])}, status_code=403)
     opts, challenge = wa.registration_options(user)
     request.state.session.challenge = challenge
     db.commit()
@@ -307,7 +308,7 @@ async def passkey_register_verify(request: Request, user: User = Depends(current
     except Exception:
         log.info("passkey registration failed for %s", user.username, exc_info=True)
         db.commit()
-        return JSONResponse({"error": "Enregistrement de la passkey échoué"}, status_code=400)
+        return JSONResponse({"error": tr(request, "Passkey registration failed")}, status_code=400)
     db.add(Credential(user_id=user.id, credential_id=cid, public_key=pub, sign_count=count,
                       name=f"Passkey {len(user.credentials) + 1}"))
     audit(db, "passkey_added", user.username, ip=ip_of(request))

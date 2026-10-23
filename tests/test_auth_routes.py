@@ -72,7 +72,7 @@ def test_wrong_password_and_unknown_user_look_identical(client):
     r1 = post_login(client, "alice", "wrong password here")
     r2 = post_login(client, "nobody", "wrong password here")
     assert r1.status_code == r2.status_code == 401
-    assert r1.text == r2.text and "invalides" in r1.text
+    assert r1.text == r2.text and "Invalid credentials" in r1.text
     assert audit_events() == ["login_failed", "login_failed"]
 
 
@@ -205,7 +205,7 @@ def test_enrollment_is_forced_for_user_without_second_factor(client):
     r = client.post("/enroll", data={"code": "000000", "csrf": csrf_of(page.text)})
     assert r.status_code == 401
     r = client.post("/enroll", data={"code": pyotp.TOTP(secret).now(), "csrf": csrf_of(page.text)})
-    assert r.status_code == 200 and "une seule fois" in r.text
+    assert r.status_code == 200 and "only once" in r.text
     assert client.get("/dashboard").status_code == 200
     with session_scope() as s:
         u = s.query(User).one()
@@ -306,7 +306,7 @@ def test_first_enrollment_with_passkey(client, monkeypatch):
     r = client.post("/webauthn/enroll/verify", headers=h, json={})
     assert r.status_code == 200 and r.json() == {"ok": True, "redirect": "/account?m=codes_hint"}
     page = client.get("/account?m=codes_hint")
-    assert page.status_code == 200 and "Pensez à générer vos codes de secours" in page.text
+    assert page.status_code == 200 and "Remember to generate your backup codes" in page.text
     with session_scope() as s:
         c = s.query(Credential).one()
         assert c.credential_id == b"pk-1" and c.sign_count == 3

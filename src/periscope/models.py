@@ -20,6 +20,7 @@ class User(Base):
     failed_attempts: Mapped[int] = mapped_column(default=0)
     locked_until: Mapped[datetime | None] = mapped_column(default=None)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    lang: Mapped[str | None] = mapped_column(String(5), default=None)  # UI language preference (en | fr)
     credentials: Mapped[list["Credential"]] = relationship(cascade="all, delete-orphan")
     backup_codes: Mapped[list["BackupCode"]] = relationship(cascade="all, delete-orphan")
 

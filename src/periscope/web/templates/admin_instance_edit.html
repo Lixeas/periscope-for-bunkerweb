@@ -1,43 +1,43 @@
 {% extends "base.html" %}
-{% block title %}Modifier {{ inst.name }}{% endblock %}
+{% block title %}{{ _("Edit {name}", name=inst.name) }}{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">Modifier « {{ inst.name }} »</h1>
+<h1 class="h4 mb-3">{{ _("Edit “{name}”", name=inst.name) }}</h1>
 {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 <form method="post" action="/admin/instances/{{ inst.id }}" class="col-lg-6">
   <input type="hidden" name="csrf" value="{{ csrf }}">
-  <div class="mb-3"><label class="form-label" for="name">Nom</label>
+  <div class="mb-3"><label class="form-label" for="name">{{ _("Name") }}</label>
     <input class="form-control" id="name" name="name" value="{{ inst.name }}" required></div>
-  <div class="mb-3"><label class="form-label" for="base_url">URL de l'API BunkerWeb</label>
+  <div class="mb-3"><label class="form-label" for="base_url">{{ _("BunkerWeb API URL") }}</label>
     <input class="form-control" id="base_url" name="base_url" value="{{ inst.base_url }}" required></div>
-  <div class="mb-3"><label class="form-label" for="auth_mode">Mode d'authentification</label>
+  <div class="mb-3"><label class="form-label" for="auth_mode">{{ _("Authentication mode") }}</label>
     <select class="form-select" id="auth_mode" name="auth_mode">
-      <option value="user" {% if inst.auth_mode == 'user' %}selected{% endif %}>Utilisateur API (recommandé)</option>
-      <option value="token" {% if inst.auth_mode != 'user' %}selected{% endif %}>Token d'API</option>
+      <option value="user" {% if inst.auth_mode == 'user' %}selected{% endif %}>{{ _("API user (recommended)") }}</option>
+      <option value="token" {% if inst.auth_mode != 'user' %}selected{% endif %}>{{ _("API token") }}</option>
     </select>
-    <div class="form-text">Changer de mode exige de saisir les secrets du nouveau mode.</div></div>
+    <div class="form-text">{{ _("Changing the mode requires entering the secrets of the new mode.") }}</div></div>
   <fieldset class="border rounded p-3 mb-3">
-    <legend class="fs-6">Mode « Utilisateur API »</legend>
-    <div class="mb-3"><label class="form-label" for="api_username">Nom d'utilisateur de l'API</label>
+    <legend class="fs-6">{{ _("“API user” mode") }}</legend>
+    <div class="mb-3"><label class="form-label" for="api_username">{{ _("API username") }}</label>
       <input class="form-control" id="api_username" name="api_username" autocomplete="off" value="{{ inst.api_username }}"></div>
-    <div class="mb-0"><label class="form-label" for="api_password">Nouveau mot de passe (laisser vide pour conserver)</label>
+    <div class="mb-0"><label class="form-label" for="api_password">{{ _("New password (leave empty to keep)") }}</label>
       <input class="form-control" id="api_password" name="api_password" type="password" autocomplete="off"></div>
   </fieldset>
   <fieldset class="border rounded p-3 mb-3">
-    <legend class="fs-6">Mode « Token d'API »</legend>
-    <label class="form-label" for="token">Nouveau token (laisser vide pour conserver)</label>
+    <legend class="fs-6">{{ _("“API token” mode") }}</legend>
+    <label class="form-label" for="token">{{ _("New token (leave empty to keep)") }}</label>
     <input class="form-control" id="token" name="token" type="password" autocomplete="off">
   </fieldset>
   <div class="row">
-    <div class="col-8 mb-3"><label class="form-label" for="probe_host">Hôte de la sonde TLS</label>
+    <div class="col-8 mb-3"><label class="form-label" for="probe_host">{{ _("TLS probe host") }}</label>
       <input class="form-control" id="probe_host" name="probe_host" value="{{ inst.probe_host }}"></div>
-    <div class="col-4 mb-3"><label class="form-label" for="tls_port">Port TLS</label>
+    <div class="col-4 mb-3"><label class="form-label" for="tls_port">{{ _("TLS port") }}</label>
       <input class="form-control" id="tls_port" name="tls_port" type="number" min="1" max="65535" value="{{ inst.tls_port }}"></div>
   </div>
   <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="verify_tls" name="verify_tls" {% if inst.verify_tls %}checked{% endif %}>
-    <label class="form-check-label" for="verify_tls">Vérifier le certificat de l'API (si HTTPS)</label></div>
+    <label class="form-check-label" for="verify_tls">{{ _("Verify the API certificate (if HTTPS)") }}</label></div>
   <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="enabled" name="enabled" {% if inst.enabled %}checked{% endif %}>
-    <label class="form-check-label" for="enabled">Instance activée (collectée)</label></div>
-  <button class="btn btn-primary">Enregistrer</button>
-  <a class="btn btn-link" href="/admin/instances">Annuler</a>
+    <label class="form-check-label" for="enabled">{{ _("Instance enabled (collected)") }}</label></div>
+  <button class="btn btn-primary">{{ _("Save") }}</button>
+  <a class="btn btn-link" href="/admin/instances">{{ _("Cancel") }}</a>
 </form>
 {% endblock %}

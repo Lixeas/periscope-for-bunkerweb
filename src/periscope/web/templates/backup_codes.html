@@ -1,10 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Codes de secours{% endblock %}
+{% block title %}{{ _("Backup codes") }}{% endblock %}
 {% block content %}
 <div class="row justify-content-center mt-5"><div class="col-md-8 col-lg-5">
-  <h1 class="h4 mb-3">Codes de secours</h1>
-  <div class="alert alert-warning" role="alert">Ces codes ne sont affichés qu'<strong>une seule fois</strong>. Conservez-les en lieu sûr : chacun ne sert qu'une fois si vous perdez votre second facteur.</div>
+  <h1 class="h4 mb-3">{{ _("Backup codes") }}</h1>
+  {% set once %}<strong>{{ _("only once") }}</strong>{% endset %}
+  <div class="alert alert-warning" role="alert">{{ _("These codes are displayed {once}. Keep them in a safe place: each one can be used a single time if you lose your second factor.", once=once) }}</div>
   <ul class="list-unstyled font-monospace">{% for c in codes %}<li>{{ c }}</li>{% endfor %}</ul>
-  <a class="btn btn-primary" href="/dashboard">J'ai enregistré mes codes</a>
+  <a class="btn btn-primary" href="/dashboard">{{ _("I have saved my codes") }}</a>
 </div></div>
 {% endblock %}
+{# The codes are shown once: no language switch here (it would reload the page and lose them). #}
+{% block lang_switch %}{% endblock %}

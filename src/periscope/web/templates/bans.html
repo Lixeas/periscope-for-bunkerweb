@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% from "_macros.html" import missing %}
-{% block title %}Bans{% endblock %}
+{% from "_macros.html" import missing with context %}
+{% block title %}{{ _("Bans") }}{% endblock %}
 {% block head %}<meta http-equiv="refresh" content="60">{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">Bans actifs</h1>
+<h1 class="h4 mb-3">{{ _("Active bans") }}</h1>
 <form method="get" class="row g-2 mb-3">
   <div class="col-auto"><label class="visually-hidden" for="q">IP</label>
-    <input class="form-control" id="q" name="q" value="{{ q }}" placeholder="Rechercher une IP"></div>
-  <div class="col-auto"><button class="btn btn-outline-secondary">Rechercher</button></div>
+    <input class="form-control" id="q" name="q" value="{{ q }}" placeholder="{{ _('Search an IP') }}"></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Search") }}</button></div>
 </form>
 <div class="table-responsive">
 <table class="table align-middle" id="t-bans" data-table>
-  <thead><tr><th data-sort>IP</th><th data-sort>Raison</th><th data-sort>Service</th><th data-sort>Instance</th><th data-sort>Date</th><th data-sort>Expiration</th></tr></thead>
+  <thead><tr><th data-sort>IP</th><th data-sort>{{ _("Reason") }}</th><th data-sort>{{ _("Service") }}</th><th data-sort>{{ _("Instance") }}</th><th data-sort>{{ _("Date") }}</th><th data-sort>{{ _("Expiration") }}</th></tr></thead>
   <tbody>
   {% for r in rows %}
   <tr>
@@ -20,12 +20,12 @@
     <td>{{ r.service }}{% if r.ban_scope %} <span class="small text-secondary">({{ r.ban_scope }})</span>{% endif %}{% if r.kind == 'crowdsec_lease' %} <span class="badge text-bg-info">CrowdSec</span>{% endif %}</td>
     <td>{{ r.instance }}</td>
     <td data-v="{{ r.date_sort }}">{{ r.date|epoch }}</td>
-    <td data-v="{{ r.exp_sort }}">{% if r.permanent %}<span class="badge text-bg-warning">Permanent</span>{% else %}{{ r.exp|duration }}{% endif %}</td>
+    <td data-v="{{ r.exp_sort }}">{% if r.permanent %}<span class="badge text-bg-warning">{{ _("Permanent") }}</span>{% else %}{{ r.exp|duration }}{% endif %}</td>
   </tr>
-  {% else %}<tr><td colspan="6" class="text-secondary">Aucun ban actif.</td></tr>
+  {% else %}<tr><td colspan="6" class="text-secondary">{{ _("No active bans.") }}</td></tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
-<p class="small text-secondary">Durée restante renvoyée par BunkerWeb ; « Permanent » si le ban n'expire pas.</p>
+<p class="small text-secondary">{{ _("Remaining duration as returned by BunkerWeb; “Permanent” if the ban does not expire.") }}</p>
 {% endblock %}

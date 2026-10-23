@@ -12,6 +12,7 @@ from periscope.bw_client import BWClient, BWError
 from periscope.config import get_settings
 from periscope.crypto import encrypt
 from periscope.db import get_db
+from periscope.i18n import N_, LocalizedError, lang_for, localize, tr, translate
 from periscope.models import AuditLog, Instance, Session, User
 from periscope.web.deps import require_admin
 from periscope.web.render import render
@@ -21,25 +22,27 @@ router = APIRouter(prefix="/admin")
 
 AUTH_MODES = ("token", "user")
 MESSAGES = {
-    "added": "Instance ajoutée ; première collecte en cours.",
-    "saved": "Instance enregistrée.",
-    "deleted": "Instance supprimée.",
+    "added": N_("Instance added; first collection in progress."),
+    "saved": N_("Instance saved."),
+    "deleted": N_("Instance deleted."),
 }
-KIND_LABEL = {"network": "Instance injoignable", "auth": "Authentification refusée (token, identifiants ou droits insuffisants)",
-              "http": "Réponse HTTP inattendue", "data": "Réponse non JSON (est-ce bien l'API BunkerWeb ?)"}
+KIND_LABEL = {"network": N_("Instance unreachable"),
+              "auth": N_("Authentication refused (token, credentials or insufficient permissions)"),
+              "http": N_("Unexpected HTTP response"),
+              "data": N_("Response is not JSON (is this really the BunkerWeb API?)")}
 
 
 async def check_instance(base_url: str, verify_tls: bool, token: str | None = None,
-                         credentials: tuple[str, str] | None = None) -> str | None:
+                         credentials: tuple[str, str] | None = None) -> BWError | None:
     """Connection test: ping + one authenticated call (in user mode, this exercises POST /auth).
-    Returns an error message or None."""
+    Returns the error (displayed translated by the caller) or None."""
     client = BWClient(base_url, token, credentials=credentials,
                       timeout=get_settings().http_timeout, verify=verify_tls)
     try:
         await client.ping()
         await client.bans()
     except BWError as e:
-        return f"{KIND_LABEL[e.kind]} — {e}"
+        return e
     finally:
         await client.aclose()
     return None
@@ -54,27 +57,28 @@ def clean_url(raw: str) -> str:
     except ValueError:
         ok = False
     if not ok:
-        raise ValueError("URL invalide (attendu : http(s)://hôte[:port], sans identifiants)")
+        raise LocalizedError(N_("Invalid URL (expected: http(s)://host[:port], without credentials)"))
     return raw.rstrip("/")
 
 
 def validate_fields(db, name: str, base_url: str, tls_port: int, exclude_id: int | None = None) -> tuple[str, str]:
     name = name.strip()
     if not re.fullmatch(r"[A-Za-z0-9._ -]{1,64}", name):
-        raise ValueError("Nom invalide (1-64 caractères : lettres, chiffres, espace, . _ -)")
+        raise LocalizedError(N_("Invalid name (1-64 characters: letters, digits, space, . _ -)"))
     clash = db.query(Instance).filter(Instance.name == name)
     if exclude_id:
         clash = clash.filter(Instance.id != exclude_id)
     if clash.first():
-        raise ValueError("Une instance de ce nom existe déjà")
+        raise LocalizedError(N_("An instance with this name already exists"))
     if not 1 <= tls_port <= 65535:
-        raise ValueError("Port TLS invalide")
+        raise LocalizedError(N_("Invalid TLS port"))
     return name, clean_url(base_url)
 
 
 def instances_page(request: Request, db, user: User, error=None, form=None, status=200):
+    code = MESSAGES.get(request.query_params.get("m"))
     return render(request, "admin_instances.html", status=status, user=user, error=error, form=form or {},
-                  msg=MESSAGES.get(request.query_params.get("m")),
+                  msg=tr(request, code) if code else None,
                   instances=db.query(Instance).order_by(Instance.name).all())
 
 
@@ -96,20 +100,23 @@ async def instances_add(request: Request, background: BackgroundTasks,
     try:
         name, base_url = validate_fields(db, name, base_url, tls_port)
         if auth_mode not in AUTH_MODES:
-            raise ValueError("Mode d'authentification invalide")
+            raise LocalizedError(N_("Invalid authentication mode"))
         if auth_mode == "token" and not token:
-            raise ValueError("Token requis")
+            raise LocalizedError(N_("Token required"))
         if auth_mode == "user" and not (api_username and api_password):
-            raise ValueError("Nom d'utilisateur et mot de passe de l'API requis")
+            raise LocalizedError(N_("API username and password required"))
     except ValueError as e:
-        return instances_page(request, db, user, str(e), form, 400)
+        return instances_page(request, db, user, localize(lang_for(request), e), form, 400)
     if not force:
         db.commit()  # releases the SQLite write lock during the network call
         err = await check_instance(base_url, verify_tls,
                                    token=token if auth_mode == "token" else None,
                                    credentials=(api_username, api_password) if auth_mode == "user" else None)
         if err:
-            return instances_page(request, db, user, f"Test de connexion échoué : {err}", {**form, "failed": True}, 400)
+            lang = lang_for(request)
+            detail = f"{translate(lang, KIND_LABEL[err.kind])} — {err.localize(lang)}"
+            return instances_page(request, db, user, translate(lang, N_("Connection test failed: {error}"), error=detail),
+                                  {**form, "failed": True}, 400)
     inst = Instance(name=name, base_url=base_url, verify_tls=verify_tls,
                     probe_host=probe_host.strip(), tls_port=tls_port, auth_mode=auth_mode)
     if auth_mode == "user":
@@ -144,30 +151,31 @@ async def instance_edit_post(request: Request, inst_id: int, background: Backgro
         return RedirectResponse("/admin/instances", 303)
 
     def fail(msg: str):
-        return render(request, "admin_instance_edit.html", status=400, user=user, inst=inst, error=msg)
+        return render(request, "admin_instance_edit.html", status=400, user=user, inst=inst,
+                      error=tr(request, msg))
 
     try:
         name, base_url = validate_fields(db, name, base_url, tls_port, exclude_id=inst_id)
     except ValueError as e:
-        return fail(str(e))
+        return fail(localize(lang_for(request), e))
     mode = auth_mode or inst.auth_mode
     token, api_username = token.strip(), api_username.strip()
     if mode not in AUTH_MODES:
-        return fail("Mode d'authentification invalide")
+        return fail(N_("Invalid authentication mode"))
     switching = mode != inst.auth_mode
     url_changed = base_url != inst.base_url
     if mode == "token":
         if (switching or url_changed) and not token:
-            return fail("Changer le mode exige de saisir le token" if switching
-                        else "Changer l'URL exige de ressaisir le token")
+            return fail(N_("Changing the mode requires entering the token") if switching
+                        else N_("Changing the URL requires re-entering the token"))
     else:
         username = api_username or inst.api_username
         if switching and not (api_username and api_password):
-            return fail("Changer le mode exige de saisir le nom d'utilisateur et le mot de passe de l'API")
+            return fail(N_("Changing the mode requires entering the API username and password"))
         if not username:
-            return fail("Nom d'utilisateur de l'API requis")
+            return fail(N_("API username required"))
         if (url_changed or username != inst.api_username) and not api_password:
-            return fail("Changer l'URL ou l'utilisateur exige de ressaisir le mot de passe de l'API")
+            return fail(N_("Changing the URL or the user requires re-entering the API password"))
     inst.name, inst.base_url, inst.probe_host = name, base_url, probe_host.strip()
     inst.tls_port, inst.verify_tls, inst.enabled = tls_port, verify_tls, enabled
     inst.auth_mode = mode
@@ -197,17 +205,17 @@ async def instance_delete(request: Request, inst_id: int, user: User = Depends(r
     return RedirectResponse("/admin/instances?m=deleted", 303)
 
 
-# --- utilisateurs ----------------------------------------------------------
+# --- users ----------------------------------------------------------
 
 USER_MESSAGES = {
-    "created": "Utilisateur créé. Il devra enregistrer un second facteur à sa première connexion.",
-    "deleted": "Utilisateur supprimé.",
-    "role_ok": "Rôle modifié.",
-    "reset_ok": "Second facteur réinitialisé : réenrôlement exigé à la prochaine connexion.",
-    "pwd_ok": "Mot de passe réinitialisé ; compte déverrouillé, sessions fermées.",
-    "pwd_short": f"Mot de passe trop court ({MIN_LENGTH} caractères minimum).",
-    "self": "Action impossible sur votre propre compte (utilisez la page Compte).",
-    "last_admin": "Il doit rester au moins un administrateur.",
+    "created": N_("User created. They will have to enroll a second factor at first login."),
+    "deleted": N_("User deleted."),
+    "role_ok": N_("Role changed."),
+    "reset_ok": N_("Second factor reset: re-enrollment required at next login."),
+    "pwd_ok": N_("Password reset; account unlocked, sessions closed."),
+    "pwd_short": N_("Password too short ({min} characters minimum)."),
+    "self": N_("Action not possible on your own account (use the Account page)."),
+    "last_admin": N_("At least one administrator must remain."),
 }
 
 
@@ -216,8 +224,9 @@ def users_back(code: str) -> RedirectResponse:
 
 
 def users_page(request: Request, db, user: User, error=None, status=200):
+    code = USER_MESSAGES.get(request.query_params.get("m"))
     return render(request, "admin_users.html", status=status, user=user, error=error,
-                  msg=USER_MESSAGES.get(request.query_params.get("m")),
+                  msg=tr(request, code, min=MIN_LENGTH) if code else None,
                   users=db.query(User).order_by(User.username).all())
 
 
@@ -236,7 +245,7 @@ async def users_create(request: Request, username: str = Form(""), role: str = F
     try:
         create_user(db, username, password, role)
     except ValueError as e:
-        return users_page(request, db, user, str(e).capitalize(), 400)
+        return users_page(request, db, user, localize(lang_for(request), e), 400)
     audit(db, "user_created", user.username, detail=f"{username} ({role})", ip=ip_of(request))
     db.commit()
     return users_back("created")
@@ -305,7 +314,40 @@ async def users_password(request: Request, uid: int, password: str = Form(...),
 
 # --- audit -----------------------------------------------------------------
 
+# Stored event codes (stable, English) -> description translated at display time; unknown codes
+# (legacy rows) are shown as stored.
+EVENT_LABELS = {
+    "login": N_("Login"),
+    "login_failed": N_("Failed login"),
+    "login_locked": N_("Login blocked (lockout)"),
+    "login_throttled": N_("Login throttled (too many attempts)"),
+    "login_2fa_failed": N_("Second factor rejected"),
+    "login_passkey_failed": N_("Passkey login failed"),
+    "password_ok": N_("Password accepted"),
+    "logout": N_("Logout"),
+    "enroll_failed": N_("Enrollment failed"),
+    "totp_enrolled": N_("TOTP enrolled"),
+    "passkey_enrolled": N_("Passkey enrolled"),
+    "passkey_added": N_("Passkey added"),
+    "passkey_deleted": N_("Passkey deleted"),
+    "password_changed": N_("Password changed"),
+    "backup_codes_regenerated": N_("Backup codes regenerated"),
+    "totp_removed": N_("TOTP disabled"),
+    "sessions_revoked": N_("Sessions revoked"),
+    "reauth_failed": N_("Re-authentication failed"),
+    "instance_added": N_("Instance added"),
+    "instance_edited": N_("Instance edited"),
+    "instance_deleted": N_("Instance deleted"),
+    "user_created": N_("User created"),
+    "user_deleted": N_("User deleted"),
+    "user_role_changed": N_("User role changed"),
+    "user_2fa_reset": N_("User second factor reset"),
+    "user_password_reset": N_("User password reset"),
+}
+
+
 @router.get("/audit")
 async def audit_get(request: Request, user: User = Depends(require_admin), db=Depends(get_db)):
     rows = db.query(AuditLog).order_by(AuditLog.id.desc()).limit(200).all()
-    return render(request, "admin_audit.html", user=user, rows=rows)
+    labels = {e.event: tr(request, EVENT_LABELS[e.event]) for e in rows if e.event in EVENT_LABELS}
+    return render(request, "admin_audit.html", user=user, rows=rows, labels=labels)
