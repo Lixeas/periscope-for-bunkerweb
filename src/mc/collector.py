@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 
 from mc.bw_client import BWClient, BWError
@@ -13,9 +14,36 @@ log = logging.getLogger("mc.collector")
 KINDS = ("services", "bans", "jobs", "plugins")
 
 
+# Jetons Biscuit en mémoire (processus unique) : (id instance, empreinte des identifiants) -> jeton.
+# Changer identifiant ou mot de passe change l'empreinte, donc invalide l'entrée.
+_TOKEN_CACHE: dict[tuple[int, str], str] = {}
+
+
+def _cache_key(inst: Instance) -> tuple[int, str]:
+    fp = hashlib.sha256(f"{inst.api_username}\0{inst.api_password_enc}".encode()).hexdigest()
+    return inst.id, fp
+
+
+def remember_token(inst: Instance, client) -> None:
+    if inst.auth_mode != "user":
+        return
+    key = _cache_key(inst)
+    # purge les entrées périmées de cette instance (anciens identifiants)
+    for k in [k for k in _TOKEN_CACHE if k[0] == inst.id and k != key]:
+        del _TOKEN_CACHE[k]
+    tok = getattr(client, "token", None)
+    if tok:
+        _TOKEN_CACHE[key] = tok
+    else:
+        _TOKEN_CACHE.pop(key, None)
+
+
 def default_client(inst: Instance) -> BWClient:
-    return BWClient(inst.base_url, decrypt(inst.token_enc),
-                    timeout=get_settings().http_timeout, verify=inst.verify_tls)
+    kw = {"timeout": get_settings().http_timeout, "verify": inst.verify_tls}
+    if inst.auth_mode == "user":
+        return BWClient(inst.base_url, token=_TOKEN_CACHE.get(_cache_key(inst)),
+                        credentials=(inst.api_username, decrypt(inst.api_password_enc)), **kw)
+    return BWClient(inst.base_url, decrypt(inst.token_enc), **kw)
 
 
 def _save_snapshot(s, inst_id: int, kind: str, payload: list, now) -> None:
@@ -60,6 +88,7 @@ async def collect_one(inst_id: int, client_factory=default_client) -> None:
             except BWError as e:
                 errors.append(f"{kind}: {e.kind}: {e}")
     finally:
+        remember_token(inst, client)  # réutilisé au cycle suivant (évite un POST /auth par cycle)
         await client.aclose()
     _finish(inst_id, now, "degraded" if errors else "ok", "; ".join(errors), latency, version, results)
 

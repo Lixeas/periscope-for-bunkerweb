@@ -129,3 +129,52 @@ async def test_version_truncated(fresh_db):
     await collector.collect_one(iid, lambda inst: LongVer())
     with session_scope() as s:
         assert s.get(Instance, iid).version == "v" * 32
+
+
+def add_user_instance(password="pw") -> int:
+    with session_scope() as s:
+        inst = Instance(name="u1", base_url="http://10.0.0.5:8888", auth_mode="user",
+                        api_username="mc", api_password_enc=encrypt(password))
+        s.add(inst)
+        s.flush()
+        return inst.id
+
+
+def test_default_client_token_mode(fresh_db):
+    iid = add_instance()
+    with session_scope() as s:
+        c = collector.default_client(s.get(Instance, iid))
+    assert c.token == "t" and c._credentials is None
+
+
+def test_default_client_user_mode_caches_token_by_fingerprint(fresh_db):
+    collector._TOKEN_CACHE.clear()
+    iid = add_user_instance()
+    with session_scope() as s:
+        inst = s.get(Instance, iid)
+        c = collector.default_client(inst)
+        assert c._credentials == ("mc", "pw") and c.token is None
+        c.token = "bisc"
+        collector.remember_token(inst, c)
+        assert collector.default_client(inst).token == "bisc"
+        inst.api_password_enc = encrypt("other")  # changement d'identifiants : cache invalidé
+        c2 = collector.default_client(inst)
+        assert c2.token is None and c2._credentials == ("mc", "other")
+
+
+async def test_collect_one_stores_token_back_in_cache(fresh_db):
+    collector._TOKEN_CACHE.clear()
+    iid = add_user_instance()
+
+    class Tok(Fake):
+        token = "fresh"
+
+    made = []
+
+    def factory(inst):
+        made.append(1)
+        return Tok()
+
+    await collector.collect_one(iid, factory)
+    with session_scope() as s:
+        assert collector.default_client(s.get(Instance, iid)).token == "fresh"
