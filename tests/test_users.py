@@ -10,10 +10,10 @@ def test_create_user_and_reject_duplicates_and_bad_input(fresh_db):
         u = create_user(s, "alice", "correct horse battery", "admin")
         assert u.role == "admin" and u.password_hash.startswith("$argon2id$")
     with session_scope() as s:
-        with pytest.raises(ValueError, match="existant"):
+        with pytest.raises(ValueError, match="already exists"):
             create_user(s, "alice", "correct horse battery")
-        with pytest.raises(ValueError, match="invalide"):
+        with pytest.raises(ValueError, match="Invalid username"):
             create_user(s, "a b", "correct horse battery")
-        with pytest.raises(ValueError, match="rôle"):
+        with pytest.raises(ValueError, match="Invalid role"):
             create_user(s, "bob", "correct horse battery", "root")
         assert s.query(User).count() == 1

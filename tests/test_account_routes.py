@@ -64,7 +64,7 @@ def test_regenerate_backup_codes_requires_password(logged):
     r = client.post("/account/backup-codes", data={"csrf": csrf, "password": "wrong"}, follow_redirects=False)
     assert r.headers["location"] == "/account?m=pwd_bad"
     r = client.post("/account/backup-codes", data={"csrf": csrf, "password": PW})
-    assert r.status_code == 200 and "une seule fois" in r.text
+    assert r.status_code == 200 and "only once" in r.text
     with session_scope() as s:
         assert len(s.query(User).one().backup_codes) == 10
 

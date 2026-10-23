@@ -1,6 +1,7 @@
 import pytest
 
 from periscope import collector
+from periscope.bw_client import BWError
 from periscope.crypto import decrypt
 from periscope.db import session_scope
 from periscope.models import AuditLog, CertProbe, Instance, Snapshot
@@ -58,9 +59,9 @@ def test_token_never_rendered(client, admin):
 
 def test_connection_failure_blocks_unless_forced(client, admin):
     csrf, _calls, state = admin
-    state["error"] = "Instance injoignable"
+    state["error"] = BWError("network", "timeout on {path}", path="/ping")
     r = post(client, csrf, **FORM)
-    assert r.status_code == 400 and "injoignable" in client.post(
+    assert r.status_code == 400 and "Instance unreachable" in client.post(
         "/admin/instances", data={"csrf": csrf, **FORM}).text
     with session_scope() as s:
         assert s.query(Instance).count() == 0
@@ -71,11 +72,11 @@ def test_connection_failure_blocks_unless_forced(client, admin):
 
 
 @pytest.mark.parametrize("override,fragment", [
-    ({"base_url": "ftp://x"}, "URL invalide"),
-    ({"base_url": "http://user:pw@x:8888"}, "URL invalide"),
-    ({"base_url": "http://x:99999"}, "URL invalide"),
-    ({"name": ""}, "Nom invalide"),
-    ({"tls_port": "70000"}, "Port TLS invalide"),
+    ({"base_url": "ftp://x"}, "Invalid URL"),
+    ({"base_url": "http://user:pw@x:8888"}, "Invalid URL"),
+    ({"base_url": "http://x:99999"}, "Invalid URL"),
+    ({"name": ""}, "Invalid name"),
+    ({"tls_port": "70000"}, "Invalid TLS port"),
 ])
 def test_validation_errors(client, admin, override, fragment):
     csrf, _, _ = admin
@@ -89,7 +90,7 @@ def test_duplicate_name_rejected(client, admin):
     csrf, _, _ = admin
     post(client, csrf, **FORM)
     r = client.post("/admin/instances", data={"csrf": csrf, **FORM})
-    assert r.status_code == 400 and "existe déjà" in r.text
+    assert r.status_code == 400 and "already exists" in r.text
 
 
 def test_edit_keeps_token_when_blank_and_replaces_when_given(client, admin):
@@ -141,7 +142,7 @@ def test_edit_url_change_requires_token(client, admin):
         iid = s.query(Instance).one().id
     data = {"name": "bw1", "base_url": "http://evil.example:8888", "token": "", "tls_port": "443", "enabled": "on"}
     r = client.post(f"/admin/instances/{iid}", data={"csrf": csrf, **data})
-    assert r.status_code == 400 and "ressaisir le token" in r.text.replace("&#39;", "'")
+    assert r.status_code == 400 and "re-entering the token" in r.text.replace("&#39;", "'")
     with session_scope() as s:
         assert s.get(Instance, iid).base_url == "http://10.0.0.5:8888"
     r = post(client, csrf, f"/admin/instances/{iid}", **{**data, "token": "newtok"})
@@ -168,23 +169,23 @@ def test_add_user_mode_encrypts_password_and_tests_with_credentials(client, admi
         assert i.api_password_enc != "pw-secret" and decrypt(i.api_password_enc) == "pw-secret"
         assert calls == [i.id]
     page = client.get("/admin/instances").text
-    assert "pw-secret" not in page and "Utilisateur API" in page
+    assert "pw-secret" not in page and "API user" in page
 
 
 def test_add_user_mode_requires_username_and_password(client, admin):
     csrf, _, _ = admin
     for override in ({"api_username": ""}, {"api_password": ""}):
         r = client.post("/admin/instances", data={"csrf": csrf, **USER_FORM, **override})
-        assert r.status_code == 400 and "requis" in r.text
+        assert r.status_code == 400 and "required" in r.text
     r = client.post("/admin/instances", data={"csrf": csrf, **FORM, "auth_mode": "bogus"})
-    assert r.status_code == 400 and "Mode d&#39;authentification invalide" in r.text
+    assert r.status_code == 400 and "Invalid authentication mode" in r.text
 
 
 def test_add_user_mode_wrong_password_reports_auth_message(client, admin):
     csrf, _, state = admin
-    state["error"] = "Authentification refusée (token, identifiants ou droits insuffisants) — HTTP 401 on /auth"
+    state["error"] = BWError("auth", "HTTP {status} on {path}", status=401, path="/auth")
     r = client.post("/admin/instances", data={"csrf": csrf, **USER_FORM})
-    assert r.status_code == 400 and "Authentification refusée" in r.text and "pw-secret" not in r.text
+    assert r.status_code == 400 and "Authentication refused" in r.text and "HTTP 401 on /auth" in r.text and "pw-secret" not in r.text
 
 
 def test_check_instance_user_mode_exercises_auth(monkeypatch):
@@ -196,7 +197,7 @@ def test_check_instance_user_mode_exercises_auth(monkeypatch):
         auth = respx.post("http://bw:8888/auth").mock(return_value=Response(401))
         respx.get("http://bw:8888/ping").respond(json={})
         msg = asyncio.run(routes_admin.check_instance("http://bw:8888", True, credentials=("periscope", "bad")))
-    assert auth.called and "Authentification refusée" in msg and "bad" not in msg
+    assert auth.called and msg.kind == "auth" and "bad" not in str(msg)
 
 
 def test_edit_user_mode_blank_password_keeps_and_new_replaces(client, admin):
@@ -223,7 +224,7 @@ def test_edit_user_mode_url_or_username_change_requires_password(client, admin):
             "api_password": "", "tls_port": "443", "enabled": "on"}
     for override in ({"base_url": "http://evil:8888"}, {"api_username": "other"}):
         r = client.post(f"/admin/instances/{iid}", data={"csrf": csrf, **base, **override})
-        assert r.status_code == 400 and "ressaisir le mot de passe" in r.text
+        assert r.status_code == 400 and "re-entering the API password" in r.text
     r = post(client, csrf, f"/admin/instances/{iid}", **{**base, "base_url": "http://ok:8888", "api_password": "x"})
     assert r.status_code == 303
 
@@ -235,14 +236,14 @@ def test_edit_switch_mode_requires_new_secrets_and_clears_old(client, admin):
     base = {"name": "bw1", "base_url": "http://10.0.0.5:8888", "tls_port": "443", "enabled": "on",
             "auth_mode": "user", "api_username": "periscope", "api_password": ""}
     r = client.post(f"/admin/instances/{iid}", data={"csrf": csrf, **base})
-    assert r.status_code == 400 and "Changer le mode" in r.text
+    assert r.status_code == 400 and "Changing the mode" in r.text
     assert post(client, csrf, f"/admin/instances/{iid}", **{**base, "api_password": "pw"}).status_code == 303
     with session_scope() as s:
         i = s.get(Instance, iid)
         assert (i.auth_mode, i.token_enc) == ("user", "") and decrypt(i.api_password_enc) == "pw"
     back = {**base, "auth_mode": "token", "token": ""}
     r = client.post(f"/admin/instances/{iid}", data={"csrf": csrf, **back})
-    assert r.status_code == 400 and "Changer le mode" in r.text
+    assert r.status_code == 400 and "Changing the mode" in r.text
     assert post(client, csrf, f"/admin/instances/{iid}", **{**back, "token": "tk"}).status_code == 303
     with session_scope() as s:
         i = s.get(Instance, iid)
