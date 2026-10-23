@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session as DB
 from periscope.models import Session, User
 
 COOKIE = "periscope_session"
-PENDING_IDLE = 300  # session « mot de passe OK, 2FA en attente »
+PENDING_IDLE = 300  # session "password OK, 2FA pending"
 PENDING_MAX = 900
 
 
@@ -45,7 +45,7 @@ def destroy(db: DB, token: str) -> None:
 
 
 def promote(db: DB, row: Session, user: User, now: datetime) -> str:
-    """Après validation du 2FA : nouvelle session pleine, nouveau jeton (anti fixation)."""
+    """After 2FA validation: new full session, new token (anti-fixation)."""
     db.delete(row)
     token, _ = create(db, user, True, now)
     return token

@@ -11,7 +11,7 @@ CERT_ORDER = {"expired": 0, "none": 1, "red": 2, "orange": 3, "ok": 4}
 
 
 def _by_instance(db: Session, kind: str) -> dict[str, list]:
-    """{nom d'instance: dernier snapshot} pour les instances activées ayant un snapshot de ce type."""
+    """{instance name: latest snapshot} for enabled instances that have a snapshot of this type."""
     names = {i.id: i.name for i in db.query(Instance).filter_by(enabled=True)}
     return {names[s.instance_id]: s.payload
             for s in db.query(Snapshot).filter_by(kind=kind) if s.instance_id in names}
@@ -28,7 +28,7 @@ def instance_cards(db: Session, now: datetime) -> list[dict]:
     snaps = {s.instance_id: s.payload for s in db.query(Snapshot).filter_by(kind="instances")}
     cards = [
         {"role": "scheduler",
-         # None = nœuds jamais collectés (inconnu) ; [] = le scheduler n'en déclare aucun
+         # None = nodes never collected (unknown); [] = the scheduler declares none
          "nodes": None if i.id not in snaps else [_node_view(n) for n in snaps[i.id] if isinstance(n, dict)],
          "id": i.id, "name": i.name, "status": i.status, "version": i.version,
          "latency_ms": i.latency_ms, "last_ok_at": i.last_ok_at, "last_error": i.last_error,
@@ -72,14 +72,14 @@ def services(db: Session, instance: str = "", mode: str = "") -> tuple[list[dict
     return rows, sorted(per)
 
 
-PERMANENT_SORT = 10**12  # clé de tri des bans permanents : après n'importe quelle durée restante
+PERMANENT_SORT = 10**12  # sort key of permanent bans: after any remaining duration
 
 
 def _finite(v) -> bool:
     if isinstance(v, bool):
         return False
     if isinstance(v, int):
-        return True  # math.isfinite lève OverflowError au-delà de ~1e308
+        return True  # math.isfinite raises OverflowError beyond ~1e308
     return isinstance(v, float) and math.isfinite(v)
 
 

@@ -31,12 +31,12 @@ def _finite(v) -> bool:
     if isinstance(v, bool):
         return False
     if isinstance(v, int):
-        return True  # math.isfinite lève OverflowError au-delà de ~1e308
+        return True  # math.isfinite raises OverflowError beyond ~1e308
     return isinstance(v, float) and math.isfinite(v)
 
 
 def _epoch(v) -> str:
-    """Epoch (secondes) -> date lisible ; « — » si absent (0/None), non numérique ou hors plage."""
+    """Epoch (seconds) -> readable date; "—" if missing (0/None), non-numeric or out of range."""
     if not _finite(v) or v <= 0:
         return "—"
     try:
@@ -46,7 +46,7 @@ def _epoch(v) -> str:
 
 
 def _duration(v) -> str:
-    """Secondes restantes -> « 45 s », « 12 min », « 3 h 20 », « 2 j 4 h » ; « — » si invalide."""
+    """Remaining seconds -> "45 s", "12 min", "3 h 20", "2 j 4 h"; "—" if invalid."""
     if not _finite(v) or v < 0:
         return "—"
     s = int(v)

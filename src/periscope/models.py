@@ -46,11 +46,11 @@ class BackupCode(Base):
 
 class Session(Base):
     __tablename__ = "sessions"
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # sha256 du jeton cookie
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # sha256 of the cookie token
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     csrf: Mapped[str] = mapped_column(String(64))
     mfa_ok: Mapped[bool] = mapped_column(default=False)
-    challenge: Mapped[bytes | None] = mapped_column(LargeBinary, default=None)  # WebAuthn en cours
+    challenge: Mapped[bytes | None] = mapped_column(LargeBinary, default=None)  # WebAuthn in progress
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     last_seen: Mapped[datetime] = mapped_column(default=utcnow)
 
@@ -65,7 +65,7 @@ class Instance(Base):
     api_username: Mapped[str] = mapped_column(String(128), default="", server_default="")
     api_password_enc: Mapped[str] = mapped_column(String(512), default="", server_default="")
     verify_tls: Mapped[bool] = mapped_column(default=True)
-    probe_host: Mapped[str] = mapped_column(String(255), default="")  # vide = hôte de base_url
+    probe_host: Mapped[str] = mapped_column(String(255), default="")  # empty = host of base_url
     tls_port: Mapped[int] = mapped_column(default=443)
     enabled: Mapped[bool] = mapped_column(default=True)
     status: Mapped[str] = mapped_column(String(16), default="unknown")  # unknown|ok|degraded|down
@@ -83,7 +83,7 @@ class Instance(Base):
 
 
 class Snapshot(Base):
-    """Dernier état connu par (instance, type)."""
+    """Last known state per (instance, type)."""
     __tablename__ = "snapshots"
     __table_args__ = (UniqueConstraint("instance_id", "kind"),)
     id: Mapped[int] = mapped_column(primary_key=True)

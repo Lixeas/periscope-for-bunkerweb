@@ -2,5 +2,5 @@ from datetime import UTC, datetime
 
 
 def utcnow() -> datetime:
-    """UTC naïf : SQLite ne conserve pas le fuseau, on reste cohérent partout."""
+    """Naive UTC: SQLite does not keep the time zone, so stay consistent everywhere."""
     return datetime.now(UTC).replace(tzinfo=None)
