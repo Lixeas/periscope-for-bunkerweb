@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from mc.diff import cert_status, days_left, gaps, is_stale, plugin_matrix
+from mc.diff import cert_status, days_left, gaps, is_stale, next_run, plugin_matrix
 
 NOW = datetime(2026, 1, 1)
 
@@ -39,3 +39,25 @@ def test_is_stale():
     assert is_stale(None, NOW, 30, 3)
     assert not is_stale(NOW - timedelta(seconds=90), NOW, 30, 3)
     assert is_stale(NOW - timedelta(seconds=91), NOW, 30, 3)
+
+
+def test_next_run_parses_formats_and_frequencies():
+    base = datetime(2026, 1, 1, 12, 0, 0)
+    assert next_run("2026-01-01 12:00:00", "hour") == base + timedelta(hours=1)
+    assert next_run("2026-01-01T12:00:00", "day") == base + timedelta(days=1)
+    assert next_run("2026-01-01T12:00:00Z", "minute") == base + timedelta(minutes=1)
+    assert next_run("2026-01-01T14:00:00+02:00", "week") == base + timedelta(weeks=1)
+    epoch = (base - datetime(1970, 1, 1)).total_seconds()
+    assert next_run(epoch, "hour") == base + timedelta(hours=1)
+    assert next_run(int(epoch * 1000), "hour") == base + timedelta(hours=1)
+    assert next_run(str(int(epoch)), "day") == base + timedelta(days=1)
+
+
+def test_next_run_none_cases():
+    assert next_run("2026-01-01 12:00:00", "once") is None
+    assert next_run("2026-01-01 12:00:00", "fortnight") is None
+    assert next_run("2026-01-01 12:00:00", None) is None
+    assert next_run(None, "day") is None
+    assert next_run("garbage", "day") is None
+    assert next_run("", "day") is None
+    assert next_run(True, "day") is None

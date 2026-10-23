@@ -6,17 +6,18 @@
 <div class="mb-2"><input class="form-control" type="search" placeholder="Rechercher…" aria-label="Rechercher" data-filter-for="t-jobs"></div>
 <div class="table-responsive mb-5">
 <table class="table align-middle" id="t-jobs" data-table>
-  <thead><tr><th data-sort>Job</th><th data-sort>Plugin</th><th data-sort>Instance</th><th data-sort>Fréquence</th><th data-sort>Dernière exécution</th><th data-sort>Résultat</th></tr></thead>
+  <thead><tr><th data-sort>Job</th><th data-sort>Plugin</th><th data-sort>Instance</th><th data-sort>Fréquence</th><th data-sort>Dernière exécution</th><th data-sort>Prochaine échéance (estimée)</th><th data-sort>Résultat</th></tr></thead>
   <tbody>
   {% for j in jobs %}
   <tr>
     <td>{{ j.name }}</td><td>{{ j.plugin or '—' }}</td><td>{{ j.instance }}</td><td>{{ j.every or '—' }}</td>
     <td>{{ j.last_run or '—' }}</td>
+    <td>{{ j.next_run|dt }}{% if j.next_run and j.next_run < now %} <span class="badge text-bg-warning">en retard</span>{% endif %}</td>
     <td>{% if j.success is true %}<span class="badge text-bg-success">Succès</span>
         {% elif j.success is false %}<span class="badge text-bg-danger">Échec</span>
         {% else %}<span class="badge text-bg-secondary">—</span>{% endif %}</td>
   </tr>
-  {% else %}<tr><td colspan="6" class="text-secondary">Aucun job.</td></tr>
+  {% else %}<tr><td colspan="7" class="text-secondary">Aucun job.</td></tr>
   {% endfor %}
   </tbody>
 </table>

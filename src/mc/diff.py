@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 
 def cert_status(present: bool, not_after: datetime | None, now: datetime,
@@ -43,3 +43,40 @@ def plugin_matrix(per_instance: dict[str, dict[str, str]]) -> list[dict]:
 
 def is_stale(last_ok_at: datetime | None, now: datetime, interval: int, cycles: int) -> bool:
     return last_ok_at is None or (now - last_ok_at) > timedelta(seconds=interval * cycles)
+
+
+_EVERY = {"minute": timedelta(minutes=1), "hour": timedelta(hours=1),
+          "day": timedelta(days=1), "week": timedelta(weeks=1)}
+
+
+def _parse_ts(value) -> datetime | None:
+    """Horodatage tolérant -> UTC naïf ; None si absent ou illisible."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, str):
+        v = value.strip()
+        if not v:
+            return None
+        try:
+            value = float(v)
+        except ValueError:
+            try:
+                d = datetime.fromisoformat(v.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+            return d.astimezone(UTC).replace(tzinfo=None) if d.tzinfo else d
+    if isinstance(value, (int, float)):
+        if value > 1e11:  # millisecondes
+            value /= 1000
+        try:
+            return datetime.fromtimestamp(value, UTC).replace(tzinfo=None)
+        except (OverflowError, OSError, ValueError):
+            return None
+    return None
+
+
+def next_run(last_run, every) -> datetime | None:
+    """Prochaine échéance estimée (naïf UTC) ; None pour 'once', fréquence inconnue ou dernière exécution illisible."""
+    delta = _EVERY.get(every) if isinstance(every, str) else None
+    last = _parse_ts(last_run)
+    return None if delta is None or last is None else last + delta
