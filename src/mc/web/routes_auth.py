@@ -29,6 +29,20 @@ def ip_of(request: Request) -> str:
     return request.client.host if request.client else ""
 
 
+THROTTLED = "Trop de tentatives, réessayez plus tard."
+
+
+def throttle(request: Request, family: str) -> int:
+    """Compte une tentative pour (famille d'endpoints, IP) ; retourne les secondes de blocage (0 = OK)."""
+    key = f"{family}:{ip_of(request)}"
+    return 0 if limiter.hit(key) else max(1, limiter.retry_after(key))
+
+
+def retry_after(resp, secs: int):
+    resp.headers["Retry-After"] = str(secs)
+    return resp
+
+
 def set_cookie(resp, token: str, *, final: bool):
     cfg = get_settings()
     resp.set_cookie(sessions.COOKIE, token, httponly=True, secure=cfg.cookie_secure,
@@ -85,10 +99,10 @@ async def login(request: Request, username: str = Form(...), password: str = For
     cookie = request.cookies.get(LOGIN_CSRF, "")
     if not cookie or not hmac.compare_digest(csrf.encode(), cookie.encode()):
         raise HTTPException(403, "CSRF invalide")
-    if not limiter.hit(ip):
+    if wait := throttle(request, "login"):
         audit(db, "login_throttled", username, ip=ip)
         db.commit()
-        return login_form(request, 429, "Trop de tentatives, réessayez plus tard.")
+        return retry_after(login_form(request, 429, THROTTLED), wait)
     user = db.query(User).filter_by(username=username).one_or_none()
     locked = bool(user and ratelimit.is_locked(user, now))
     if not (verify_password(user.password_hash if user else None, password) and not locked):
@@ -116,6 +130,10 @@ async def twofa_get(request: Request, user: User = Depends(pending_user)):
 @router.post("/login/2fa")
 async def twofa_post(request: Request, code: str = Form(...), user: User = Depends(pending_user),
                      db=Depends(get_db)):
+    if wait := throttle(request, "2fa"):
+        audit(db, "login_throttled", user.username, detail="2fa", ip=ip_of(request))
+        db.commit()
+        return retry_after(twofa_page(request, user, THROTTLED, 429), wait)
     if ratelimit.is_locked(user, utcnow()):
         audit(db, "login_locked", user.username, ip=ip_of(request))
         db.commit()
@@ -144,6 +162,10 @@ async def passkey_auth_options(request: Request, user: User = Depends(pending_us
 
 @router.post("/webauthn/auth/verify")
 async def passkey_auth_verify(request: Request, user: User = Depends(pending_user), db=Depends(get_db)):
+    if wait := throttle(request, "2fa"):
+        audit(db, "login_throttled", user.username, detail="passkey", ip=ip_of(request))
+        db.commit()
+        return JSONResponse({"error": THROTTLED}, status_code=429, headers={"Retry-After": str(wait)})
     if ratelimit.is_locked(user, utcnow()):
         audit(db, "login_locked", user.username, ip=ip_of(request))
         db.commit()
@@ -186,6 +208,10 @@ async def enroll_post(request: Request, code: str = Form(...), user: User = Depe
                       db=Depends(get_db)):
     if mfa.has_second_factor(user):
         return RedirectResponse("/login/2fa", 303)
+    if wait := throttle(request, "enroll"):
+        audit(db, "login_throttled", user.username, detail="enroll", ip=ip_of(request))
+        db.commit()
+        return retry_after(enroll_page(request, db, user, THROTTLED, 429), wait)
     step = mfa.verify_totp(user.totp_secret_enc, code, 0) if user.totp_secret_enc else None
     if not step:
         fail_2fa(request, db, user, "enroll_failed")

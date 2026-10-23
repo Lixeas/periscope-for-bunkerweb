@@ -194,3 +194,42 @@ def test_passkey_verify_failure_is_401(client, monkeypatch):
     r = client.post("/webauthn/auth/verify", headers=h, json={"id": cid})
     assert r.status_code == 401
     assert client.get("/dashboard", follow_redirects=False).status_code == 303
+
+
+def test_ip_throttle_escalates_and_sets_retry_after(client):
+    from mc.web import routes_auth
+    make_user()
+    routes_auth.limiter.max = 1
+    try:
+        assert post_login(client, "x", "y").status_code == 401
+        r = post_login(client, "x", "y")
+        assert r.status_code == 429 and r.headers["retry-after"] == "60"
+    finally:
+        routes_auth.limiter.max = 20
+
+
+def test_2fa_ip_throttle_is_separate_bucket(client):
+    from mc.web import routes_auth
+    make_user()
+    post_login(client)
+    csrf = csrf_of(client.get("/login/2fa").text)
+    routes_auth.limiter.max = 2
+    try:
+        codes = [client.post("/login/2fa", data={"code": "000000", "csrf": csrf}).status_code for _ in range(3)]
+    finally:
+        routes_auth.limiter.max = 20
+    assert codes == [401, 401, 429]
+
+
+def test_enroll_ip_throttle(client):
+    from mc.web import routes_auth
+    make_user(totp=False)
+    post_login(client)
+    page = client.get("/enroll")
+    routes_auth.limiter.max = 1
+    try:
+        codes = [client.post("/enroll", data={"code": "000000", "csrf": csrf_of(page.text)}).status_code
+                 for _ in range(2)]
+    finally:
+        routes_auth.limiter.max = 20
+    assert codes == [401, 429]

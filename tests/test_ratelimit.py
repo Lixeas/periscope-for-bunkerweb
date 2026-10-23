@@ -27,7 +27,41 @@ def test_ip_limiter_window():
     lim = ratelimit.IPLimiter(max_events=3, window=10)
     assert [lim.hit("1.1.1.1", now=t) for t in (0, 1, 2, 3)] == [True, True, True, False]
     assert lim.hit("2.2.2.2", now=3) is True  # autre IP
-    assert lim.hit("1.1.1.1", now=11.5) is True  # fenêtre écoulée
+    assert lim.hit("1.1.1.1", now=11.5) is False  # encore bloqué (60 s après le dépassement)
+    assert lim.hit("1.1.1.1", now=64) is True  # blocage écoulé
+
+
+def test_ip_limiter_sliding_window_without_violation():
+    lim = ratelimit.IPLimiter(max_events=3, window=10)
+    assert [lim.hit("a", now=t) for t in (0, 1, 2)] == [True] * 3
+    assert lim.hit("a", now=11.5) is True  # fenêtre écoulée, jamais dépassée
+
+
+def test_ip_limiter_escalating_block():
+    lim = ratelimit.IPLimiter(max_events=1, window=10)
+    assert lim.hit("a", now=0) is True
+    assert lim.hit("a", now=1) is False  # 1re violation : 60 s
+    assert lim.retry_after("a", now=1) == 60
+    assert lim.hit("a", now=30) is False and lim.retry_after("a", now=30) == 31
+    assert lim.hit("a", now=62) is True
+    assert lim.hit("a", now=63) is False  # 2e violation : 120 s
+    assert lim.retry_after("a", now=63) == 120
+    assert lim.retry_after("b", now=63) == 0
+
+
+def test_ip_limiter_block_is_capped_and_forgotten():
+    lim = ratelimit.IPLimiter(max_events=1, window=1)
+    t = 0.0
+    for _ in range(10):
+        lim.hit("a", now=t)
+        lim.hit("a", now=t + 0.1)
+        t += lim.retry_after("a", now=t + 0.1) + 0.2
+    assert lim.retry_after("a", now=t) == 0
+    lim.hit("a", now=t)
+    lim.hit("a", now=t + 0.1)
+    assert lim.retry_after("a", now=t + 0.1) == 3600
+    lim.hit("zzz", now=t + 0.1 + 3600 + 3601)  # purge : violations oubliées
+    assert "a" not in lim._violations
 
 
 def test_ip_limiter_drops_empty_entries():

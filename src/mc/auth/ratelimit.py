@@ -1,3 +1,4 @@
+import math
 import time
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
@@ -29,23 +30,45 @@ def register_success(user: User) -> None:
 
 
 class IPLimiter:
-    """Fenêtre glissante en mémoire (un seul processus) ; ponytail: Redis si on passe à plusieurs workers."""
+    """Fenêtre glissante en mémoire (un seul processus) ; ponytail: Redis si on passe à plusieurs workers.
+
+    Chaque dépassement de la fenêtre bloque la clé 60 s, puis 120 s, 240 s… (plafond 1 h).
+    Le compteur de dépassements est oublié après 1 h sans nouvelle violation."""
+
+    BASE_BLOCK, MAX_BLOCK, FORGET = 60, 3600, 3600
 
     def __init__(self, max_events: int = 20, window: float = 300):
         self.max, self.window = max_events, window
         self._events: dict[str, deque] = defaultdict(deque)
+        self._blocked_until: dict[str, float] = {}
+        self._violations: dict[str, int] = {}
 
-    def hit(self, ip: str, now: float | None = None) -> bool:
+    def retry_after(self, key: str, now: float | None = None) -> int:
+        """Secondes restantes de blocage (0 si non bloqué)."""
         now = time.monotonic() if now is None else now
-        for k in [k for k, d in self._events.items() if now - d[-1] > self.window]:
+        return max(0, math.ceil(self._blocked_until.get(key, 0) - now))
+
+    def hit(self, key: str, now: float | None = None) -> bool:
+        now = time.monotonic() if now is None else now
+        for k in [k for k, d in self._events.items() if not d or now - d[-1] > self.window]:
             del self._events[k]  # entrées entièrement expirées : évite la croissance sans borne
-        q = self._events[ip]
+        for k in [k for k, t in self._blocked_until.items() if now - t > self.FORGET]:
+            del self._blocked_until[k]
+            self._violations.pop(k, None)
+        if self.retry_after(key, now):
+            return False
+        q = self._events[key]
         while q and now - q[0] > self.window:
             q.popleft()
         if len(q) >= self.max:
+            n = self._violations[key] = self._violations.get(key, 0) + 1
+            self._blocked_until[key] = now + min(self.MAX_BLOCK, self.BASE_BLOCK * 2 ** (n - 1))
+            q.clear()
             return False
         q.append(now)
         return True
 
     def reset(self) -> None:
         self._events.clear()
+        self._blocked_until.clear()
+        self._violations.clear()
