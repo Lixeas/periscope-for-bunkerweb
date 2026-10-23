@@ -9,6 +9,12 @@ def _pick(d: dict, *keys, default=None):
     return default
 
 
+def _s(d: dict, *keys, default: str = "") -> str:
+    """Champ identifiant : toujours un str (donc hashable), même si le nœud renvoie liste/dict/nombre."""
+    v = _pick(d, *keys)
+    return default if v is None else str(v)
+
+
 def _items(payload, *keys) -> list[dict]:
     """Liste de dicts depuis [..], {"cle": [..]} ou {"cle": {nom: {..}}}."""
     if isinstance(payload, dict):
@@ -45,9 +51,9 @@ def security_mode(payload) -> str | None:
 
 def bans(payload) -> list[dict]:
     return [
-        {"ip": _pick(i, "ip", "name", default=""),
-         "reason": _pick(i, "reason", default=""),
-         "service": _pick(i, "service", default="global"),
+        {"ip": _s(i, "ip", "name"),
+         "reason": _s(i, "reason"),
+         "service": _s(i, "service", default="global"),
          "exp": _pick(i, "exp", "ban_end", "expire"),
          "date": _pick(i, "date", "ban_start")}
         for i in _items(payload, "bans")
@@ -64,14 +70,14 @@ def jobs(payload) -> list[dict]:
             h = history[-1]
             last_run = _pick(h, "end_date", "start_date")
             success = h.get("success") if success is None else success
-        out.append({"name": _pick(i, "name", default=""), "plugin": _pick(i, "plugin", default=""),
-                    "every": _pick(i, "every", default=""), "last_run": last_run, "success": success})
+        out.append({"name": _s(i, "name"), "plugin": _s(i, "plugin"),
+                    "every": _s(i, "every"), "last_run": last_run, "success": success})
     return out
 
 
 def plugins(payload) -> list[dict]:
     return [
-        {"id": _pick(i, "id", "name", default=""), "name": _pick(i, "name", "id", default=""),
-         "version": _pick(i, "version", default=""), "type": _pick(i, "type", default="")}
+        {"id": _s(i, "id", "name"), "name": _s(i, "name", "id"),
+         "version": _s(i, "version"), "type": _s(i, "type")}
         for i in _items(payload, "plugins")
     ]
