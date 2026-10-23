@@ -101,6 +101,7 @@ Notes:
 - **Passkeys are bound to the domain** (`PERISCOPE_RP_ID`): they work through the domain name but not through `localhost` or a bare IP. Use TOTP for local access.
 - A wrong `PERISCOPE_TRUSTED_PROXY` makes every client share a single IP bucket for rate limiting, and the audit log shows the proxy's address instead of the client's.
 - **`502 Bad Gateway` troubleshooting:** check `docker compose ps` and `docker compose logs periscope` (is it running? is `PERISCOPE_SECRET_KEY` set?), then test from the BunkerWeb host with `curl -sI http://PERISCOPE_BIND:8000/login`, which must answer `200`. A refused connection means Periscope is not listening on that address (check `PERISCOPE_BIND`); a timeout points to a firewall.
+- **`403 Forbidden` on a form (sign-in, adding an instance...):** Periscope rejects any state-changing request whose `Origin` header is not listed in `PERISCOPE_ORIGINS` (the response body is `Origine refusée`). List every URL you use to reach Periscope, with `https://` and without a trailing slash, for example `["https://periscope.example.com"]`, then restart the container. If you still get a 403 and the access log of `docker compose logs periscope` shows no matching request, the answer came from the WAF in front of Periscope: check the **Reports** page of the BunkerWeb UI for the rule that fired.
 - Optional alternative when BunkerWeb runs on the same machine: attach Periscope to BunkerWeb's Docker network and use `http://periscope:8000` as the target. It works only on one machine, which is why the published-port setup above is the default.
 
 ## Authenticating to the BunkerWeb API
@@ -206,8 +207,10 @@ The first call must return a JSON object with a `token`; the next two must retur
 
 **7. Make the API reachable from Periscope, then add the instance.** Periscope must be able to reach the API URL:
 
-- If the API port is only published on `127.0.0.1` of the BunkerWeb host, Periscope must run on that same host, or on the same Docker network using the internal name (for example `http://bw-api:8888`). Otherwise publish the port on a private interface only.
-- The API has an IP allow-list (`API_WHITELIST_IPS`, which defaults to the private RFC 1918 ranges): Periscope's address must be allowed.
+- **Never use `127.0.0.1` in Periscope's instance URL when Periscope runs in Docker**: inside its container, `127.0.0.1` is the container itself, not the BunkerWeb host. (`127.0.0.1` is only fine for the `curl` tests of step 6, run directly on the BunkerWeb host.)
+- Publish the API port on the machine's **private IP** only, in the BunkerWeb compose file, for example `ports: ["10.154.0.20:8888:8888"]` on the `bw-api` service, then restart it. This works the same whether Periscope is on the same machine (in another folder or Compose project) or on another server.
+- **Include the API root path in the URL.** If the API service sets `API_ROOT_PATH` (for example `"/bwapi"`), the API is served under that prefix and the URL to enter is `http://10.154.0.20:8888/bwapi`. Check it first with `curl -s http://10.154.0.20:8888/bwapi/ping`, which must answer `{"status":"ok","message":"pong"}`.
+- The API has an IP allow-list (`API_WHITELIST_IPS`, which defaults to the private RFC 1918 ranges): the address from which Periscope reaches the API must be allowed. With Docker's NAT it is usually the host or the gateway of Periscope's Docker network, both private addresses.
 - Never expose the API port on a public interface.
 
 Finally, in Periscope open **Instances**, enter the API URL, choose **API user**, and fill in `periscope` and its password.
@@ -222,6 +225,8 @@ Finally, in Periscope open **Instances**, enter the API URL, choose **API user**
 | One Periscope view is empty, or the instance is "Degraded" with a `403` | The matching read permission is missing (for example `ban_read` for Bans) |
 | `429` on `/auth` | Rate limit reached (10 requests per minute by default) |
 | Connection refused or timeout from Periscope | The API port is not reachable from where Periscope runs, or the IP allow-list blocks it (step 7) |
+| "Instance unreachable" when adding an instance using `127.0.0.1` | `127.0.0.1` is Periscope's own container: use the host's private IP (step 7) |
+| `404` on every API call | The API root path is missing from the URL (for example `/bwapi`) |
 
 ### What is confirmed and what is not
 
