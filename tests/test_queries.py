@@ -21,9 +21,13 @@ def seed():
                                  {"name": "y.example", "draft": False, "mode": "detect"},
                                  {"name": "d.example", "draft": True, "mode": None}],
             (b.id, "services"): [{"name": "x.example", "draft": False, "mode": "detect"}],
-            (a.id, "bans"): [{"ip": "1.1.1.1", "reason": "bot", "service": "x.example", "exp": 60, "date": 1}],
-            (b.id, "bans"): [{"ip": "1.1.1.1", "reason": "bot", "service": "x.example", "exp": 30, "date": 1},
-                             {"ip": "2.2.2.2", "reason": "scan", "service": "global", "exp": 10, "date": 2}],
+            # forme normalisée (cf. normalize.bans ; API dérivée du source BunkerWeb v1.6.17)
+            (a.id, "bans"): [{"ip": "1.1.1.1", "reason": "bot", "service": "x.example", "ban_scope": "service",
+                              "exp": 60, "date": 1760000000, "permanent": False, "country": "FR", "kind": "ban"}],
+            (b.id, "bans"): [{"ip": "1.1.1.1", "reason": "bot", "service": "x.example", "ban_scope": "service",
+                              "exp": 30, "date": 1760000000, "permanent": False, "country": "FR", "kind": "ban"},
+                             {"ip": "2.2.2.2", "reason": "scan", "service": "global", "ban_scope": "global",
+                              "exp": 0, "date": 1760000000, "permanent": True, "country": "", "kind": "crowdsec_lease"}],
             (off.id, "bans"): [{"ip": "9.9.9.9", "reason": "x", "service": "global", "exp": 1, "date": 1}],
             (a.id, "jobs"): [{"name": "renew", "plugin": "letsencrypt", "every": "day", "last_run": "2020-01-01 00:00:00", "success": True}],
             (a.id, "plugins"): [{"id": "antibot", "name": "Antibot", "version": "1.0", "type": "core"}],
@@ -100,3 +104,26 @@ def test_certs_sorted_worst_first_with_status(fresh_db):
     red = rows[1]
     assert red["letsencrypt"] is True and red["days"] in (2, 3)
     assert rows[2]["letsencrypt"] is False
+
+
+def test_bans_rows_have_permanent_and_numeric_sort_key(fresh_db):
+    seed()
+    with session_scope() as s:
+        rows = {(r["ip"], r["instance"]): r for r in queries.bans(s)}
+    assert rows[("1.1.1.1", "bw1")]["permanent"] is False and rows[("1.1.1.1", "bw1")]["exp_sort"] == 60
+    assert rows[("2.2.2.2", "bw2")]["permanent"] is True
+    assert rows[("2.2.2.2", "bw2")]["exp_sort"] > rows[("1.1.1.1", "bw1")]["exp_sort"]
+
+
+def test_bans_rows_legacy_snapshot_exp_zero_is_permanent_and_hostile_exp_safe(fresh_db):
+    seed()
+    with session_scope() as s:
+        inst = s.query(Instance).filter_by(name="bw1").one()
+        snap = s.query(Snapshot).filter_by(instance_id=inst.id, kind="bans").one()
+        snap.payload = [{"ip": "7.7.7.7", "exp": 0}, {"ip": "8.8.8.8", "exp": ["x"], "date": {"a": 1}},
+                        {"ip": "9.9.9.9", "exp": True}]
+    with session_scope() as s:
+        rows = {r["ip"]: r for r in queries.bans(s) if r["instance"] == "bw1"}
+    assert rows["7.7.7.7"]["permanent"] is True
+    assert rows["8.8.8.8"]["permanent"] is False and rows["8.8.8.8"]["exp_sort"] == 0
+    assert rows["9.9.9.9"]["permanent"] is False

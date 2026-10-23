@@ -1,3 +1,4 @@
+import math
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -57,11 +58,27 @@ def services(db: Session, instance: str = "", mode: str = "") -> tuple[list[dict
     return rows, sorted(per)
 
 
+PERMANENT_SORT = 10**12  # clé de tri des bans permanents : après n'importe quelle durée restante
+
+
+def _finite(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def _ban_row(b: dict, n: str, missing: dict) -> dict:
+    exp = b.get("exp")
+    permanent = bool(b.get("permanent")) or (_finite(exp) and exp == 0)
+    exp_sort = PERMANENT_SORT if permanent else (min(exp, PERMANENT_SORT - 1) if _finite(exp) else 0)
+    date = b.get("date")
+    return {**b, "ip": str(b.get("ip", "")), "instance": n, "permanent": permanent, "exp_sort": exp_sort,
+            "date_sort": date if _finite(date) else 0,
+            "missing_on": missing.get(str(b.get("ip", "")), [])}
+
+
 def bans(db: Session, q: str = "") -> list[dict]:
     per = _by_instance(db, "bans")
     missing = diff.gaps({n: {str(b.get("ip", "")) for b in p} for n, p in per.items()})
-    rows = [{**b, "ip": str(b.get("ip", "")), "instance": n,
-             "missing_on": missing.get(str(b.get("ip", "")), [])} for n, p in per.items() for b in p]
+    rows = [_ban_row(b, n, missing) for n, p in per.items() for b in p]
     if q.strip():
         rows = [r for r in rows if q.strip() in str(r["ip"])]
     rows.sort(key=lambda r: (str(r["ip"]), r["instance"]))
