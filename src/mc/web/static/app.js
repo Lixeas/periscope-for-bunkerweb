@@ -25,6 +25,13 @@ async function registerPasskey(csrf) {
   location.reload();
 }
 
+async function enrollPasskey(csrf) {
+  const opts = await api("/webauthn/enroll/options", null, csrf);
+  const cred = await navigator.credentials.create({publicKey: PublicKeyCredential.parseCreationOptionsFromJSON(opts)});
+  const res = await api("/webauthn/enroll/verify", cred.toJSON(), csrf);
+  location.href = res.redirect;
+}
+
 async function loginPasskey(csrf) {
   const opts = await api("/webauthn/auth/options", null, csrf);
   const cred = await navigator.credentials.get({publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(opts)});
@@ -46,7 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const out = document.getElementById("passkey-error");
       if (out) out.textContent = "";
       try {
-        const fn = btn.dataset.passkey === "register" ? registerPasskey : loginPasskey;
+        const fn = {register: registerPasskey, enroll: enrollPasskey, login: loginPasskey}[btn.dataset.passkey];
         await fn(btn.dataset.csrf);
       } catch (e) {
         if (out) out.textContent = e.message;
