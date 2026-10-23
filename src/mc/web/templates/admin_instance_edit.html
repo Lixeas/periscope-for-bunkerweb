@@ -9,8 +9,24 @@
     <input class="form-control" id="name" name="name" value="{{ inst.name }}" required></div>
   <div class="mb-3"><label class="form-label" for="base_url">URL de l'API BunkerWeb</label>
     <input class="form-control" id="base_url" name="base_url" value="{{ inst.base_url }}" required></div>
-  <div class="mb-3"><label class="form-label" for="token">Nouveau token (laisser vide pour conserver)</label>
-    <input class="form-control" id="token" name="token" type="password" autocomplete="off"></div>
+  <div class="mb-3"><label class="form-label" for="auth_mode">Mode d'authentification</label>
+    <select class="form-select" id="auth_mode" name="auth_mode">
+      <option value="user" {% if inst.auth_mode == 'user' %}selected{% endif %}>Utilisateur API (recommandé)</option>
+      <option value="token" {% if inst.auth_mode != 'user' %}selected{% endif %}>Token d'API</option>
+    </select>
+    <div class="form-text">Changer de mode exige de saisir les secrets du nouveau mode.</div></div>
+  <fieldset class="border rounded p-3 mb-3">
+    <legend class="fs-6">Mode « Utilisateur API »</legend>
+    <div class="mb-3"><label class="form-label" for="api_username">Nom d'utilisateur de l'API</label>
+      <input class="form-control" id="api_username" name="api_username" autocomplete="off" value="{{ inst.api_username }}"></div>
+    <div class="mb-0"><label class="form-label" for="api_password">Nouveau mot de passe (laisser vide pour conserver)</label>
+      <input class="form-control" id="api_password" name="api_password" type="password" autocomplete="off"></div>
+  </fieldset>
+  <fieldset class="border rounded p-3 mb-3">
+    <legend class="fs-6">Mode « Token d'API »</legend>
+    <label class="form-label" for="token">Nouveau token (laisser vide pour conserver)</label>
+    <input class="form-control" id="token" name="token" type="password" autocomplete="off">
+  </fieldset>
   <div class="row">
     <div class="col-8 mb-3"><label class="form-label" for="probe_host">Hôte de la sonde TLS</label>
       <input class="form-control" id="probe_host" name="probe_host" value="{{ inst.probe_host }}"></div>
