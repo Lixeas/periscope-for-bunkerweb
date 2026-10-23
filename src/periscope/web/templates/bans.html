@@ -17,15 +17,15 @@
   <tr>
     <td>{{ r.ip }}{{ missing(r.missing_on) }}</td>
     <td>{{ r.reason or '—' }}</td>
-    <td>{{ r.service }}</td>
+    <td>{{ r.service }}{% if r.ban_scope %} <span class="small text-secondary">({{ r.ban_scope }})</span>{% endif %}{% if r.kind == 'crowdsec_lease' %} <span class="badge text-bg-info">CrowdSec</span>{% endif %}</td>
     <td>{{ r.instance }}</td>
-    <td>{{ r.date if r.date is not none else '—' }}</td>
-    <td>{{ r.exp if r.exp is not none else '—' }}</td>
+    <td data-v="{{ r.date_sort }}">{{ r.date|epoch }}</td>
+    <td data-v="{{ r.exp_sort }}">{% if r.permanent %}<span class="badge text-bg-warning">Permanent</span>{% else %}{{ r.exp|duration }}{% endif %}</td>
   </tr>
   {% else %}<tr><td colspan="6" class="text-secondary">Aucun ban actif.</td></tr>
   {% endfor %}
   </tbody>
 </table>
 </div>
-<p class="small text-secondary">L'expiration est affichée telle que renvoyée par l'API BunkerWeb.</p>
+<p class="small text-secondary">Durée restante renvoyée par BunkerWeb ; « Permanent » si le ban n'expire pas.</p>
 {% endblock %}

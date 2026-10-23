@@ -38,6 +38,17 @@ def test_services_page_with_gap_and_filter(client):
     assert "y.example" not in r.text and "x.example" in r.text
 
 
+def test_bans_page_renders_duration_permanent_and_epoch_date(client):
+    t = client.get("/bans").text
+    assert "09/10/2025 08:53 UTC" in t                   # date epoch -> datetime
+    assert "1 min" in t and "30 s" in t                   # secondes restantes -> durée lisible
+    assert "Permanent" in t                               # exp 0 / permanent
+    assert 'data-v="1000000000000"' in t and 'data-v="60"' in t  # tri numérique, permanent en dernier
+    assert "CrowdSec" in t and "service" in t             # badge crowdsec_lease + ban_scope
+    assert "Durée restante renvoyée par BunkerWeb ; « Permanent » si le ban n'expire pas." in t
+    assert "telle que renvoyée" not in t
+
+
 def test_bans_page_search(client):
     assert "2.2.2.2" in client.get("/bans").text
     r = client.get("/bans", params={"q": "2.2"})
@@ -73,3 +84,29 @@ def test_bans_jobs_plugins_render_with_hostile_snapshot_values(client):
     for path in ("/bans", "/jobs", "/services", "/dashboard", "/api/summary"):
         assert client.get(path).status_code == 200, path
     assert client.get("/bans", params={"q": "x"}).status_code == 200
+
+
+def test_bans_page_hostile_expiration_and_date_values(client):
+    from periscope.db import session_scope
+    from periscope.models import Instance, Snapshot
+    with session_scope() as s:
+        inst = s.query(Instance).filter_by(name="bw1").one()
+        snap = s.query(Snapshot).filter_by(instance_id=inst.id, kind="bans").one()
+        snap.payload = [{"ip": "6.6.6.6", "exp": 10**30, "date": 10**30, "permanent": ["x"], "kind": {"a": 1}},
+                        {"ip": "6.6.6.7", "exp": "soon", "date": "yesterday", "ban_scope": ["y"]},
+                        {"ip": "6.6.6.8", "exp": -5, "date": -10**30}]
+    r = client.get("/bans")
+    assert r.status_code == 200 and "6.6.6.6" in r.text and "6.6.6.8" in r.text
+
+
+def test_jobs_page_with_iso_offset_last_run_and_services_mode(client):
+    """last_run ISO avec décalage (forme dérivée du source BunkerWeb v1.6.17, non capturée en live)."""
+    from periscope.db import session_scope
+    from periscope.models import Instance, Snapshot
+    with session_scope() as s:
+        inst = s.query(Instance).filter_by(name="bw1").one()
+        snap = s.query(Snapshot).filter_by(instance_id=inst.id, kind="jobs").one()
+        snap.payload = [{"name": "j", "plugin": "p", "every": "day",
+                         "last_run": "2020-05-01T03:00:00+02:00", "success": False}]
+    t = client.get("/jobs").text
+    assert "02/05/2020 01:00 UTC" in t and "Échec" in t and "en retard" in t

@@ -1,4 +1,5 @@
-from datetime import datetime
+import math
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import Request
@@ -26,7 +27,39 @@ def _ago(d: datetime | None) -> str:
     return f"il y a {s // 86400} j"
 
 
+def _finite(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def _epoch(v) -> str:
+    """Epoch (secondes) -> date lisible ; « — » si absent (0/None), non numérique ou hors plage."""
+    if not _finite(v) or v <= 0:
+        return "—"
+    try:
+        return _dt(datetime.fromtimestamp(v, UTC))
+    except (OverflowError, OSError, ValueError):
+        return "—"
+
+
+def _duration(v) -> str:
+    """Secondes restantes -> « 45 s », « 12 min », « 3 h 20 », « 2 j 4 h » ; « — » si invalide."""
+    if not _finite(v) or v < 0:
+        return "—"
+    s = int(v)
+    if s < 60:
+        return f"{s} s"
+    if s < 3600:
+        return f"{s // 60} min"
+    if s < 86400:
+        h, m = divmod(s // 60, 60)
+        return f"{h} h {m:02d}" if m else f"{h} h"
+    d, h = divmod(s // 3600, 24)
+    return f"{d} j {h} h" if h else f"{d} j"
+
+
 templates.env.filters["dt"] = _dt
+templates.env.filters["epoch"] = _epoch
+templates.env.filters["duration"] = _duration
 templates.env.filters["ago"] = _ago
 
 
