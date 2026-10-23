@@ -1,0 +1,200 @@
+# =============================================================================
+# Deux VRAIES instances BunkerWeb indépendantes (bw1, bw2) pour valider
+# Mission Control de bout en bout (spec section 7).
+#
+# !!! NON EXÉCUTÉ / NON VÉRIFIÉ !!!
+# Docker n'est pas installé sur la machine où ce fichier a été écrit : il n'a
+# jamais été lancé, même pas validé par `docker compose config`. Il a été
+# composé à partir de la documentation officielle (docs.bunkerweb.io, pages
+# « Integrations » et « API », version 1.6.17). Les points non confirmés sont
+# signalés par « NON CONFIRMÉ » ; lancez `docker compose -f ... config` puis
+# `up` et corrigez au besoin.
+#
+# Lancement :   docker compose -f dev/docker-compose.bunkerweb.yml up -d
+# Chaque pile = bunkerweb (proxy) + bunkerweb-scheduler + bunkerweb-api
+#               + MariaDB (base partagée scheduler/API, comme dans l'exemple
+#               officiel) + un upstream trivial (nginx) protégé par BunkerWeb.
+#
+# Ports hôte (liés à 127.0.0.1 : la doc dit de ne pas exposer l'API à Internet)
+#   bw1 : API 8081 -> 8888 interne ; TLS 8443 -> 8443 (conteneur bunkerweb)
+#   bw2 : API 8082 -> 8888 interne ; TLS 9443 -> 8443
+#
+# Enregistrer dans Mission Control (page Instances) :
+#   bw1 : URL d'API http://127.0.0.1:8081   hôte de sonde 127.0.0.1   port TLS 8443
+#   bw2 : URL d'API http://127.0.0.1:8082   hôte de sonde 127.0.0.1   port TLS 9443
+#   Si Mission Control tourne lui-même en conteneur, remplacez 127.0.0.1 par
+#   host.docker.internal (ou rattachez-le aux réseaux ci-dessous).
+#   Token : voir « TOKEN D'API » plus bas. Domaines sondés (SNI) :
+#   app.bw1.test / app.bw2.test (services déclarés ci-dessous).
+#
+# TOKEN D'API (point important, doc ambiguë)
+#   Mission Control envoie un en-tête fixe `Authorization: Bearer <token>`.
+#   La doc ne documente de Bearer statique que via API_TOKEN, qui donne un accès
+#   ADMIN COMPLET (pas lecture seule). Pour le dev on l'utilise donc ici
+#   (valeurs `dev-token-bw1` / `dev-token-bw2`) ; ne jamais le faire en prod.
+#   Alternative lecture seule documentée : un utilisateur ACL (fichier
+#   API_ACL_BOOTSTRAP_FILE, voir le bloc commenté sous bw1-api) qui obtient un
+#   token via `POST /auth` en HTTP Basic (`curl -u reader:... -X POST
+#   http://127.0.0.1:8081/auth`, champ `.token`). NON CONFIRMÉ : durée de vie de
+#   ce token ; s'il expire, il ne convient pas à Mission Control, qui ne se
+#   ré-authentifie pas. Les permissions en lecture existent : instances_read,
+#   service_read, global_config_read, ban_read, job_read, plugin_read.
+#
+# Alignement des réponses : une fois les instances enregistrées, comparez les
+# réponses réelles de l'API avec src/mc/normalize.py (Plan 3, Task 8).
+# =============================================================================
+
+x-db-uri-1: &db-uri-1 "mariadb+pymysql://bunkerweb:changeme@bw1-db:3306/db"
+x-db-uri-2: &db-uri-2 "mariadb+pymysql://bunkerweb:changeme@bw2-db:3306/db"
+
+x-mariadb: &mariadb
+  image: mariadb:11
+  command: --max-allowed-packet=67108864
+  restart: "unless-stopped"
+
+services:
+  # ---------------------------------------------------------------- pile bw1
+  bw1:
+    image: bunkerity/bunkerweb:1.6.17
+    ports:
+      - "127.0.0.1:8443:8443/tcp"   # TLS (8443 interne selon la doc)
+    environment:
+      # Doit être identique dans bunkerweb et le scheduler (doc). Sous-réseau
+      # statique choisi par nous (10.20.31.0/24) : NON CONFIRMÉ.
+      API_WHITELIST_IP: "127.0.0.0/8 10.20.31.0/24"
+      API_TOKEN: "dev-token-bw1"
+    restart: "unless-stopped"
+    networks: [bw1-universe, bw1-services]
+
+  bw1-scheduler:
+    image: bunkerity/bunkerweb-scheduler:1.6.17
+    depends_on: [bw1, bw1-db]
+    environment:
+      API_WHITELIST_IP: "127.0.0.0/8 10.20.31.0/24"
+      API_TOKEN: "dev-token-bw1"
+      DATABASE_URI: *db-uri-1
+      BUNKERWEB_INSTANCES: "bw1"
+      MULTISITE: "yes"
+      SERVER_NAME: "app.bw1.test"
+      # Service protégé minimal. La syntaxe <serveur>_<RÉGLAGE> est confirmée
+      # dans la section all-in-one de la doc ; REVERSE_PROXY_URL "/" dans
+      # l'exemple de la page API. Le certificat par défaut (auto-signé) est
+      # attendu pour la sonde TLS : NON CONFIRMÉ.
+      app.bw1.test_USE_REVERSE_PROXY: "yes"
+      app.bw1.test_REVERSE_PROXY_URL: "/"
+      app.bw1.test_REVERSE_PROXY_HOST: "http://bw1-app:80"
+    volumes: [bw1-storage:/data]
+    restart: "unless-stopped"
+    networks: [bw1-universe, bw1-db]
+
+  bw1-api:
+    image: bunkerity/bunkerweb-api:1.6.17
+    depends_on: [bw1-db]
+    ports:
+      - "127.0.0.1:8081:8888"       # API (8888 interne selon la doc)
+    environment:
+      # NON CONFIRMÉ : IP source vue via le port publié (passerelle du bridge,
+      # normalement dans le sous-réseau ci-dessous).
+      API_WHITELIST_IPS: "127.0.0.0/8 10.20.31.0/24"
+      API_TOKEN: "dev-token-bw1"
+      DATABASE_URI: *db-uri-1
+      API_USERNAME: "admin"
+      API_PASSWORD: "Dev-Only-Passw0rd!"
+      # Alternative lecture seule (doc) : monter un fichier JSON via `volumes`
+      # (./bw-acl-bootstrap.json:/var/lib/bunkerweb/api_acl_bootstrap.json:ro)
+      # et décommenter la ligne suivante.
+      # API_ACL_BOOTSTRAP_FILE: "/var/lib/bunkerweb/api_acl_bootstrap.json"
+      # Contenu : {"users":{"reader":{"admin":false,"password_hash":"<bcrypt>",
+      #   "permissions":{"instances":{"*":{"instances_read":true}},
+      #   "services":{"*":{"service_read":true}},"bans":{"*":{"ban_read":true}}}}}}
+      # (compléter avec job_read / plugin_read ; schéma exact NON CONFIRMÉ.)
+    restart: "unless-stopped"
+    networks: [bw1-universe, bw1-db]
+
+  bw1-db:
+    <<: *mariadb
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_DATABASE: "db"
+      MYSQL_USER: "bunkerweb"
+      MYSQL_PASSWORD: "changeme"
+    volumes: [bw1-data:/var/lib/mysql]
+    networks: [bw1-db]
+
+  bw1-app:   # upstream trivial (image générique, hors doc BunkerWeb)
+    image: nginx:alpine
+    networks: [bw1-services]
+
+  # ---------------------------------------------------------------- pile bw2
+  bw2:
+    image: bunkerity/bunkerweb:1.6.17
+    ports:
+      - "127.0.0.1:9443:8443/tcp"
+    environment:
+      API_WHITELIST_IP: "127.0.0.0/8 10.20.32.0/24"
+      API_TOKEN: "dev-token-bw2"
+    restart: "unless-stopped"
+    networks: [bw2-universe, bw2-services]
+
+  bw2-scheduler:
+    image: bunkerity/bunkerweb-scheduler:1.6.17
+    depends_on: [bw2, bw2-db]
+    environment:
+      API_WHITELIST_IP: "127.0.0.0/8 10.20.32.0/24"
+      API_TOKEN: "dev-token-bw2"
+      DATABASE_URI: *db-uri-2
+      BUNKERWEB_INSTANCES: "bw2"
+      MULTISITE: "yes"
+      SERVER_NAME: "app.bw2.test"
+      app.bw2.test_USE_REVERSE_PROXY: "yes"
+      app.bw2.test_REVERSE_PROXY_URL: "/"
+      app.bw2.test_REVERSE_PROXY_HOST: "http://bw2-app:80"
+    volumes: [bw2-storage:/data]
+    restart: "unless-stopped"
+    networks: [bw2-universe, bw2-db]
+
+  bw2-api:
+    image: bunkerity/bunkerweb-api:1.6.17
+    depends_on: [bw2-db]
+    ports:
+      - "127.0.0.1:8082:8888"
+    environment:
+      API_WHITELIST_IPS: "127.0.0.0/8 10.20.32.0/24"
+      API_TOKEN: "dev-token-bw2"
+      DATABASE_URI: *db-uri-2
+      API_USERNAME: "admin"
+      API_PASSWORD: "Dev-Only-Passw0rd!"
+    restart: "unless-stopped"
+    networks: [bw2-universe, bw2-db]
+
+  bw2-db:
+    <<: *mariadb
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_DATABASE: "db"
+      MYSQL_USER: "bunkerweb"
+      MYSQL_PASSWORD: "changeme"
+    volumes: [bw2-data:/var/lib/mysql]
+    networks: [bw2-db]
+
+  bw2-app:
+    image: nginx:alpine
+    networks: [bw2-services]
+
+volumes:
+  bw1-data:
+  bw1-storage:
+  bw2-data:
+  bw2-storage:
+
+networks:
+  bw1-universe:
+    ipam:
+      config: [{subnet: 10.20.31.0/24}]
+  bw1-services:
+  bw1-db:
+  bw2-universe:
+    ipam:
+      config: [{subnet: 10.20.32.0/24}]
+  bw2-services:
+  bw2-db:
