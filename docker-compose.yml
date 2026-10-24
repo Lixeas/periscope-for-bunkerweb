@@ -9,7 +9,7 @@ services:
       - periscope-data:/data
     # Port published on the PERISCOPE_BIND address (127.0.0.1 by default = local access only).
     # For a reverse proxy (BunkerWeb) to reach it, whether on the same machine or on another
-    # server, put this machine's PRIVATE IP in PERISCOPE_BIND (see README) and
+    # server, put this machine's PRIVATE IP in PERISCOPE_BIND (see docs/deploy-behind-proxy.md) and
     # allow only the proxy IP in the firewall. Never publish on a public interface.
     ports:
       - "${PERISCOPE_BIND:-127.0.0.1}:${PERISCOPE_PORT:-8000}:8000"
