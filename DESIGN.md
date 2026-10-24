@@ -143,7 +143,7 @@ The system avoids the look of generated dashboards: floating rounded cards, pill
 Forest and moss: neutrals tinted toward green, one green-teal accent, and four status hues. Hue means state; teal means "act here" or "you are here". There is no decorative colour.
 
 ### Primary
-- **Teal** (#136f5c light / #45c9a2 dark; ink on it #ffffff / #04201a): current menu icon, the brand ring, links, the primary button fill, field focus border, the 2px focus outline (2px offset), selection tint. It is not a status colour (the OK fill is a different, greyer green) and stays rare, a few small marks per screen.
+- **Teal** (#136f5c light / #45c9a2 dark; ink on it #ffffff / #04201a): current menu icon, the lens of the brand mark, links, the primary button fill, field focus border, the 2px focus outline (2px offset), selection tint. It is not a status colour (the OK fill is a different, greyer green) and stays rare, a few small marks per screen.
 
 ### Secondary (status)
 Status has two layers. **Fills** are defined once in `:root` and are identical in both themes; they colour chips, alert chips, badges, the problem-row bar and the figure top bar. **Text colours** vary slightly per theme and are used for plain text (figure number, mode tags, notes, outline buttons, worker washes).
@@ -212,12 +212,22 @@ One authored moment: an instance row whose state changed on a live refresh fades
 
 ## Shapes
 
-Square-leaning. Containers, fields and buttons use 3-4px corners; status chips, alert chips and tags use 3px; there are no pills. Status is a solid muted fill, a drawn glyph (circle-check ok, triangle warn, octagon crit, dashed circle off) and a word. Icons are drawn on a 20px grid with a 1.6 stroke, round caps and joins, in one family. The brand mark is a small drawn periscope, in teal.
+Square-leaning. Containers, fields and buttons use 3-4px corners; status chips, alert chips and tags use 3px; there are no pills. Status is a solid muted fill, a drawn glyph (circle-check ok, triangle warn, octagon crit, dashed circle off) and a word. Icons are drawn on a 20px grid with a 1.6 stroke, round caps and joins, in one family. The brand mark is the one solid shape: see Brand mark below.
+
+## Brand mark
+
+A periscope rising from a blockhouse: the tube and its head draw a **P**, the 45° cut at the top left is the mirror, the counter of the P is the lens and its teal pupil sits off-centre, looking right (towards the wordmark, out of the bunker). Below, a sloped concrete slab with a dark embrasure sits on a horizon line; the 2-unit gap between tube and slab is the hatch the periscope comes through. The name is the BunkerWeb nod: from inside the bunker, you watch without being exposed, and you only watch (read-only).
+
+- **Construction:** solid shapes on a 48 grid (stem 6 wide, head 18 high with a 9 radius bowl, counter radius 4, pupil radius 1.9 offset 1.2 right; slab 35 to 42, embrasure 12 x 2, horizon 2 thick, full width). No strokes, so it holds at 16px.
+- **Colour:** body in ink (`--text`), pupil in teal (`--accent`); this pupil is the one teal mark of the brand. One-colour version: everything in one ink. The favicon is the dark version on a Forest Ground tile (7/32 corners).
+- **Wordmark:** `periscope` in lowercase Office Code Pro 500, tracking -0.02em (the system speaking); "for BunkerWeb" below in Switzer 500, muted, in the full lockup. The bowl of the mono `p` echoes the mark.
+- **Files:** `docs/brand/` (mark light, dark and mono, lockups, social card; text outlined, no font needed), `web/static/favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`. In pages, the `brand_mark()` macro inlines the mark so it follows the theme.
+- **Don't** redraw it with strokes, put the pupil in another colour or centre it, add a gradient or a shadow, or pair it with Bunkerity's logo or colours.
 
 ## Components
 
 ### Index (menu)
-White rail with the periscope mark and the word Periscope on top, one drawn icon per page, and Instances (admin only) below a hairline. The current page is bold ink on a raised tint with a 1px ring and a teal icon. Items are 2.75rem tall. The foot holds only the language dropdown; account, sign out, users, audit and theme are not in the rail.
+White rail with the brand mark (2rem) and the `periscope` wordmark (mono 500, 1.125rem) on top, one drawn icon per page, and Instances (admin only) below a hairline. The current page is bold ink on a raised tint with a 1px ring and a teal icon. Items are 2.75rem tall. The foot holds only the language dropdown; account, sign out, users, audit and theme are not in the rail.
 
 ### Language dropdown
 A native `details` in the rail foot (top right on signed-out pages) that opens upward with a pop-in. The button and each option show an inline SVG flag and the language name: English with the United Kingdom flag, Français with the France flag. The current option is bold with a 2px accent bar on its left. Closes on outside click and Escape.
@@ -271,4 +281,4 @@ One bordered white container with 4px corners, a raised-tint header row of muted
 - **Don't** use an eyebrow, a decorative icon outside the page icons and the brand mark, or a tinted instance row. The 3px inset bar on problem rows and the top bar on the first figure are the only edge marks.
 - **Don't** copy HyperOtter's palette or mascot; only its sans-plus-mono logic is shared.
 
-Not canonized (defects the build carries, not rules): no separate display face yet (titles, figures and names all use the mono); the ledger header is hidden from assistive technology, the row numbers carry their own visually hidden labels instead; the periscope mark is a first drawing and can be refined.
+Not canonized (defects the build carries, not rules): no separate display face yet (titles, figures and names all use the mono); the ledger header is hidden from assistive technology, the row numbers carry their own visually hidden labels instead.

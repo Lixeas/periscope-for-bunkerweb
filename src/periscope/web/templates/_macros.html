@@ -1,7 +1,6 @@
 {#- Drawn icons, one stroke weight. 20px grid, stroke follows currentColor. -#}
 {% macro ico(name) -%}
 {%- set paths = {
-  'periscope': '<path d="M6 17V7a3 3 0 0 1 3-3h7"/><path d="M16 2v4"/><path d="M3 17h7"/><circle cx="6" cy="12" r="1.2"/>',
   'home': '<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="11" y="3" width="6" height="6" rx="1"/><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/>',
   'services': '<path d="M10 3 3 6.5 10 10l7-3.5L10 3Z"/><path d="m3 10 7 3.5 7-3.5"/><path d="m3 13.5 7 3.5 7-3.5"/>',
   'bans': '<circle cx="10" cy="10" r="7"/><path d="m5 5 10 10"/>',
@@ -19,6 +18,12 @@
   'off': '<circle cx="10" cy="10" r="7" stroke-dasharray="2.4 2.4"/>'
 } -%}
 <svg class="ico" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">{{ paths[name] | safe }}</svg>
+{%- endmacro %}
+
+{#- Brand mark: a periscope whose head draws a P, its lens (teal) looking right, rising from a
+    blockhouse on the horizon. Solid shapes on a 48 grid; source files in docs/brand/. -#}
+{% macro brand_mark() -%}
+<svg class="brand-mark" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M12 33V10l6-6h10a9 9 0 0 1 0 18H18v11zM29 9a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/><circle class="brand-lens" cx="30.2" cy="13" r="1.9"/><path fill-rule="evenodd" d="M9 35h30l4 7H5zM18 37.5h12v2H18zM1 42h46v2H1z"/></svg>
 {%- endmacro %}
 
 {#- Status chip: shape + word + colour, never colour alone. level: ok | warn | crit | off -#}

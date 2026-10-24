@@ -36,7 +36,7 @@ Name: "Periscope for BunkerWeb", short name "Periscope". Independent identity, d
 
 ## Evidence on Hand
 
-No logo or brand assets exist. The project has not yet been validated against real BunkerWeb instances; the UI must not imply production data that does not exist. No testimonials, customers or benchmarks exist; do not fabricate any.
+The logo (periscope mark and `periscope` wordmark) lives in `docs/brand/`; see DESIGN.md, Brand mark. The project has not yet been validated against real BunkerWeb instances; the UI must not imply production data that does not exist. No testimonials, customers or benchmarks exist; do not fabricate any.
 
 ## Product Principles
 
