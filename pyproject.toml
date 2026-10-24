@@ -34,7 +34,7 @@ periscope = "periscope.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-periscope = ["migrations/*.mako", "web/templates/*.html", "web/static/*"]
+periscope = ["migrations/*.mako", "web/templates/*.html", "web/static/*", "web/static/fonts/*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
