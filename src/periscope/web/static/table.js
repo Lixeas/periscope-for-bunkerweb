@@ -1,12 +1,19 @@
-document.addEventListener("DOMContentLoaded", () => {
+function initTables() {
   document.querySelectorAll("table[data-table]").forEach((table) => {
     const body = table.tBodies[0];
     const headers = table.querySelectorAll("th[data-sort]");
     headers.forEach((th) => {
-      th.setAttribute("tabindex", "0");
-      const sort = () => {
+      // the header label becomes a real button: Enter and Space work, and screen readers announce it
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "sort";
+      while (th.firstChild) btn.appendChild(th.firstChild);
+      th.appendChild(btn);
+      th.setAttribute("aria-sort", "none");
+      th.removeAttribute("tabindex");
+      btn.addEventListener("click", () => {
         const dir = th.dataset.dir === "asc" ? "desc" : "asc";
-        headers.forEach((o) => { delete o.dataset.dir; o.removeAttribute("aria-sort"); });
+        headers.forEach((o) => { delete o.dataset.dir; o.setAttribute("aria-sort", "none"); });
         th.dataset.dir = dir;
         th.setAttribute("aria-sort", dir === "asc" ? "ascending" : "descending");
         const val = (tr) => { const c = tr.cells[th.cellIndex]; return c.dataset.v ?? c.textContent.trim(); };
@@ -15,9 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const cmp = !isNaN(nx) && !isNaN(ny) ? nx - ny : x.localeCompare(y, document.documentElement.lang || undefined);
           return dir === "asc" ? cmp : -cmp;
         }).forEach((r) => body.appendChild(r));
-      };
-      th.addEventListener("click", sort);
-      th.addEventListener("keydown", (e) => { if (e.key === "Enter") sort(); });
+      });
     });
   });
 
@@ -28,4 +33,6 @@ document.addEventListener("DOMContentLoaded", () => {
       [...table.tBodies[0].rows].forEach((tr) => { tr.hidden = !tr.textContent.toLowerCase().includes(q); });
     });
   });
-});
+}
+window.initTables = initTables;
+document.addEventListener("DOMContentLoaded", initTables);

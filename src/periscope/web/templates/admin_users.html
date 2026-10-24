@@ -6,13 +6,13 @@
 {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 
 <div class="table-responsive mb-5">
-<table class="table align-middle">
+<table class="table table-stack align-middle">
   <thead><tr><th>{{ _("User") }}</th><th>{{ _("Role") }}</th><th>2FA</th><th>{{ _("Actions") }}</th></tr></thead>
   <tbody>
   {% for u in users %}
   <tr>
-    <td>{{ u.username }}{% if u.id == user.id %} <span class="badge text-bg-secondary">{{ _("you") }}</span>{% endif %}</td>
-    <td>
+    <td data-label="{{ _('User') }}">{{ u.username }}{% if u.id == user.id %} <span class="badge text-bg-secondary">{{ _("you") }}</span>{% endif %}</td>
+    <td data-label="{{ _('Role') }}">
       <form method="post" action="/admin/users/{{ u.id }}/role" class="d-flex gap-2 m-0">
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <label class="visually-hidden" for="role-{{ u.id }}">{{ _("Role of {name}", name=u.username) }}</label>
@@ -20,10 +20,10 @@
           <option value="reader" {% if u.role == 'reader' %}selected{% endif %}>{{ _("reader") }}</option>
           <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>admin</option>
         </select>
-        <button class="btn btn-sm btn-outline-secondary">OK</button>
+        <button class="btn btn-sm btn-outline-secondary">{{ _("Save") }}</button>
       </form>
     </td>
-    <td>{% if u.totp_confirmed or u.credentials %}<span class="badge text-bg-success">{{ _("active") }}</span>{% else %}<span class="badge text-bg-warning">{{ _("to enroll") }}</span>{% endif %}</td>
+    <td data-label="2FA">{% if u.totp_confirmed or u.credentials %}<span class="badge text-bg-success">{{ _("active") }}</span>{% else %}<span class="badge text-bg-warning">{{ _("to enroll") }}</span>{% endif %}</td>
     <td>
       {% if u.id != user.id %}
       <div class="d-flex flex-wrap gap-2">
@@ -34,8 +34,8 @@
           <label class="visually-hidden" for="pw-{{ u.id }}">{{ _("New password for {name}", name=u.username) }}</label>
           <input class="form-control form-control-sm" id="pw-{{ u.id }}" name="password" type="password" autocomplete="new-password" placeholder="{{ _('New password') }}" minlength="{{ MIN_PASSWORD }}" required>
           <button class="btn btn-sm btn-outline-secondary">{{ _("Reset") }}</button></form>
-        <form method="post" action="/admin/users/{{ u.id }}/delete" class="m-0">
-          <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-sm btn-outline-danger">{{ _("Delete") }}</button></form>
+        <form method="post" action="/admin/users/{{ u.id }}/delete" class="m-0" data-confirm="{{ _('Delete user {name}?', name=u.username) }}">
+          <input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn btn-sm btn-outline-danger" aria-label="{{ _('Delete {name}', name=u.username) }}">{{ _("Delete") }}</button></form>
       </div>
       {% endif %}
     </td>

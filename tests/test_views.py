@@ -64,7 +64,7 @@ def test_jobs_page_has_matrix_and_job(client):
 
 def test_certificates_page_status_labels(client):
     r = client.get("/certificates")
-    assert "Critical" in r.text and "None" in r.text and "Valid" in r.text and "Let's Encrypt" in r.text
+    assert "Critical" in r.text and "None" in r.text and "Valid" in r.text and "Let&#39;s Encrypt" in r.text  # issuer shown once (HTML-escaped)
 
 
 def test_bans_jobs_plugins_render_with_hostile_snapshot_values(client):

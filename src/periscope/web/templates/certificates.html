@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 {% from "_macros.html" import cert_badge with context %}
 {% block title %}{{ _("Certificates") }}{% endblock %}
-{% block head %}<meta http-equiv="refresh" content="60">{% endblock %}
+{% block head %}<meta name="autoreload" content="30">{% endblock %}
 {% block content %}
 <h1 class="h4 mb-3">{{ _("Certificates") }}</h1>
 <div class="mb-2"><input class="form-control" type="search" placeholder="{{ _('Search…') }}" aria-label="{{ _('Search') }}" data-filter-for="t-certs"></div>
 <div class="table-responsive">
-<table class="table align-middle" id="t-certs" data-table>
+<table class="table table-stack align-middle" id="t-certs" data-table>
   <thead><tr><th data-sort>{{ _("Domain") }}</th><th data-sort>{{ _("Instance") }}</th><th data-sort>{{ _("Status") }}</th><th data-sort>{{ _("Issuer") }}</th><th data-sort>{{ _("Expiration") }}</th><th data-sort>{{ _("Days left") }}</th></tr></thead>
   <tbody>
   {% for r in rows %}
   <tr>
-    <td>{{ r.domain }}</td>
-    <td>{{ r.instance }}</td>
-    <td>{{ cert_badge(r.status) }}{% if r.error and not r.present %}<div class="small text-secondary">{{ r.error }}</div>{% endif %}</td>
-    <td>{% if r.present %}{{ r.issuer or '—' }}{% if r.letsencrypt %} <span class="badge text-bg-info">Let's Encrypt</span>{% endif %}{% else %}—{% endif %}</td>
-    <td>{{ r.not_after | dt }}</td>
-    <td data-v="{{ r.days if r.days is not none else '' }}">{{ r.days if r.days is not none else '—' }}</td>
+    <td data-label="{{ _('Domain') }}">{{ r.domain }}</td>
+    <td data-label="{{ _('Instance') }}">{{ r.instance }}</td>
+    <td data-label="{{ _('Status') }}">{{ cert_badge(r.status) }}{% if r.error and not r.present %}<div class="small text-secondary">{{ r.error }}</div>{% endif %}</td>
+    <td data-label="{{ _('Issuer') }}">{% if r.present %}{{ r.issuer or '—' }}{% else %}—{% endif %}</td>
+    <td data-label="{{ _('Expiration') }}">{{ r.not_after | dt }}</td>
+    <td data-label="{{ _('Days left') }}" data-v="{{ r.days if r.days is not none else '' }}">{{ r.days if r.days is not none else '—' }}</td>
   </tr>
   {% else %}<tr><td colspan="6" class="text-secondary">{{ _("No certificate probed yet.") }}</td></tr>
   {% endfor %}
