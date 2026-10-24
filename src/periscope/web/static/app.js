@@ -57,7 +57,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // dropdowns (<details data-pop>) close on an outside click or Escape
   const pops = document.querySelectorAll("details[data-pop]");
   document.addEventListener("click", (e) => pops.forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") pops.forEach((d) => { d.open = false; }); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    pops.forEach((d) => {
+      if (d.open) { d.open = false; if (d.contains(document.activeElement)) d.querySelector("summary").focus(); }
+    });
+  });
   // destructive forms ask first (a native dialog: no inline JS needed under the CSP)
   document.querySelectorAll("form[data-confirm]").forEach((f) => {
     f.addEventListener("submit", (e) => {
