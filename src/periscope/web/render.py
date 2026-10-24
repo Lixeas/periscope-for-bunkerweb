@@ -106,6 +106,9 @@ templates.env.filters["ago"] = _bind(_ago)
 templates.env.filters["stored"] = _stored
 templates.env.globals["_"] = _gettext
 templates.env.globals["MIN_PASSWORD"] = MIN_LENGTH
+_STATIC = Path(__file__).parent / "static"
+# cache-busting suffix for app.css / app.js: changes whenever either file does
+templates.env.globals["ASSET_V"] = int(max((_STATIC / n).stat().st_mtime for n in ("app.css", "app.js")))
 templates.env.globals["LANGUAGES"] = (("en", "English"), ("fr", "Français"))
 
 

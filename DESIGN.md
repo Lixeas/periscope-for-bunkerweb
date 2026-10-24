@@ -113,12 +113,12 @@ components:
     backgroundColor: "{colors.teal-bright}"
     textColor: "{colors.teal-bright-ink}"
     rounded: "{rounded.field}"
-    height: "2.5rem"
+    height: "2.75rem"
   input:
     backgroundColor: "{colors.forest-surface}"
     textColor: "{colors.mist}"
     rounded: "{rounded.field}"
-    height: "2.5rem"
+    height: "2.75rem"
 ---
 
 # Design System: Periscope
@@ -226,7 +226,7 @@ A native `details` in the rail foot (top right on signed-out pages) that opens u
 Top bar, top right. A `role="switch"` button with a 3.5rem pill track (the one pill in the system, because it is a switch), a sun and a moon fixed and centred on the two knob positions, and an accent knob that slides 28px. Only the knob moves; the active icon takes the accent ink.
 
 ### Avatar menu
-To the right of the theme switch: a 2.5rem circle with the user's initial on an accent fill. It opens a dropdown with the account name (link to /account) and Sign out below it. A soft 3px accent ring shows on hover and while open. Closes on outside click and Escape.
+To the right of the theme switch: a 2.75rem circle with the user's initial on an accent fill. It opens a dropdown with the account name (link to /account) and Sign out below it. A soft 3px accent ring shows on hover and while open. Closes on outside click and Escape.
 
 ### Account tabs
 My account, Users and Audit (the last two admin only) are shared by /account, /admin/users and /admin/audit. They are plain links, not JS tabs, on a 1px seam with a 2px accent underline on the current one; they wrap onto a second line rather than scroll.
@@ -250,7 +250,7 @@ A `details` element. The summary is a grid row: state chip, name (mono, 1rem) wi
 Two columns: facts as a seam-separated list (services and certificates; version, latency and last collection only on narrow screens) and the workers as ruled lines: state chip, name, host:port and type, last seen. A down or failover worker takes a 6% wash of its state colour.
 
 ### Buttons and fields
-Primary is a teal fill (dark teal ink on dark, white on light), 2.5rem tall, 3px radius, weight 500. Outline variants use the seam border and the raised tint on hover; danger and warning outlines use their state colour and sit at least 1.25rem from a neighbour. Fields are surface-filled with a 1px seam and a teal border plus a 2px soft ring on focus.
+Primary is a teal fill (dark teal ink on dark, white on light), 2.75rem tall, 3px radius, weight 500. Outline variants use the seam border and the raised tint on hover; danger and warning outlines use their state colour and sit at least 1.25rem from a neighbour. Fields are surface-filled with a 1px seam and a teal border plus a 2px soft ring on focus.
 
 ### Tables
 One bordered white container with 4px corners, a raised-tint header row of muted 600 sentence-case labels with a drawn sort glyph in a real button, row seams, and a hover tint.
@@ -262,7 +262,7 @@ One bordered white container with 4px corners, a raised-tint header row of muted
 - **Do** carry state with a glyph, a word and a solid status fill, and nothing else.
 - **Do** keep teal for action, place and the brand mark only: links, the primary button, the current page icon, focus.
 - **Do** use mono only for data (names, figures, hosts, versions, times) and Switzer for everything the reader reads.
-- **Do** keep a 2.75rem minimum height on menu items, tabs and the language dropdown (2.5rem on other controls) and a visible 2px focus outline with 2px offset.
+- **Do** keep a 2.75rem minimum height on menu items, tabs and the language dropdown and a visible 2px focus outline with 2px offset.
 - **Do** keep destructive actions at least 1.25rem from any neighbouring control and behind a confirmation.
 
 ### Don't:

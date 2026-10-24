@@ -93,7 +93,7 @@
 {#- Language dropdown: native <details>, no script needed to open it. The buttons keep the POST /lang contract. -#}
 {% macro lang_menu(where) -%}
 <details class="pop pop-{{ where }}" data-pop>
-  <summary class="pop-btn" aria-label="{{ _('Language') }}">{{ flag(lang) }}<span>{% for code, label in LANGUAGES %}{% if code == lang %}{{ label }}{% endif %}{% endfor %}</span>{{ ico('chevron') }}</summary>
+  <summary class="pop-btn" aria-label="{{ _('Language') }}, {% for code, label in LANGUAGES %}{% if code == lang %}{{ label }}{% endif %}{% endfor %}">{{ flag(lang) }}<span>{% for code, label in LANGUAGES %}{% if code == lang %}{{ label }}{% endif %}{% endfor %}</span>{{ ico('chevron') }}</summary>
   <form method="post" action="/lang" class="pop-panel" role="group" aria-label="{{ _('Language') }}">
     <input type="hidden" name="csrf" value="{{ login_csrf or csrf }}">
     <input type="hidden" name="next" value="{{ next_url }}">

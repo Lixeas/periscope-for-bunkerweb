@@ -575,9 +575,9 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Teal fill, 2.5rem tall, 3px radius, weight 500. Dark ink text on dark theme, white on light.",
+      "description": "Teal fill, 2.75rem tall, 3px radius, weight 500. Dark ink text on dark theme, white on light.",
       "html": "<button class=\"ds-btn\">Save</button>",
-      "css": ".ds-btn { min-height: 2.5rem; padding: .375rem .9rem; border: 1px solid #136f5c; border-radius: 3px; background: #136f5c; color: #ffffff; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; font-weight: 500; cursor: pointer; } .ds-btn:hover { background: color-mix(in srgb, #136f5c 88%, white); } .ds-btn:focus-visible { outline: 2px solid #136f5c; outline-offset: 2px; }"
+      "css": ".ds-btn { min-height: 2.75rem; padding: .375rem .9rem; border: 1px solid #136f5c; border-radius: 3px; background: #136f5c; color: #ffffff; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; font-weight: 500; cursor: pointer; } .ds-btn:hover { background: color-mix(in srgb, #136f5c 88%, white); } .ds-btn:focus-visible { outline: 2px solid #136f5c; outline-offset: 2px; }"
     },
     {
       "name": "Text Field",
@@ -585,7 +585,7 @@
       "refersTo": "input",
       "description": "Surface-filled field with 1px seam border and 3px radius; teal border and 2px soft ring on focus.",
       "html": "<input class=\"ds-input\" placeholder=\"Search\">",
-      "css": ".ds-input { min-height: 2.5rem; padding: .375rem .75rem; background: #ffffff; color: #17251f; border: 1px solid #d5e0db; border-radius: 3px; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; } .ds-input::placeholder { color: #4b5d55; opacity: .8; } .ds-input:focus { outline: none; border-color: #136f5c; box-shadow: 0 0 0 2px color-mix(in srgb, #136f5c 28%, transparent); }"
+      "css": ".ds-input { min-height: 2.75rem; padding: .375rem .75rem; background: #ffffff; color: #17251f; border: 1px solid #d5e0db; border-radius: 3px; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; } .ds-input::placeholder { color: #4b5d55; opacity: .8; } .ds-input:focus { outline: none; border-color: #136f5c; box-shadow: 0 0 0 2px color-mix(in srgb, #136f5c 28%, transparent); }"
     }
   ],
   "narrative": {
@@ -635,7 +635,7 @@
       "Do carry state with a glyph, a word and a solid status fill, and nothing else.",
       "Do keep teal for action, place and the brand mark only: links, the primary button, the current page icon, focus.",
       "Do use mono only for data (names, figures, hosts, versions, times) and Switzer for everything the reader reads.",
-      "Do keep a 2.75rem minimum height on menu items, tabs and the language dropdown (2.5rem on other controls) and a visible 2px focus outline with 2px offset.",
+      "Do keep a 2.75rem minimum height on menu items, tabs and the language dropdown and a visible 2px focus outline with 2px offset.",
       "Do keep destructive actions at least 1.25rem from any neighbouring control and behind a confirmation."
     ],
     "donts": [
