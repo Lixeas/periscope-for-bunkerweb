@@ -176,7 +176,6 @@ CATALOG: dict[str, str] = {
         "Ou utilisez une passkey (empreinte, clé de sécurité…) comme premier facteur ; "
         "elle ne fonctionne que sur le domaine du site.",
     "Origin rejected": "Origine refusée",
-    "Overview": "Vue d'ensemble",
     "Passkey added": "Passkey ajoutée",
     "Passkey deleted": "Passkey supprimée",
     "Passkey deleted.": "Passkey supprimée.",
@@ -346,4 +345,15 @@ CATALOG: dict[str, str] = {
     "Failover": "Failover",
     "worker": "worker",
     "scheduler": "scheduler",
+    "Clear": "Effacer",
+    "Differences only": "Différences seulement",
+    "{count} not on every instance": "{count} absent(s) d'une instance",
+    "All clear": "Tout va bien",
+    "block": "blocage",
+    "detect": "détection",
+    "TOTP:": "TOTP :",
+    "Updated just now": "Actualisé à l'instant",
+    "Updated {n} s ago": "Actualisé il y a {n} s",
+    "Updated {n} min ago": "Actualisé il y a {n} min",
+    "Needs check: the instance answers but has open alerts. Stale: the last successful collection is older than expected. Certificates turn orange under 21 days and red under 7.": "À vérifier : l'instance répond mais a des alertes ouvertes. Périmées : la dernière collecte réussie est plus ancienne que prévu. Les certificats passent à l'orange sous 21 jours et au rouge sous 7.",
 }

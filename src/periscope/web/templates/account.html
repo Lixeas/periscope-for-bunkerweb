@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% from "_macros.html" import account_tabs with context %}
+{% from "_macros.html" import account_tabs, chip with context %}
 {% block title %}{{ _("My account") }}{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">{{ _("My account") }}</h1>
+<h1 class="page-title">{{ _("My account") }}</h1>
 {{ account_tabs('account') }}
 {% if msg %}<div class="alert alert-info" role="status">{{ msg }}</div>{% endif %}
 
 <section class="mb-5">
-  <h2 class="h5">{{ _("Second factor") }}</h2>
-  <p>TOTP : {% if user.totp_confirmed %}<span class="badge text-bg-success">{{ _("active") }}</span>{% else %}<span class="badge text-bg-secondary">{{ _("inactive") }}</span>{% endif %}
+  <h2 class="section-title">{{ _("Second factor") }}</h2>
+  <p>{{ _("TOTP:") }} {% if user.totp_confirmed %}{{ chip('ok', _("active")) }}{% else %}{{ chip('off', _("inactive")) }}{% endif %}
      · {{ _("Backup codes remaining:") }} <strong>{{ backup_left }}</strong></p>
 
   <h3 class="h6 mt-4">Passkeys</h3>
@@ -37,7 +37,7 @@
 </section>
 
 <section class="mb-5">
-  <h2 class="h5">{{ _("Regenerate backup codes") }}</h2>
+  <h2 class="section-title">{{ _("Regenerate backup codes") }}</h2>
   <form method="post" action="/account/backup-codes" class="row g-2 align-items-end">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="col-md-5"><label class="form-label" for="bc-pw">{{ _("Password") }}</label>
@@ -48,7 +48,7 @@
 
 {% if user.totp_confirmed and user.credentials %}
 <section class="mb-5">
-  <h2 class="h5">{{ _("Disable TOTP") }}</h2>
+  <h2 class="section-title">{{ _("Disable TOTP") }}</h2>
   <form method="post" action="/account/totp/remove" class="row g-2 align-items-end">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="col-md-5"><label class="form-label" for="rt-pw">{{ _("Password") }}</label>
@@ -59,7 +59,7 @@
 {% endif %}
 
 <section class="mb-5">
-  <h2 class="h5">{{ _("Change password") }}</h2>
+  <h2 class="section-title">{{ _("Change password") }}</h2>
   <form method="post" action="/account/password" class="col-md-5">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <div class="mb-3"><label class="form-label" for="cur">{{ _("Current password") }}</label>
@@ -73,7 +73,7 @@
 </section>
 
 <section class="mb-5">
-  <h2 class="h5">{{ _("Language") }}</h2>
+  <h2 class="section-title">{{ _("Language") }}</h2>
   <form method="post" action="/lang" class="row g-2 align-items-end">
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <input type="hidden" name="next" value="/account?m=lang_saved">

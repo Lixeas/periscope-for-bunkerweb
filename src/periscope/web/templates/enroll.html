@@ -2,7 +2,7 @@
 {% block title %}{{ _("Enable the second factor") }}{% endblock %}
 {% block content %}
 <div class="row justify-content-center mt-5"><div class="col-md-8 col-lg-5">
-  <h1 class="h4 mb-3">{{ _("Enable two-factor authentication") }}</h1>
+  <h1 class="page-title">{{ _("Enable two-factor authentication") }}</h1>
   <p>{{ _("A second factor is mandatory. Scan this QR code with a TOTP app (FreeOTP, Aegis, Google Authenticator…), then enter the code displayed.") }}</p>
   {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
   <img src="{{ qr }}" alt="{{ _('TOTP QR code') }}" width="200" height="200" class="mb-2">

@@ -41,8 +41,8 @@
 {%- endmacro %}
 
 {% macro mode_badge(mode) -%}
-{%- if mode == 'block' -%}<span class="tag tag-block">block</span>
-{%- elif mode == 'detect' -%}<span class="tag tag-detect">detect</span>
+{%- if mode == 'block' -%}<span class="tag tag-block">{{ _("block") }}</span>
+{%- elif mode == 'detect' -%}<span class="tag tag-detect">{{ _("detect") }}</span>
 {%- else -%}<span class="tag">{{ _("unknown") }}</span>{%- endif -%}
 {%- endmacro %}
 

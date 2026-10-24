@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import account_tabs with context %}
+{% from "_macros.html" import account_tabs, chip with context %}
 {% block title %}{{ _("Users") }}{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">{{ _("Users") }}</h1>
+<h1 class="page-title">{{ _("Users") }}</h1>
 {{ account_tabs('users') }}
 {% if msg %}<div class="alert alert-info" role="status">{{ msg }}</div>{% endif %}
 {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
@@ -13,7 +13,7 @@
   <tbody>
   {% for u in users %}
   <tr>
-    <td data-label="{{ _('User') }}">{{ u.username }}{% if u.id == user.id %} <span class="badge text-bg-secondary">{{ _("you") }}</span>{% endif %}</td>
+    <td data-label="{{ _('User') }}">{{ u.username }}{% if u.id == user.id %} <span class="tag">{{ _("you") }}</span>{% endif %}</td>
     <td data-label="{{ _('Role') }}">
       <form method="post" action="/admin/users/{{ u.id }}/role" class="d-flex gap-2 m-0">
         <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -25,7 +25,7 @@
         <button class="btn btn-sm btn-outline-secondary">{{ _("Save") }}</button>
       </form>
     </td>
-    <td data-label="2FA">{% if u.totp_confirmed or u.credentials %}<span class="badge text-bg-success">{{ _("active") }}</span>{% else %}<span class="badge text-bg-warning">{{ _("to enroll") }}</span>{% endif %}</td>
+    <td data-label="2FA">{% if u.totp_confirmed or u.credentials %}{{ chip('ok', _("active")) }}{% else %}{{ chip('warn', _("to enroll")) }}{% endif %}</td>
     <td>
       {% if u.id != user.id %}
       <div class="d-flex flex-wrap gap-2">
@@ -47,7 +47,7 @@
 </table>
 </div>
 
-<h2 class="h5">{{ _("Create a user") }}</h2>
+<h2 class="section-title">{{ _("Create a user") }}</h2>
 <form method="post" action="/admin/users" class="col-lg-5">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="mb-3"><label class="form-label" for="username">{{ _("Username") }}</label>

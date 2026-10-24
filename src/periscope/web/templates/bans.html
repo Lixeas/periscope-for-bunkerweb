@@ -3,11 +3,11 @@
 {% block title %}{{ _("Bans") }}{% endblock %}
 {% block head %}<meta name="autoreload" content="30">{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">{{ _("Active bans") }}</h1>
+<h1 class="page-title">{{ _("Active bans") }}</h1>
 <form method="get" class="row g-2 mb-3">
   <div class="col-auto"><label class="visually-hidden" for="q">IP</label>
     <input class="form-control" id="q" name="q" value="{{ q }}" placeholder="{{ _('Search an IP') }}"></div>
-  <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Search") }}</button></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Search") }}</button>{% if q %} <a class="btn btn-link" href="/bans">{{ _("Clear") }}</a>{% endif %}</div>
 </form>
 <div class="table-responsive">
 <table class="table table-stack align-middle" id="t-bans" data-table>
@@ -17,10 +17,10 @@
   <tr>
     <td data-label="IP">{{ r.ip }}{{ missing(r.missing_on) }}</td>
     <td data-label="{{ _('Reason') }}">{{ r.reason or '—' }}</td>
-    <td data-label="{{ _('Service') }}">{{ r.service }}{% if r.ban_scope %} <span class="small text-secondary">({{ r.ban_scope }})</span>{% endif %}{% if r.kind == 'crowdsec_lease' %} <span class="badge text-bg-info">CrowdSec</span>{% endif %}</td>
+    <td data-label="{{ _('Service') }}">{{ r.service }}{% if r.ban_scope %} <span class="small text-secondary">({{ r.ban_scope }})</span>{% endif %}{% if r.kind == 'crowdsec_lease' %} <span class="tag">CrowdSec</span>{% endif %}</td>
     <td data-label="{{ _('Instance') }}">{{ r.instance }}</td>
     <td data-label="{{ _('Date') }}" data-v="{{ r.date_sort }}">{{ r.date|epoch }}</td>
-    <td data-label="{{ _('Expiration') }}" data-v="{{ r.exp_sort }}">{% if r.permanent %}<span class="badge text-bg-warning">{{ _("Permanent") }}</span>{% else %}{{ r.exp|duration }}{% endif %}</td>
+    <td data-label="{{ _('Expiration') }}" data-v="{{ r.exp_sort }}">{% if r.permanent %}<span class="tag tag-warn">{{ _("Permanent") }}</span>{% else %}{{ r.exp|duration }}{% endif %}</td>
   </tr>
   {% else %}<tr><td colspan="6" class="text-secondary">{{ _("No active bans.") }}</td></tr>
   {% endfor %}

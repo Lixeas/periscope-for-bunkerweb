@@ -92,6 +92,7 @@ def summary(db: Session, now: datetime) -> dict:
                 for p, _ in db.query(CertProbe, Instance)
                 .join(Instance, CertProbe.instance_id == Instance.id).filter(Instance.enabled.is_(True))]
     return {
+        "services_diff": len({r["name"] for r in services(db)[0] if r["missing_on"]}),
         "instances_total": len(active),
         "instances_ok": sum(c["status"] == "ok" for c in active),
         "instances_stale": sum(c["stale"] for c in active),
@@ -106,7 +107,7 @@ def summary(db: Session, now: datetime) -> dict:
     }
 
 
-def services(db: Session, instance: str = "", mode: str = "") -> tuple[list[dict], list[str]]:
+def services(db: Session, instance: str = "", mode: str = "", only_diff: bool = False) -> tuple[list[dict], list[str]]:
     per = _by_instance(db, "services")
     missing = diff.gaps({n: {str(s.get("name", "")) for s in p if not s.get("draft")} for n, p in per.items()})
     rows = [{"instance": n, "name": str(s.get("name", "")), "mode": s.get("mode"), "draft": bool(s.get("draft")),
@@ -116,6 +117,8 @@ def services(db: Session, instance: str = "", mode: str = "") -> tuple[list[dict
         rows = [r for r in rows if r["instance"] == instance]
     if mode:
         rows = [r for r in rows if r["mode"] == mode]
+    if only_diff:
+        rows = [r for r in rows if r["missing_on"]]
     rows.sort(key=lambda r: (r["name"], r["instance"]))
     return rows, sorted(per)
 

@@ -260,7 +260,7 @@ def test_logged_in_switch_saves_user_preference_and_wins_over_cookie_and_header(
     with session_scope() as s:
         assert s.query(User).filter_by(username="alice").one().lang == "fr"
     page = client.get("/dashboard", headers={"accept-language": "en"})
-    assert '<html lang="fr"' in page.text and "Vue d&#39;ensemble" in page.text
+    assert '<html lang="fr"' in page.text and "Tableau de bord" in page.text
     client.cookies.set(i18n.COOKIE, "en")  # saved preference beats the cookie
     assert '<html lang="fr"' in client.get("/dashboard").text
     switch(client, csrf, "en")
@@ -328,9 +328,9 @@ def test_dashboard_in_french_and_stored_errors_follow_the_language(logged):
         inst.last_error = pack_many([pack("{count} nodes offline: {names}", count=2, names="a, b")])
     client, _ = logged
     en = client.get("/dashboard").text
-    assert "Overview" in en and "2 nodes offline: a, b" in en and "network: timeout" in en  # legacy raw text
+    assert "Dashboard" in en and "2 nodes offline: a, b" in en and "network: timeout" in en  # legacy raw text
     fr = client.get("/dashboard", headers=FR).text
-    assert '<html lang="fr"' in fr and "Vue d&#39;ensemble" in fr and "Instances OK" in fr
+    assert '<html lang="fr"' in fr and "Tableau de bord" in fr and "Instances OK" in fr
     assert "2 nœuds hors ligne : a, b" in fr and "network: timeout" in fr
     assert "Overview" not in fr and "Déconnexion" in fr and "Certificats" in fr
 

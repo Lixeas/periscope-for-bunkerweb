@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% from "_macros.html" import mode_badge, missing with context %}
+{% from "_macros.html" import mode_badge, missing, chip with context %}
 {% block title %}{{ _("Services") }}{% endblock %}
 {% block head %}<meta name="autoreload" content="30">{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">{{ _("Protected services") }}</h1>
+<h1 class="page-title">{{ _("Protected services") }}</h1>
 <form method="get" class="row g-2 mb-3">
   <div class="col-auto"><label class="visually-hidden" for="f-inst">{{ _("Instance") }}</label>
     <select class="form-select" id="f-inst" name="instance">
@@ -13,10 +13,11 @@
   <div class="col-auto"><label class="visually-hidden" for="f-mode">{{ _("Mode") }}</label>
     <select class="form-select" id="f-mode" name="mode">
       <option value="">{{ _("All modes") }}</option>
-      <option value="block" {% if mode == 'block' %}selected{% endif %}>block</option>
-      <option value="detect" {% if mode == 'detect' %}selected{% endif %}>detect</option>
+      <option value="block" {% if mode == 'block' %}selected{% endif %}>{{ _("block") }}</option>
+      <option value="detect" {% if mode == 'detect' %}selected{% endif %}>{{ _("detect") }}</option>
     </select></div>
-  <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Filter") }}</button></div>
+  <div class="col-auto d-flex align-items-center"><div class="form-check m-0"><input class="form-check-input" type="checkbox" id="f-diff" name="diff" value="1"{% if diff %} checked{% endif %}><label class="form-check-label" for="f-diff">{{ _("Differences only") }}</label></div></div>
+  <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Filter") }}</button>{% if instance or mode or diff %} <a class="btn btn-link" href="/services">{{ _("Clear") }}</a>{% endif %}</div>
   <div class="col-auto ms-auto"><input class="form-control" type="search" placeholder="{{ _('Search…') }}" aria-label="{{ _('Search') }}" data-filter-for="t-services"></div>
 </form>
 <div class="table-responsive">
@@ -28,7 +29,7 @@
     <td data-label="{{ _('Domain') }}">{{ r.name }}{{ missing(r.missing_on) }}</td>
     <td data-label="{{ _('Instance') }}">{{ r.instance }}</td>
     <td data-label="{{ _('Mode') }}" data-v="{{ r.mode or '' }}">{{ mode_badge(r.mode) }}</td>
-    <td data-label="{{ _('Status') }}">{% if r.draft %}<span class="badge text-bg-secondary">{{ _("draft") }}</span>{% else %}<span class="badge text-bg-success">{{ _("active") }}</span>{% endif %}</td>
+    <td data-label="{{ _('Status') }}">{% if r.draft %}{{ chip('off', _("draft")) }}{% else %}{{ chip('ok', _("active")) }}{% endif %}</td>
   </tr>
   {% else %}<tr><td colspan="4" class="text-secondary">{{ _("No services.") }}</td></tr>
   {% endfor %}

@@ -2,7 +2,7 @@
 {% block title %}{{ _("Second factor") }}{% endblock %}
 {% block content %}
 <div class="row justify-content-center mt-5"><div class="col-md-6 col-lg-4">
-  <h1 class="h4 mb-4">{{ _("Two-step verification") }}</h1>
+  <h1 class="page-title">{{ _("Two-step verification") }}</h1>
   {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
   <form method="post" action="/login/2fa" class="mb-4">
     <input type="hidden" name="csrf" value="{{ csrf }}">

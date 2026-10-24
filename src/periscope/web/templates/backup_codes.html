@@ -2,7 +2,7 @@
 {% block title %}{{ _("Backup codes") }}{% endblock %}
 {% block content %}
 <div class="row justify-content-center mt-5"><div class="col-md-8 col-lg-5">
-  <h1 class="h4 mb-3">{{ _("Backup codes") }}</h1>
+  <h1 class="page-title">{{ _("Backup codes") }}</h1>
   {% set once %}<strong>{{ _("only once") }}</strong>{% endset %}
   <div class="alert alert-warning" role="alert">{{ _("These codes are displayed {once}. Keep them in a safe place: each one can be used a single time if you lose your second factor.", once=once) }}</div>
   <ul class="list-unstyled font-monospace">{% for c in codes %}<li>{{ c }}</li>{% endfor %}</ul>
