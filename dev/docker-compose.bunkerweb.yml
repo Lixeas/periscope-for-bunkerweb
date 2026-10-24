@@ -27,7 +27,7 @@
 #   Token: see "API token" below. Probed domains (SNI):
 #   app.bw1.test / app.bw2.test (services declared below).
 #
-# AUTHENTICATION (see also the README)
+# AUTHENTICATION (see also docs/bunkerweb-api-user.md)
 #   Recommended: Periscope's "API user" mode with a restricted
 #   ACL user (API_ACL_BOOTSTRAP_FILE file, commented block under bw1-api).
 #   Periscope obtains a token via `POST /auth` (HTTP Basic; manual test:
