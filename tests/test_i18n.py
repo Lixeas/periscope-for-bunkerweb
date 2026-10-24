@@ -336,7 +336,7 @@ def test_dashboard_in_french_and_stored_errors_follow_the_language(logged):
 
 
 @pytest.mark.parametrize("path, needle", [
-    ("/services", "Différences seulement"), ("/bans", "IP uniques"), ("/jobs", "Plugins par instance"),
+    ("/services", "Tous les modes"), ("/bans", "IP uniques"), ("/jobs", "Plugins par instance"),
     ("/certificates", "Certificats"), ("/account", "Mon compte"), ("/admin/instances", "Instances BunkerWeb"),
     ("/admin/users", "Créer un utilisateur"), ("/admin/audit", "Journal d&#39;audit"),
     ("/admin/instances/1", "Modifier"),
