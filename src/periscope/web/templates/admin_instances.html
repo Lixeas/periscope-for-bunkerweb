@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import instance_badge with context %}
+{% from "_macros.html" import instance_badge, chip with context %}
 {% block title %}{{ _("Instances") }}{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">{{ _("BunkerWeb instances") }}</h1>
+<h1 class="page-title">{{ _("BunkerWeb instances") }}</h1>
 {% if msg %}<div class="alert alert-info" role="status">{{ msg }}</div>{% endif %}
 {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 
@@ -16,7 +16,7 @@
     <td data-label="{{ _('API URL') }}">{{ i.base_url }}</td>
     <td data-label="{{ _('Authentication') }}">{% if i.auth_mode == 'user' %}{{ _("API user") }} <code>{{ i.api_username }}</code>{% else %}{{ _("API token") }}{% endif %}</td>
     <td data-label="{{ _('TLS probe') }}">{{ i.probe_target }}:{{ i.tls_port }}</td>
-    <td data-label="{{ _('State') }}">{% if i.enabled %}{{ instance_badge(i.status) }}{% else %}<span class="badge text-bg-secondary">{{ _("Disabled") }}</span>{% endif %}
+    <td data-label="{{ _('State') }}">{% if i.enabled %}{{ instance_badge(i.status) }}{% else %}{{ chip('off', _("Disabled")) }}{% endif %}
         {% if i.last_error %}<div class="small text-danger">{{ i.last_error | stored }}</div>{% endif %}</td>
     <td data-label="{{ _('Last collection') }}">{{ i.last_ok_at | ago }}</td>
     <td class="text-nowrap">
@@ -33,7 +33,7 @@
 </table>
 </div>
 
-<h2 class="h5">{{ _("Add an instance") }}</h2>
+<h2 class="section-title">{{ _("Add an instance") }}</h2>
 <form method="post" action="/admin/instances" class="col-lg-6">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="mb-3"><label class="form-label" for="name">{{ _("Name") }}</label>
@@ -45,7 +45,7 @@
       <option value="user" {% if form.auth_mode != 'token' %}selected{% endif %}>{{ _("API user (recommended)") }}</option>
       <option value="token" {% if form.auth_mode == 'token' %}selected{% endif %}>{{ _("API token") }}</option>
     </select></div>
-  <fieldset class="border rounded p-3 mb-3">
+  <fieldset class="border rounded p-3 mb-3" data-auth-for="user">
     <legend class="fs-6">{{ _("“API user” mode: fill in only in this mode") }}</legend>
     <div class="mb-3"><label class="form-label" for="api_username">{{ _("API username") }}</label>
       <input class="form-control" id="api_username" name="api_username" autocomplete="off" value="{{ form.api_username or '' }}"></div>
@@ -53,7 +53,7 @@
       <input class="form-control" id="api_password" name="api_password" type="password" autocomplete="off">
       <div class="form-text">{{ _("Restricted user (read permissions). Encrypted in the database, never displayed again; the token is renewed automatically.") }}</div></div>
   </fieldset>
-  <fieldset class="border rounded p-3 mb-3">
+  <fieldset class="border rounded p-3 mb-3" data-auth-for="token">
     <legend class="fs-6">{{ _("“API token” mode: fill in only in this mode") }}</legend>
     {% set api_token_var %}<code>API_TOKEN</code>{% endset %}
     <label class="form-label" for="token">{{ _("API token ({var}, administrator access: discouraged)", var=api_token_var) }}</label>

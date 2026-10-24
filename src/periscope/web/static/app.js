@@ -63,6 +63,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (d.open) { d.open = false; if (d.contains(document.activeElement)) d.querySelector("summary").focus(); }
     });
   });
+  // the add-instance form shows only the credentials of the chosen authentication mode
+  const mode = document.getElementById("auth_mode");
+  if (mode) {
+    const show = () => document.querySelectorAll("[data-auth-for]").forEach((f) => { f.hidden = f.dataset.authFor !== mode.value; });
+    mode.addEventListener("change", show); show();
+  }
   // destructive forms ask first (a native dialog: no inline JS needed under the CSP)
   document.querySelectorAll("form[data-confirm]").forEach((f) => {
     f.addEventListener("submit", (e) => {

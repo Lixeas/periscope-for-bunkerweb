@@ -2,7 +2,7 @@
 {% from "_macros.html" import account_tabs with context %}
 {% block title %}{{ _("Audit") }}{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">{{ _("Audit log") }} <small class="text-secondary fs-6">{{ _("(last 200 events)") }}</small></h1>
+<h1 class="page-title">{{ _("Audit log") }} <small class="text-secondary fs-6">{{ _("(last 200 events)") }}</small></h1>
 {{ account_tabs('audit') }}
 <div class="mb-3"><input class="form-control" type="search" placeholder="{{ _('Filter…') }}" aria-label="{{ _('Filter') }}" data-filter-for="t-audit"></div>
 <div class="table-responsive">

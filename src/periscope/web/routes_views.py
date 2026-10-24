@@ -23,10 +23,10 @@ async def api_summary(user: User = Depends(current_user), db=Depends(get_db)):
 
 
 @router.get("/services")
-async def services(request: Request, instance: str = "", mode: str = "",
+async def services(request: Request, instance: str = "", mode: str = "", diff: str = "",
                    user: User = Depends(current_user), db=Depends(get_db)):
-    rows, names = queries.services(db, instance, mode)
-    return render(request, "services.html", user=user, rows=rows, names=names, instance=instance, mode=mode)
+    rows, names = queries.services(db, instance, mode, bool(diff))
+    return render(request, "services.html", user=user, rows=rows, names=names, instance=instance, mode=mode, diff=bool(diff))
 
 
 @router.get("/bans")

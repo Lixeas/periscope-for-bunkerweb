@@ -2,7 +2,7 @@
 {% from "_macros.html" import instance_badge, workers_rail, alert_text, chip, ico with context %}
 {% block title %}{{ _("Dashboard") }}{% endblock %}
 {% block content %}
-<h1 class="page-title">{{ _("Overview") }}</h1>
+<h1 class="page-title">{{ _("Dashboard") }}</h1>
 <div id="live" class="visually-hidden" role="status" aria-live="polite" data-msg="{{ _('{alerts} alerts, {ok} of {total} instances OK') }}"></div>
 
 {% set todo = cards | selectattr('sev', 'in', ['crit', 'warn']) | list %}
@@ -12,7 +12,7 @@
     <dd>{{ todo | length }}
       {% if todo %}<span class="fig-sub"><span data-summary="alerts_total">{{ s.alerts_total }}</span> {{ _("alerts") }}</span>
       <span class="fig-names">{% for c in todo %}<a href="#inst-{{ c.id }}">{{ c.name }}</a>{% endfor %}</span>
-      {% else %}<span class="visually-hidden" data-summary="alerts_total">{{ s.alerts_total }}</span>{% endif %}
+      {% else %}<span class="fig-sub fig-clear">{{ _("All clear") }}</span><span class="visually-hidden" data-summary="alerts_total">{{ s.alerts_total }}</span>{% endif %}
     </dd>
   </div>
   <div class="fig">
@@ -25,7 +25,7 @@
   </div>
   <div class="fig">
     <dt>{{ _("Services") }}</dt>
-    <dd><a href="/services" data-summary="services_total">{{ s.services_total }}</a></dd>
+    <dd><a href="/services" data-summary="services_total">{{ s.services_total }}</a>{% if s.services_diff %}<span class="fig-sub"><a href="/services?diff=1">{{ _("{count} not on every instance", count=s.services_diff) }}</a></span>{% endif %}</dd>
   </div>
   <div class="fig">
     <dt>{{ _("Certificates") }}</dt>
@@ -66,6 +66,7 @@
         {% endfor %}
         {% if c.alerts | length > 2 %}<span class="alert-more">+{{ c.alerts | length - 2 }}</span>{% endif %}
         {% if not c.alerts and c.enabled %}<span class="muted small">{{ _("Nothing to check") }}</span>{% endif %}
+        {% if c.last_error and c.sev in ('crit', 'warn') %}<span class="inst-why">{{ c.last_error | stored }}</span>{% endif %}
       </span>
       <span class="led-num"><span class="visually-hidden">{{ _("Last OK") }}: </span>{{ c.last_ok_at | ago }}</span>
       <span class="led-num{% if not c.version %} led-none{% endif %}"><span class="visually-hidden">{{ _("Version") }}: </span>{{ c.version or '—' }}</span>
@@ -96,4 +97,5 @@
   </details>
   {% endfor %}
 </div>
+<p class="legend">{{ _("Needs check: the instance answers but has open alerts. Stale: the last successful collection is older than expected. Certificates turn orange under 21 days and red under 7.") }}</p>
 {% endblock %}

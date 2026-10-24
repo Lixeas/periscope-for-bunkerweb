@@ -43,8 +43,22 @@
     } catch (e) { /* network unavailable: retry on the next tick */ }
   };
 
+  // "Updated Ns ago": counts from the last successful refresh, so a wall display shows how old the data is
+  const stamp = document.getElementById("refreshed");
+  let fresh = Date.now();
+  const paint = () => {
+    if (!stamp) return;
+    const s = Math.floor((Date.now() - fresh) / 1000);
+    stamp.textContent = s < 10 ? stamp.dataset.now
+      : s < 90 ? stamp.dataset.s.replace("{n}", s) : stamp.dataset.m.replace("{n}", Math.round(s / 60));
+    stamp.hidden = false;
+  };
+  if (stamp && (document.querySelector("meta[name=autoreload]") || document.querySelector("[data-summary]"))) {
+    paint(); setInterval(paint, 5000);
+  }
+
   const tick = async () => {
-    if (document.querySelector("meta[name=autoreload]") && idle()) { await softRefresh(); return; }
+    if (document.querySelector("meta[name=autoreload]") && idle()) { await softRefresh(); fresh = Date.now(); paint(); return; }
     if (!document.querySelector("[data-summary]")) return;
     try {
       const r = await fetch("/api/summary", {credentials: "same-origin"});
@@ -62,6 +76,7 @@
         const v = data[el.dataset.summary];
         if (v !== undefined) el.textContent = v;
       });
+      fresh = Date.now(); paint();
     } catch (e) { /* network unavailable: retry on the next tick */ }
   };
   setInterval(tick, 30000);
