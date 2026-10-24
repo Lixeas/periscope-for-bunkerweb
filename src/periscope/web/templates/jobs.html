@@ -1,17 +1,20 @@
 {% extends "base.html" %}
 {% from "_macros.html" import chip with context %}
-{% block title %}{{ _("Jobs and plugins") }}{% endblock %}
+{% block title %}{{ _("Jobs & plugins") }}{% endblock %}
 {% block head %}<meta name="autoreload" content="30">{% endblock %}
 {% block content %}
-<h1 class="page-title">{{ _("Scheduled jobs") }}</h1>
+<h1 class="page-title">{{ _("Jobs & plugins") }}</h1>
+{% set ns = namespace(over=0) %}{% for j in jobs %}{% if j.next_run and j.next_run < now %}{% set ns.over = ns.over + 1 %}{% endif %}{% endfor %}
+{% set nf = jobs | selectattr('success', 'equalto', false) | list | length %}
+<p class="page-sum{% if nf or ns.over %} bad{% endif %}">{{ _("{failed} failed jobs, {overdue} overdue", failed=nf, overdue=ns.over) }}</p>
 <div class="mb-2"><input class="form-control" type="search" placeholder="{{ _('Search…') }}" aria-label="{{ _('Search') }}" data-filter-for="t-jobs"></div>
 <div class="table-responsive mb-5">
 <table class="table table-stack align-middle" id="t-jobs" data-table>
-  <thead><tr><th data-sort>{{ _("Job") }}</th><th data-sort>Plugin</th><th data-sort>{{ _("Instance") }}</th><th data-sort>{{ _("Frequency") }}</th><th data-sort>{{ _("Last run") }}</th><th data-sort>{{ _("Next run (estimated)") }}</th><th data-sort>{{ _("Result") }}</th></tr></thead>
+  <thead><tr><th data-sort>{{ _("Job") }}</th><th data-sort>{{ _("Plugin") }}</th><th data-sort>{{ _("Instance") }}</th><th data-sort>{{ _("Frequency") }}</th><th data-sort>{{ _("Last run") }}</th><th data-sort>{{ _("Next run (estimated)") }}</th><th data-sort>{{ _("Result") }}</th></tr></thead>
   <tbody>
   {% for j in jobs %}
   <tr>
-    <td data-label="{{ _('Job') }}">{{ j.name }}</td><td data-label="Plugin">{{ j.plugin or '—' }}</td><td data-label="{{ _('Instance') }}">{{ j.instance }}</td><td data-label="{{ _('Frequency') }}">{{ j.every or '—' }}</td>
+    <td data-label="{{ _('Job') }}">{{ j.name }}</td><td data-label="{{ _('Plugin') }}">{{ j.plugin or '—' }}</td><td data-label="{{ _('Instance') }}">{{ j.instance }}</td><td data-label="{{ _('Frequency') }}">{{ j.every or '—' }}</td>
     <td data-label="{{ _('Last run') }}">{{ j.last_run or '—' }}</td>
     <td data-label="{{ _('Next run (estimated)') }}">{{ j.next_run|dt }}{% if j.next_run and j.next_run < now %} <span class="tag tag-warn">{{ _("overdue") }}</span>{% endif %}</td>
     <td data-label="{{ _('Result') }}">{% if j.success is true %}{{ chip('ok', _("Success")) }}
@@ -27,7 +30,7 @@
 <h2 class="section-title">{{ _("Plugins per instance") }}</h2>
 <div class="table-responsive">
 <table class="table align-middle" data-table>
-  <thead><tr><th data-sort>Plugin</th>{% for n in names %}<th data-sort>{{ n }}</th>{% endfor %}</tr></thead>
+  <thead><tr><th data-sort>{{ _("Plugin") }}</th>{% for n in names %}<th data-sort>{{ n }}</th>{% endfor %}</tr></thead>
   <tbody>
   {% for row in matrix %}
   <tr>

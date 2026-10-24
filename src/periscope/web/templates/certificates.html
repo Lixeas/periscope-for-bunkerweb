@@ -4,6 +4,8 @@
 {% block head %}<meta name="autoreload" content="30">{% endblock %}
 {% block content %}
 <h1 class="page-title">{{ _("Certificates") }}</h1>
+{% set nw = rows | rejectattr('status', 'equalto', 'ok') | list | length %}
+<p class="page-sum{% if nw %} bad{% endif %}">{{ _("{total} certificates, {warn} to watch", total=rows | length, warn=nw) }}</p>
 <div class="mb-2"><input class="form-control" type="search" placeholder="{{ _('Search…') }}" aria-label="{{ _('Search') }}" data-filter-for="t-certs"></div>
 <div class="table-responsive">
 <table class="table table-stack align-middle" id="t-certs" data-table>

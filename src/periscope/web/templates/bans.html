@@ -3,19 +3,21 @@
 {% block title %}{{ _("Bans") }}{% endblock %}
 {% block head %}<meta name="autoreload" content="30">{% endblock %}
 {% block content %}
-<h1 class="page-title">{{ _("Active bans") }}</h1>
+<h1 class="page-title">{{ _("Bans") }}</h1>
+{% set np = rows | selectattr('permanent') | list | length %}
+<p class="page-sum">{{ _("{total} bans, {ips} unique IPs, {permanent} permanent", total=rows | length, ips=rows | map(attribute='ip') | unique | list | length, permanent=np) }}</p>
 <form method="get" class="row g-2 mb-3">
-  <div class="col-auto"><label class="visually-hidden" for="q">IP</label>
+  <div class="col-auto"><label class="visually-hidden" for="q">{{ _("IP") }}</label>
     <input class="form-control" id="q" name="q" value="{{ q }}" placeholder="{{ _('Search an IP') }}"></div>
   <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Search") }}</button>{% if q %} <a class="btn btn-link" href="/bans">{{ _("Clear") }}</a>{% endif %}</div>
 </form>
 <div class="table-responsive">
 <table class="table table-stack align-middle" id="t-bans" data-table>
-  <thead><tr><th data-sort>IP</th><th data-sort>{{ _("Reason") }}</th><th data-sort>{{ _("Service") }}</th><th data-sort>{{ _("Instance") }}</th><th data-sort>{{ _("Date") }}</th><th data-sort>{{ _("Expiration") }}</th></tr></thead>
+  <thead><tr><th data-sort>{{ _("IP") }}</th><th data-sort>{{ _("Reason") }}</th><th data-sort>{{ _("Service") }}</th><th data-sort>{{ _("Instance") }}</th><th data-sort>{{ _("Date") }}</th><th data-sort>{{ _("Expiration") }}</th></tr></thead>
   <tbody>
   {% for r in rows %}
   <tr>
-    <td data-label="IP">{{ r.ip }}{{ missing(r.missing_on) }}</td>
+    <td data-label="{{ _('IP') }}">{{ r.ip }}{{ missing(r.missing_on) }}</td>
     <td data-label="{{ _('Reason') }}">{{ r.reason or '—' }}</td>
     <td data-label="{{ _('Service') }}">{{ r.service }}{% if r.ban_scope %} <span class="small text-secondary">({{ r.ban_scope }})</span>{% endif %}{% if r.kind == 'crowdsec_lease' %} <span class="tag">CrowdSec</span>{% endif %}</td>
     <td data-label="{{ _('Instance') }}">{{ r.instance }}</td>

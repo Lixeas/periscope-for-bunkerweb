@@ -42,14 +42,14 @@
 <div class="alert alert-info mt-4">{{ _("No instance registered.") }}{% if user.role == 'admin' %} {{ add_link }}.{% endif %}</div>
 {% endif %}
 
-<h2 class="section-title">{{ _("Instances") }}</h2>
+<div class="section-row"><h2 class="section-title">{{ _("Instances") }}</h2><button type="button" class="btn btn-link" data-expand data-open="{{ _('Collapse all') }}" data-closed="{{ _('Expand all') }}">{{ _("Expand all") }}</button></div>
 <div class="ledger">
   <div class="ledger-head" aria-hidden="true">
     <span>{{ _("State") }}</span><span>{{ _("Instance") }}</span><span>{{ _("Alerts") }}</span>
     <span class="led-r">{{ _("Last OK") }}</span><span class="led-r">{{ _("Version") }}</span><span class="led-r">{{ _("Latency") }}</span><span class="led-r">{{ _("Workers") }}</span><span></span>
   </div>
   {% for c in cards %}
-  <details id="inst-{{ c.id }}" class="inst inst-{{ c.sev }}">
+  <details id="inst-{{ c.id }}" class="inst inst-{{ c.sev }}"{% if c.sev in ('crit', 'warn') %} open{% endif %}>
     <summary aria-labelledby="nm-{{ c.id }} st-{{ c.id }}" aria-describedby="al-{{ c.id }}">
       <span class="inst-state" id="st-{{ c.id }}">
         {% if not c.enabled %}{{ chip('off', _("Disabled")) }}
@@ -66,7 +66,7 @@
         {% endfor %}
         {% if c.alerts | length > 2 %}<span class="alert-more">+{{ c.alerts | length - 2 }}</span>{% endif %}
         {% if not c.alerts and c.enabled %}<span class="muted small">{{ _("Nothing to check") }}</span>{% endif %}
-        {% if c.last_error and c.sev in ('crit', 'warn') %}<span class="inst-why">{{ c.last_error | stored }}</span>{% endif %}
+        {% if c.last_error and c.sev in ('crit', 'warn') %}<span class="inst-why" title="{{ c.last_error | stored }}">{{ c.last_error | stored }}</span>{% endif %}
       </span>
       <span class="led-num"><span class="visually-hidden">{{ _("Last OK") }}: </span>{{ c.last_ok_at | ago }}</span>
       <span class="led-num{% if not c.version %} led-none{% endif %}"><span class="visually-hidden">{{ _("Version") }}: </span>{{ c.version or '—' }}</span>

@@ -2,8 +2,15 @@
   // Key figures refresh in place. When the number of things to check or of healthy instances changes, the figures strip
   // and the ledger are swapped from a fresh copy of the page (open rows stay open) and the change is announced.
   // Table pages carry <meta name=autoreload>: they refresh in place only while the reader is not typing, filtering or sorting.
-  const idle = () => !document.querySelector("th[data-dir]")
-    && ![...document.querySelectorAll("input[data-filter-for], input[name=q]")].some((i) => i.value && i.defaultValue !== i.value);
+  // "idle" = nothing the reader is doing would be lost: no sort, no filter text, no focused or edited control in <main>
+  const idle = () => {
+    const main = document.getElementById("main"), a = document.activeElement;
+    if (document.querySelector("th[data-dir]")) return false;
+    if (main && a && a !== document.body && main.contains(a) && a.matches("input, select, textarea, button")) return false;
+    return ![...document.querySelectorAll("#main input, #main select")].some((c) => c.type === "checkbox"
+      ? c.checked !== c.defaultChecked
+      : c.tagName === "SELECT" ? !c.options[c.selectedIndex]?.defaultSelected : c.value !== c.defaultValue);
+  };
 
   const announce = (data) => {
     const live = document.getElementById("live");
@@ -16,14 +23,19 @@
     const r = await fetch(location.href, {credentials: "same-origin"});
     if (r.redirected || !r.ok) { location.reload(); return; }
     const doc = new DOMParser().parseFromString(await r.text(), "text/html");
-    const open = [...document.querySelectorAll("details.inst[open]")].map((d) => d.id);
-    const sig = (d) => d.querySelector("summary").textContent.replace(/\s+/g, " ").trim();
+    const was = new Map([...document.querySelectorAll("details.inst")].map((d) => [d.id, d.open]));
+    const focused = document.activeElement && document.activeElement.closest("details.inst");
+    const focusId = focused ? focused.id : null;
+    // state signature: chip and alerts only, so the ticking "Last OK" never reads as a change
+    const sig = (d) => [".inst-state", ".inst-alerts"].map((q) => d.querySelector(q).textContent.replace(/\s+/g, " ").trim()).join("|");
     const before = new Map([...document.querySelectorAll("details.inst")].map((d) => [d.id, sig(d)]));
     for (const sel of [".figs", ".ledger"]) {
       const next = doc.querySelector(sel), cur = document.querySelector(sel);
       if (next && cur) cur.replaceWith(next);
     }
-    open.forEach((id) => { const d = document.getElementById(id); if (d) d.open = true; });
+    // a row keeps the open state the reader left it in; a new row keeps the server's (problem rows arrive open)
+    document.querySelectorAll("details.inst").forEach((d) => { if (was.has(d.id)) d.open = was.get(d.id); });
+    if (focusId) { const f = document.getElementById(focusId); if (f) f.querySelector("summary").focus(); }
     // the one authored moment: a row whose state changed fades from an accent wash, so it is found without reading
     document.querySelectorAll("details.inst").forEach((d) => {
       if (before.has(d.id) && before.get(d.id) !== sig(d)) d.classList.add("just-changed");
@@ -67,10 +79,11 @@
       const figs = document.querySelector(".figs");
       const seenAlerts = figs ? figs.dataset.alerts : undefined;
       const seenOk = figs ? figs.dataset.ok : undefined;
-      if (figs && ((data.alerts_total !== undefined && String(data.alerts_total) !== seenAlerts)
-          || (data.instances_ok !== undefined && seenOk !== undefined && String(data.instances_ok) !== seenOk))) {
-        await swap();
-        announce(data);
+      const changed = figs && ((data.alerts_total !== undefined && String(data.alerts_total) !== seenAlerts)
+          || (data.instances_ok !== undefined && seenOk !== undefined && String(data.instances_ok) !== seenOk));
+      if (figs) {
+        await swap();  // every cycle, so the rows are never older than the "Updated" stamp
+        if (changed) announce(data);
       }
       document.querySelectorAll("[data-summary]").forEach((el) => {
         const v = data[el.dataset.summary];

@@ -1,9 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import mode_badge, missing, chip with context %}
+{% from "_macros.html" import mode_badge, missing with context %}
 {% block title %}{{ _("Services") }}{% endblock %}
 {% block head %}<meta name="autoreload" content="30">{% endblock %}
 {% block content %}
-<h1 class="page-title">{{ _("Protected services") }}</h1>
+<h1 class="page-title">{{ _("Services") }}</h1>
+{% set nd = rows | selectattr('missing_on') | list | length %}
+<p class="page-sum{% if nd %} bad{% endif %}">{{ _("{total} services, {diff} not on every instance", total=rows | length, diff=nd) }}</p>
 <form method="get" class="row g-2 mb-3">
   <div class="col-auto"><label class="visually-hidden" for="f-inst">{{ _("Instance") }}</label>
     <select class="form-select" id="f-inst" name="instance">
@@ -29,7 +31,7 @@
     <td data-label="{{ _('Domain') }}">{{ r.name }}{{ missing(r.missing_on) }}</td>
     <td data-label="{{ _('Instance') }}">{{ r.instance }}</td>
     <td data-label="{{ _('Mode') }}" data-v="{{ r.mode or '' }}">{{ mode_badge(r.mode) }}</td>
-    <td data-label="{{ _('Status') }}">{% if r.draft %}{{ chip('off', _("draft")) }}{% else %}{{ chip('ok', _("active")) }}{% endif %}</td>
+    <td data-label="{{ _('Status') }}"><span class="tag">{% if r.draft %}{{ _("draft") }}{% else %}{{ _("active") }}{% endif %}</span></td>
   </tr>
   {% else %}<tr><td colspan="4" class="text-secondary">{{ _("No services.") }}</td></tr>
   {% endfor %}
