@@ -8,6 +8,9 @@
   <link rel="preload" href="/static/fonts/switzer-500.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/office-code-pro-regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/office-code-pro-medium.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/bootstrap.min.css">
   <link rel="stylesheet" href="/static/app.css?v={{ ASSET_V }}">
   <script src="/static/app.js?v={{ ASSET_V }}"></script>
@@ -15,13 +18,13 @@
   <script src="/static/refresh.js" defer></script>
   {% block head %}{% endblock %}
 </head>
-{% from "_macros.html" import ico, lang_menu with context %}
+{% from "_macros.html" import ico, brand_mark, lang_menu with context %}
 <body data-msg-error="{{ _('Error') }}" data-msg-confirm-delete="{{ _('Delete this item? This cannot be undone.') }}"{% if user %} class="has-side"{% endif %}>
 <a class="skip" href="#main">{{ _("Skip to content") }}</a>
 {% if user %}
 {% set path = request.url.path %}
 <aside class="side">
-  <a class="brand" href="/dashboard">{{ ico('periscope') }}<span>Periscope</span></a>
+  <a class="brand" href="/dashboard" aria-label="Periscope">{{ brand_mark() }}<span aria-hidden="true">periscope</span></a>
   <nav aria-label="{{ _('Main') }}" class="menu">
     <a href="/dashboard"{% if path == '/dashboard' %} aria-current="page"{% endif %}>{{ ico('home') }}<span>{{ _("Dashboard") }}</span></a>
     <a href="/services"{% if path == '/services' %} aria-current="page"{% endif %}>{{ ico('services') }}<span>{{ _("Services") }}</span></a>

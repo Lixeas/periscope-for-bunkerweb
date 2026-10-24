@@ -93,8 +93,11 @@ table, .fig dd, .led-num, .facts dd, .mono { font-variant-numeric: tabular-nums;
 body.has-side { display: grid; grid-template-columns: var(--side) minmax(0, 1fr); }
 body.has-side .side { display: flex; flex-direction: column; gap: 1.5rem; position: sticky; top: 0; height: 100vh;
   padding: 1.25rem .75rem 1rem; border-right: 1px solid var(--line); background: var(--surface); }
-.brand { display: flex; align-items: center; gap: .6rem; padding: .25rem .7rem; font-weight: 600; font-size: 1.0625rem; letter-spacing: -.01em; color: var(--text); text-decoration: none; }
-.brand .ico { width: 1.5rem; height: 1.5rem; color: var(--accent); stroke-width: 1.8; }
+.brand { display: flex; align-items: center; gap: .6rem; padding: .25rem .7rem; font-family: var(--mono); font-weight: 500; font-size: 1.125rem; letter-spacing: -.02em; color: var(--text); text-decoration: none; }
+.brand-mark { flex: none; width: 2rem; height: 2rem; fill: currentColor; }
+.brand-mark .brand-lens { fill: var(--accent); }
+.login-mark { margin-bottom: 1rem; color: var(--text); }
+.login-mark .brand-mark { width: 3.5rem; height: 3.5rem; }
 .menu { display: flex; flex-direction: column; gap: 1px; overflow-y: auto; }
 .menu a { display: flex; align-items: center; gap: .7rem; min-height: 2.75rem; padding: .4rem .7rem; border-radius: 4px; color: var(--muted); text-decoration: none; font: inherit;
   background: none; border: 0; width: 100%; text-align: left; cursor: pointer; }

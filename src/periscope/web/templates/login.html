@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ _("Sign in") }}{% endblock %}
+{% from "_macros.html" import brand_mark %}
 {% block content %}
 <div class="row justify-content-center mt-5"><div class="col-md-6 col-lg-4">
+  <div class="login-mark">{{ brand_mark() }}</div>
   <h1 class="page-title">Periscope for BunkerWeb</h1>
   {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
   <form method="post" action="/login">
