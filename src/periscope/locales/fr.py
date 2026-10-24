@@ -37,6 +37,9 @@ CATALOG: dict[str, str] = {
     "An instance with this name already exists": "Une instance de ce nom existe déjà",
     "At least one administrator must remain.": "Il doit rester au moins un administrateur.",
     "Audit": "Audit",
+    "Dark theme": "Thème sombre",
+    "Account menu": "Menu du compte",
+    "Account sections": "Sections du compte",
     "Audit log": "Journal d'audit",
     "Authentication": "Authentification",
     "Authentication mode": "Mode d'authentification",
@@ -248,7 +251,6 @@ CATALOG: dict[str, str] = {
     "TOTP enrolled": "TOTP enrôlé",
     "Test and add": "Tester et ajouter",
     "The confirmation does not match.": "La confirmation ne correspond pas.",
-    "Theme": "Thème",
     "These codes are displayed {once}. Keep them in a safe place: each one can be used a single time "
     "if you lose your second factor.":
         "Ces codes ne sont affichés qu'{once}. Conservez-les en lieu sûr : chacun ne sert qu'une fois "
@@ -326,7 +328,6 @@ CATALOG: dict[str, str] = {
     "Main": "Principale",
     "Nothing to check": "Rien à vérifier",
     "Skip to content": "Aller au contenu",
-    "Switch theme": "Changer de thème",
     "Worker {name} is in failover": "Le worker {name} est en failover",
     "Worker {name} is offline": "Le worker {name} est hors ligne",
     "Workers online": "Workers en ligne",
