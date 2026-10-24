@@ -12,6 +12,7 @@
   'audit': '<path d="M5 3h8l3 3v11H5V3Z"/><path d="M8 9h5M8 12h5M8 15h3"/>',
   'account': '<circle cx="10" cy="7" r="3.2"/><path d="M3.5 17c.7-3.4 3.2-5 6.5-5s5.8 1.6 6.5 5"/>',
   'theme': '<circle cx="10" cy="10" r="7"/><path d="M10 3a7 7 0 0 1 0 14Z" fill="currentColor"/>',
+  'lang': '<circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2.2 2 3 4.4 3 7s-.8 5-3 7c-2.2-2-3-4.4-3-7s.8-5 3-7"/>',
   'logout': '<path d="M8 3H4v14h4"/><path d="M12 6.5 15.5 10 12 13.5M15.5 10H7.5"/>',
   'chevron': '<path d="m6 8 4 4 4-4"/>',
   'ok': '<circle cx="10" cy="10" r="7"/><path d="m6.8 10.2 2.2 2.2 4.2-4.4"/>',
@@ -87,4 +88,40 @@
   {% endfor %}
 </ul>
 {% endif %}
+{%- endmacro %}
+
+{#- Language dropdown: native <details>, no script needed to open it. The buttons keep the POST /lang contract. -#}
+{% macro lang_menu(where) -%}
+<details class="pop pop-{{ where }}" data-pop>
+  <summary class="pop-btn" aria-label="{{ _('Language') }}">{{ flag(lang) }}<span>{% for code, label in LANGUAGES %}{% if code == lang %}{{ label }}{% endif %}{% endfor %}</span>{{ ico('chevron') }}</summary>
+  <form method="post" action="/lang" class="pop-panel" role="group" aria-label="{{ _('Language') }}">
+    <input type="hidden" name="csrf" value="{{ login_csrf or csrf }}">
+    <input type="hidden" name="next" value="{{ next_url }}">
+    {% for code, label in LANGUAGES %}
+    <button type="submit" name="lang" value="{{ code }}" lang="{{ code }}"{% if code == lang %} aria-current="true" class="on"{% endif %}>{{ flag(code) }}<span>{{ label }}</span></button>
+    {% endfor %}
+  </form>
+</details>
+{%- endmacro %}
+
+{#- Tabs shared by the account page, the users page and the audit log. -#}
+{% macro account_tabs(active) -%}
+<nav class="tabs" aria-label="{{ _('Account sections') }}">
+  <a href="/account"{% if active == 'account' %} aria-current="page"{% endif %}>{{ _("My account") }}</a>
+  {% if user.role == 'admin' %}
+  <a href="/admin/users"{% if active == 'users' %} aria-current="page"{% endif %}>{{ _("Users") }}</a>
+  <a href="/admin/audit"{% if active == 'audit' %} aria-current="page"{% endif %}>{{ _("Audit") }}</a>
+  {% endif %}
+</nav>
+{%- endmacro %}
+
+{#- Flags as inline SVG (emoji flags do not render on Windows). en = United Kingdom, fr = France. -#}
+{% macro flag(code) -%}
+<svg class="flag" viewBox="0 0 24 16" width="20" height="14" aria-hidden="true" focusable="false">
+{%- if code == 'fr' -%}
+<rect width="8" height="16" fill="#1d3f9b"/><rect x="8" width="8" height="16" fill="#fff"/><rect x="16" width="8" height="16" fill="#d8312f"/>
+{%- else -%}
+<rect width="24" height="16" fill="#1d3f9b"/><path d="M0 0l24 16M24 0L0 16" stroke="#fff" stroke-width="3.2"/><path d="M0 0l24 16M24 0L0 16" stroke="#d8312f" stroke-width="1.2"/><path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="5.2"/><path d="M12 0v16M0 8h24" stroke="#d8312f" stroke-width="3"/>
+{%- endif -%}
+</svg>
 {%- endmacro %}

@@ -17,11 +17,17 @@
     if (r.redirected || !r.ok) { location.reload(); return; }
     const doc = new DOMParser().parseFromString(await r.text(), "text/html");
     const open = [...document.querySelectorAll("details.inst[open]")].map((d) => d.id);
+    const sig = (d) => d.querySelector("summary").textContent.replace(/\s+/g, " ").trim();
+    const before = new Map([...document.querySelectorAll("details.inst")].map((d) => [d.id, sig(d)]));
     for (const sel of [".figs", ".ledger"]) {
       const next = doc.querySelector(sel), cur = document.querySelector(sel);
       if (next && cur) cur.replaceWith(next);
     }
     open.forEach((id) => { const d = document.getElementById(id); if (d) d.open = true; });
+    // the one authored moment: a row whose state changed fades from an accent wash, so it is found without reading
+    document.querySelectorAll("details.inst").forEach((d) => {
+      if (before.has(d.id) && before.get(d.id) !== sig(d)) d.classList.add("just-changed");
+    });
   };
 
   // Table pages: swap <main> from a fresh copy of the page, then rebind sort and filter. Falls back to a reload.

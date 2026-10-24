@@ -42,12 +42,22 @@ async function loginPasskey(csrf) {
 document.addEventListener("DOMContentLoaded", () => {
   const toggle = document.getElementById("theme-toggle");
   if (toggle) {
+    const sync = () => toggle.setAttribute("aria-checked", document.documentElement.getAttribute("data-bs-theme") === "dark");
+    sync();
     toggle.addEventListener("click", () => {
       const next = document.documentElement.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
-      document.documentElement.setAttribute("data-bs-theme", next);
+      const root = document.documentElement;
+      root.classList.add("theme-anim");
+      root.setAttribute("data-bs-theme", next);
+      sync();
+      setTimeout(() => root.classList.remove("theme-anim"), 350);
       try { localStorage.setItem("theme", next); } catch (e) { /* ignored */ }
     });
   }
+  // dropdowns (<details data-pop>) close on an outside click or Escape
+  const pops = document.querySelectorAll("details[data-pop]");
+  document.addEventListener("click", (e) => pops.forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") pops.forEach((d) => { d.open = false; }); });
   // destructive forms ask first (a native dialog: no inline JS needed under the CSP)
   document.querySelectorAll("form[data-confirm]").forEach((f) => {
     f.addEventListener("submit", (e) => {

@@ -1,7 +1,9 @@
 {% extends "base.html" %}
+{% from "_macros.html" import account_tabs with context %}
 {% block title %}{{ _("Users") }}{% endblock %}
 {% block content %}
 <h1 class="h4 mb-3">{{ _("Users") }}</h1>
+{{ account_tabs('users') }}
 {% if msg %}<div class="alert alert-info" role="status">{{ msg }}</div>{% endif %}
 {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 
