@@ -342,7 +342,6 @@ CATALOG: dict[str, str] = {
     "worker": "worker",
     "scheduler": "scheduler",
     "Clear": "Effacer",
-    "Differences only": "Différences seulement",
     "{count} not on every instance": "{count} absent(s) d'une instance",
     "All clear": "Tout va bien",
     "block": "blocage",
