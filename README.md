@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/periscope-lockup-dark.svg">
+    <img src="docs/brand/periscope-lockup-light.svg" alt="Periscope for BunkerWeb" width="330">
+  </picture>
+</p>
+
 # Periscope for BunkerWeb
 
 > **Independent community project.** Periscope for BunkerWeb is not affiliated with, endorsed by, or supported by Bunkerity. BunkerWeb is a trademark of Bunkerity. This project only uses BunkerWeb's public API, in read-only mode.
