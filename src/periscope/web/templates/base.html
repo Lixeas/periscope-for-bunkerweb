@@ -3,7 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{{ _("Home") }}{% endblock %} · Periscope for BunkerWeb</title>
+  <title>{% block title %}{{ _("Dashboard") }}{% endblock %} · Periscope for BunkerWeb</title>
+  <link rel="preload" href="/static/fonts/switzer-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/switzer-500.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/office-code-pro-regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/office-code-pro-medium.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/bootstrap.min.css">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/app.js"></script>
@@ -11,46 +15,54 @@
   <script src="/static/refresh.js" defer></script>
   {% block head %}{% endblock %}
 </head>
-<body data-msg-error="{{ _('Error') }}">
+{% from "_macros.html" import ico with context %}
+<body data-msg-error="{{ _('Error') }}" data-msg-confirm-delete="{{ _('Delete this item? This cannot be undone.') }}"{% if user %} class="has-side"{% endif %}>
+<a class="skip" href="#main">{{ _("Skip to content") }}</a>
 {% if user %}
-<nav class="navbar border-bottom mb-4">
-  <div class="container d-flex flex-wrap gap-3 align-items-center">
-    <a class="navbar-brand fw-semibold" href="/dashboard">Periscope</a>
-    <div class="d-flex flex-wrap gap-3 me-auto" id="main-nav">
-      <a href="/dashboard">{{ _("Home") }}</a>
-      <a href="/services">{{ _("Services") }}</a>
-      <a href="/bans">{{ _("Bans") }}</a>
-      <a href="/jobs">{{ _("Jobs & plugins") }}</a>
-      <a href="/certificates">{{ _("Certificates") }}</a>
-      {% if user.role == 'admin' %}
-      <a href="/admin/instances">{{ _("Instances") }}</a>
-      <a href="/admin/users">{{ _("Users") }}</a>
-      <a href="/admin/audit">{{ _("Audit") }}</a>
-      {% endif %}
-    </div>
-    <button type="button" id="theme-toggle" class="btn btn-sm btn-outline-secondary">{{ _("Theme") }}</button>
-    <a href="/account">{{ user.username }}</a>
+{% set path = request.url.path %}
+<aside class="side">
+  <a class="brand" href="/dashboard">{{ ico('periscope') }}<span>Periscope</span></a>
+  <nav aria-label="{{ _('Main') }}" class="menu">
+    <a href="/dashboard"{% if path == '/dashboard' %} aria-current="page"{% endif %}>{{ ico('home') }}<span>{{ _("Dashboard") }}</span></a>
+    <a href="/services"{% if path == '/services' %} aria-current="page"{% endif %}>{{ ico('services') }}<span>{{ _("Services") }}</span></a>
+    <a href="/bans"{% if path == '/bans' %} aria-current="page"{% endif %}>{{ ico('bans') }}<span>{{ _("Bans") }}</span></a>
+    <a href="/jobs"{% if path == '/jobs' %} aria-current="page"{% endif %}>{{ ico('jobs') }}<span>{{ _("Jobs & plugins") }}</span></a>
+    <a href="/certificates"{% if path == '/certificates' %} aria-current="page"{% endif %}>{{ ico('certs') }}<span>{{ _("Certificates") }}</span></a>
+    {% if user.role == 'admin' %}
+    <span class="menu-sep" aria-hidden="true"></span>
+    <a href="/admin/instances"{% if path.startswith('/admin/instances') %} aria-current="page"{% endif %}>{{ ico('instances') }}<span>{{ _("Instances") }}</span></a>
+    <a href="/admin/users"{% if path.startswith('/admin/users') %} aria-current="page"{% endif %}>{{ ico('users') }}<span>{{ _("Users") }}</span></a>
+    <a href="/admin/audit"{% if path.startswith('/admin/audit') %} aria-current="page"{% endif %}>{{ ico('audit') }}<span>{{ _("Audit") }}</span></a>
+    {% endif %}
+  </nav>
+  <div class="side-foot">
+    <button type="button" id="theme-toggle" class="side-btn" aria-label="{{ _('Switch theme') }}">{{ ico('theme') }}<span>{{ _("Theme") }}</span></button>
+    <a href="/account" class="side-btn"{% if path.startswith('/account') %} aria-current="page"{% endif %}>{{ ico('account') }}<span>{{ user.username }}</span></a>
     <form method="post" action="/logout" class="m-0">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <button class="btn btn-sm btn-outline-secondary">{{ _("Sign out") }}</button>
+      <button class="side-btn">{{ ico('logout') }}<span>{{ _("Sign out") }}</span></button>
     </form>
   </div>
-</nav>
+</aside>
 {% endif %}
-<main class="container pb-5">
-{% block content %}{% endblock %}
-</main>
-<footer class="container pb-4 text-center small text-muted">
-  <div>{{ _("Independent project, not affiliated with Bunkerity.") }}</div>
+<div class="page">
+<div class="topbar">
   {% block lang_switch %}
-  <form method="post" action="/lang" class="d-inline-flex align-items-center gap-1 mt-2 m-0" role="group" aria-label="{{ _('Language') }}">
+  <form method="post" action="/lang" class="lang" role="group" aria-label="{{ _('Language') }}">
     <input type="hidden" name="csrf" value="{{ login_csrf or csrf }}">
     <input type="hidden" name="next" value="{{ next_url }}">
     {% for code, label in LANGUAGES %}
-    <button type="submit" name="lang" value="{{ code }}" lang="{{ code }}" class="btn btn-sm btn-link{% if code == lang %} fw-bold text-decoration-underline{% endif %}"{% if code == lang %} aria-current="true"{% endif %}>{{ label }}</button>
+    <button type="submit" name="lang" value="{{ code }}" lang="{{ code }}"{% if code == lang %} aria-current="true" class="on"{% endif %}>{{ label }}</button>
     {% endfor %}
   </form>
   {% endblock %}
+</div>
+<main id="main" class="main">
+{% block content %}{% endblock %}
+</main>
+<footer class="foot">
+  <div>{{ _("Independent project, not affiliated with Bunkerity.") }}</div>
 </footer>
+</div>
 </body>
 </html>

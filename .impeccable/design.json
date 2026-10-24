@@ -1,0 +1,563 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-24T00:00:00Z",
+  "title": "Design System: Periscope",
+  "extensions": {
+    "colorMeta": {
+      "copper": {
+        "role": "primary",
+        "displayName": "Copper (dark theme)",
+        "canonical": "#ea9358",
+        "tonalRamp": [
+          "#2b1405",
+          "#5a2c0d",
+          "#8a4413",
+          "#b9601f",
+          "#d57c3d",
+          "#ea9358",
+          "#f3b88d",
+          "#fbe3d1"
+        ]
+      },
+      "paper-copper": {
+        "role": "primary",
+        "displayName": "Paper Copper (light theme)",
+        "canonical": "#a84d14",
+        "tonalRamp": [
+          "#2b1405",
+          "#5a2c0d",
+          "#7f3b10",
+          "#a84d14",
+          "#c4672a",
+          "#dc8a54",
+          "#efb996",
+          "#fae2d2"
+        ]
+      },
+      "graphite-ground": {
+        "role": "neutral",
+        "displayName": "Graphite Ground",
+        "canonical": "#0e0e0f",
+        "tonalRamp": [
+          "#0e0e0f",
+          "#17171a",
+          "#202024",
+          "#2e2e33",
+          "#5a5a5f",
+          "#a0a0a0",
+          "#d0d0d0",
+          "#ececec"
+        ]
+      },
+      "graphite-surface": {
+        "role": "neutral",
+        "displayName": "Graphite Surface",
+        "canonical": "#17171a",
+        "tonalRamp": [
+          "#0e0e0f",
+          "#17171a",
+          "#202024",
+          "#2e2e33",
+          "#5a5a5f",
+          "#a0a0a0",
+          "#d0d0d0",
+          "#ececec"
+        ]
+      },
+      "graphite-raised": {
+        "role": "neutral",
+        "displayName": "Graphite Raised",
+        "canonical": "#202024",
+        "tonalRamp": [
+          "#0e0e0f",
+          "#17171a",
+          "#202024",
+          "#2e2e33",
+          "#5a5a5f",
+          "#a0a0a0",
+          "#d0d0d0",
+          "#ececec"
+        ]
+      },
+      "graphite-seam": {
+        "role": "neutral",
+        "displayName": "Graphite Seam",
+        "canonical": "#2e2e33",
+        "tonalRamp": [
+          "#0e0e0f",
+          "#17171a",
+          "#202024",
+          "#2e2e33",
+          "#5a5a5f",
+          "#a0a0a0",
+          "#d0d0d0",
+          "#ececec"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink (dark theme text)",
+        "canonical": "#ececec",
+        "tonalRamp": [
+          "#2e2e33",
+          "#5a5a5f",
+          "#818181",
+          "#a0a0a0",
+          "#c4c4c4",
+          "#d9d9d9",
+          "#ececec",
+          "#f6f6f6"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted (dark theme)",
+        "canonical": "#a0a0a0",
+        "tonalRamp": [
+          "#2e2e33",
+          "#5a5a5f",
+          "#818181",
+          "#a0a0a0",
+          "#c4c4c4",
+          "#d9d9d9",
+          "#ececec",
+          "#f6f6f6"
+        ]
+      },
+      "paper-ground": {
+        "role": "neutral",
+        "displayName": "Paper Ground",
+        "canonical": "#f1f1ef",
+        "tonalRamp": [
+          "#111111",
+          "#575754",
+          "#8a8a85",
+          "#b5b5b0",
+          "#d9d9d4",
+          "#e8e8e5",
+          "#f1f1ef",
+          "#ffffff"
+        ]
+      },
+      "paper-surface": {
+        "role": "neutral",
+        "displayName": "White Surface",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#111111",
+          "#575754",
+          "#8a8a85",
+          "#b5b5b0",
+          "#d9d9d4",
+          "#e8e8e5",
+          "#f6f6f4",
+          "#ffffff"
+        ]
+      },
+      "paper-raised": {
+        "role": "neutral",
+        "displayName": "Paper Raised",
+        "canonical": "#f6f6f4",
+        "tonalRamp": [
+          "#111111",
+          "#575754",
+          "#8a8a85",
+          "#b5b5b0",
+          "#d9d9d4",
+          "#e8e8e5",
+          "#f6f6f4",
+          "#ffffff"
+        ]
+      },
+      "paper-seam": {
+        "role": "neutral",
+        "displayName": "Paper Seam",
+        "canonical": "#d9d9d4",
+        "tonalRamp": [
+          "#111111",
+          "#575754",
+          "#8a8a85",
+          "#b5b5b0",
+          "#d9d9d4",
+          "#e8e8e5",
+          "#f6f6f4",
+          "#ffffff"
+        ]
+      },
+      "paper-ink": {
+        "role": "neutral",
+        "displayName": "Ink (light theme text)",
+        "canonical": "#111111",
+        "tonalRamp": [
+          "#111111",
+          "#2a2a29",
+          "#444443",
+          "#575754",
+          "#80807c",
+          "#a9a9a5",
+          "#d9d9d4",
+          "#f1f1ef"
+        ]
+      },
+      "paper-ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted (light theme)",
+        "canonical": "#575754",
+        "tonalRamp": [
+          "#111111",
+          "#2a2a29",
+          "#444443",
+          "#575754",
+          "#80807c",
+          "#a9a9a5",
+          "#d9d9d4",
+          "#f1f1ef"
+        ]
+      },
+      "ok-green": {
+        "role": "secondary",
+        "displayName": "OK Green (dark theme)",
+        "canonical": "#4fc58f",
+        "tonalRamp": [
+          "#0b2a1d",
+          "#17794f",
+          "#2ea272",
+          "#4fc58f",
+          "#7fd8ae",
+          "#a9e5c8",
+          "#cff2e0",
+          "#eafaf2"
+        ]
+      },
+      "paper-ok": {
+        "role": "secondary",
+        "displayName": "OK Green (light theme)",
+        "canonical": "#166a3d",
+        "tonalRamp": [
+          "#08241a",
+          "#0e4a2b",
+          "#166a3d",
+          "#2b8a58",
+          "#5bab82",
+          "#8fc7a9",
+          "#c3e1d1",
+          "#e8f4ed"
+        ]
+      },
+      "warn-amber": {
+        "role": "secondary",
+        "displayName": "Warn Amber (dark theme)",
+        "canonical": "#f0c040",
+        "tonalRamp": [
+          "#2e2400",
+          "#7a5f08",
+          "#b8921c",
+          "#f0c040",
+          "#f4cf68",
+          "#f8de93",
+          "#fbecbf",
+          "#fef7e0"
+        ]
+      },
+      "paper-warn": {
+        "role": "secondary",
+        "displayName": "Warn Amber (light theme)",
+        "canonical": "#7d5a00",
+        "tonalRamp": [
+          "#2a1e00",
+          "#5a4200",
+          "#7d5a00",
+          "#a07a14",
+          "#c19c45",
+          "#dcc07d",
+          "#efdfb6",
+          "#f9f1da"
+        ]
+      },
+      "crit-coral": {
+        "role": "secondary",
+        "displayName": "Crit Coral (dark theme)",
+        "canonical": "#ff7566",
+        "tonalRamp": [
+          "#3a0f08",
+          "#b8301c",
+          "#e0482f",
+          "#ff7566",
+          "#ff968a",
+          "#ffb7ae",
+          "#ffd7d2",
+          "#ffeeeb"
+        ]
+      },
+      "paper-crit": {
+        "role": "secondary",
+        "displayName": "Crit Coral (light theme)",
+        "canonical": "#b3261e",
+        "tonalRamp": [
+          "#33090a",
+          "#6e1511",
+          "#8f1f19",
+          "#b3261e",
+          "#cc5149",
+          "#df8680",
+          "#efbcb8",
+          "#f9e4e2"
+        ]
+      },
+      "off-slate": {
+        "role": "secondary",
+        "displayName": "Off Slate (dark theme)",
+        "canonical": "#a3a3a3",
+        "tonalRamp": [
+          "#2e2e33",
+          "#4f4f54",
+          "#707075",
+          "#8c8c8c",
+          "#a3a3a3",
+          "#c0c0c0",
+          "#dcdcdc",
+          "#f0f0f0"
+        ]
+      },
+      "paper-off": {
+        "role": "secondary",
+        "displayName": "Off Slate (light theme)",
+        "canonical": "#5d5d5a",
+        "tonalRamp": [
+          "#111111",
+          "#2f2f2d",
+          "#4a4a47",
+          "#5d5d5a",
+          "#85857f",
+          "#abaaa5",
+          "#d4d4cf",
+          "#efefec"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "page-title": {
+        "displayName": "Page title",
+        "purpose": "One per page. Mono, 500, 1.5rem, tracking -0.02em."
+      },
+      "section-title": {
+        "displayName": "Section title",
+        "purpose": "Heading above the ledger or a table. Mono, 500, 1.0625rem."
+      },
+      "kpi-figure": {
+        "displayName": "Figure",
+        "purpose": "Figures strip numbers with tabular numerals; mono. The first cell is larger."
+      },
+      "kpi-figure-first": {
+        "displayName": "First figure",
+        "purpose": "Instances to check, the widest cell of the strip."
+      },
+      "instance-name": {
+        "displayName": "Instance name",
+        "purpose": "Ledger row name in mono, 500; 600 on warn and crit rows."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Switzer for everything the reader reads, 0.9375rem, line 1.5."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Mono 500 for chips, figure captions, worker header and table headers."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Hostnames, ports, versions, times and error text in Office Code Pro."
+      },
+      "cell": {
+        "displayName": "Cell",
+        "purpose": "Table cells and alert lines, 0.875rem Switzer."
+      },
+      "tag": {
+        "displayName": "Tag",
+        "purpose": "Role tags and badges, 0.75rem mono."
+      }
+    },
+    "shadows": [
+      {
+        "name": "none-at-rest",
+        "value": "none",
+        "purpose": "The system is flat. No elevation shadow exists on any surface, and nothing lifts on hover."
+      },
+      {
+        "name": "status-ring",
+        "value": "inset 0 0 0 1px color-mix(in srgb, var(--c) 32%, transparent)",
+        "purpose": "1px ring that bounds a tinted chip, alert line, tag or badge. A border, not a shadow."
+      },
+      {
+        "name": "current-ring",
+        "value": "inset 0 0 0 1px var(--line)",
+        "purpose": "1px ring on the current menu item."
+      },
+      {
+        "name": "field-focus-ring",
+        "value": "0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent)",
+        "purpose": "Soft 2px ring on a focused form field, with a copper border."
+      },
+      {
+        "name": "focus-outline",
+        "value": "2px solid var(--focus); outline-offset: 2px",
+        "purpose": "Keyboard focus on every interactive element, in copper."
+      }
+    ],
+    "motion": [
+      {
+        "name": "chevron-turn",
+        "value": "transform .15s",
+        "purpose": "The only movement: the row chevron turns 180deg when an instance opens. Removed under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "full-ledger",
+        "value": "80rem",
+        "purpose": "From here every ledger column shows."
+      },
+      {
+        "name": "index-to-top-bar",
+        "value": "68rem",
+        "purpose": "Below it the left index becomes a sticky top bar and the ledger header disappears; between 68rem and 80rem version and latency move into the opened row."
+      },
+      {
+        "name": "stack-tables",
+        "value": "48rem",
+        "purpose": "Tables that carry actions stack as labelled blocks."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "status",
+      "description": "Glyph and word in the state colour on a 12% tint with a 32% ring, 3px corners. The OK variant is quieter: ink text, green glyph.",
+      "html": "<span class=\"ds-chip ds-chip-crit\"><svg viewBox=\"0 0 20 20\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6.5 3h7L17 6.5v7L13.5 17h-7L3 13.5v-7L6.5 3Z\"/><path d=\"m7.5 7.5 5 5m0-5-5 5\"/></svg><span>Unreachable</span></span> <span class=\"ds-chip ds-chip-ok\"><svg viewBox=\"0 0 20 20\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"10\" cy=\"10\" r=\"7\"/><path d=\"m6.8 10.2 2.2 2.2 4.2-4.4\"/></svg><span>OK</span></span>",
+      "css": ".ds-chip { --c: #b3261e; display: inline-flex; align-items: center; gap: .35rem; padding: .15rem .55rem .15rem .4rem; border-radius: 3px; font-family: 'Office Code Pro', ui-monospace, Consolas, monospace; font-size: .875rem; font-weight: 500; line-height: 1.4; white-space: nowrap; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 32%, transparent); } .ds-chip-ok { --c: #166a3d; color: #111111; background: color-mix(in srgb, var(--c) 9%, transparent); } .ds-chip-ok svg { color: #166a3d; }"
+    },
+    {
+      "name": "Alert Line",
+      "kind": "chip",
+      "refersTo": "alert-chip",
+      "description": "Tinted line (11% tint, 28% ring, 3px corners) with glyph and sentence, shown on the ledger row of the instance it belongs to.",
+      "html": "<span class=\"ds-alert\"><svg viewBox=\"0 0 20 20\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M10 3 17.5 16h-15L10 3Z\"/><path d=\"M10 8v4M10 14.2h.01\"/></svg><span>Certificate expires in 12 days</span></span>",
+      "css": ".ds-alert { --c: #7d5a00; display: flex; align-items: flex-start; gap: .4rem; width: fit-content; max-width: 100%; padding: .2rem .55rem .2rem .4rem; border-radius: 3px; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; font-size: .875rem; font-weight: 500; color: var(--c); background: color-mix(in srgb, var(--c) 11%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 28%, transparent); } .ds-alert svg { margin-top: .15rem; flex: none; }"
+    },
+    {
+      "name": "Tag",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "Small boxed label for role and mode: scheduler, worker, block, detect, draft.",
+      "html": "<span class=\"ds-tag\">worker</span>",
+      "css": ".ds-tag { display: inline-block; padding: .05rem .4rem; border-radius: 3px; font-family: 'Office Code Pro', ui-monospace, Consolas, monospace; font-size: .75rem; font-weight: 500; line-height: 1.5; color: #575754; background: #f6f6f4; box-shadow: inset 0 0 0 1px #d9d9d4; }"
+    },
+    {
+      "name": "Menu Item",
+      "kind": "nav",
+      "refersTo": "menu-item",
+      "description": "White left index: periscope mark and wordmark, one drawn icon plus text per page. The current page is bold ink on raised grey with a 1px ring and a copper icon.",
+      "html": "<nav class=\"ds-menu\"><a class=\"ds-brand\" href=\"#\"><svg viewBox=\"0 0 20 20\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 17V7a3 3 0 0 1 3-3h7\"/><path d=\"M16 2v4\"/><path d=\"M3 17h7\"/><circle cx=\"6\" cy=\"12\" r=\"1.2\"/></svg><span>Periscope</span></a><a href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 20 20\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"6\" height=\"6\" rx=\"1\"/><rect x=\"11\" y=\"3\" width=\"6\" height=\"6\" rx=\"1\"/><rect x=\"3\" y=\"11\" width=\"6\" height=\"6\" rx=\"1\"/><rect x=\"11\" y=\"11\" width=\"6\" height=\"6\" rx=\"1\"/></svg><span>Dashboard</span></a><a href=\"#\"><svg viewBox=\"0 0 20 20\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"10\" cy=\"10\" r=\"7\"/></svg><span>Services</span></a></nav>",
+      "css": ".ds-menu { display: flex; flex-direction: column; gap: 1px; width: 15.5rem; padding: 1.25rem .75rem 1rem; background: #ffffff; border-right: 1px solid #d9d9d4; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; } .ds-menu a { display: flex; align-items: center; gap: .7rem; min-height: 2.75rem; padding: .4rem .7rem; border-radius: 4px; color: #575754; text-decoration: none; } .ds-menu a:hover { color: #111111; background: #f6f6f4; } .ds-menu a[aria-current='page'] { color: #111111; font-weight: 600; background: #f6f6f4; box-shadow: inset 0 0 0 1px #d9d9d4; } .ds-menu a[aria-current='page'] svg { color: #a84d14; } .ds-menu a:focus-visible { outline: 2px solid #a84d14; outline-offset: 2px; } .ds-brand { min-height: 0 !important; margin-bottom: 1.25rem; font-weight: 600; font-size: 1.0625rem; letter-spacing: -.01em; color: #111111 !important; } .ds-brand svg { color: #a84d14; }"
+    },
+    {
+      "name": "Language Switch",
+      "kind": "nav",
+      "refersTo": "menu-item",
+      "description": "Two plain words at the top right; the current one is ink, bold, with a 2px copper underline.",
+      "html": "<div class=\"ds-lang\"><button class=\"on\">English</button><button>Français</button></div>",
+      "css": ".ds-lang { display: inline-flex; gap: .5rem; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; } .ds-lang button { background: none; border: 0; min-height: 2.75rem; padding: .6rem .35rem; color: #575754; font: inherit; font-size: .875rem; cursor: pointer; } .ds-lang button:hover { color: #111111; } .ds-lang button.on { color: #111111; font-weight: 600; text-decoration: underline; text-decoration-color: #a84d14; text-decoration-thickness: 2px; text-underline-offset: .35em; } .ds-lang button:focus-visible { outline: 2px solid #a84d14; outline-offset: 2px; }"
+    },
+    {
+      "name": "Figures Strip",
+      "kind": "custom",
+      "refersTo": "kpi-figure",
+      "description": "One bordered white block of cells split by 1px seams; the first cell (instances to check) is wider and larger, with a faint amber wash when above zero.",
+      "html": "<dl class=\"ds-figs\"><div class=\"ds-fig ds-fig-alert\"><dt>Instances to check</dt><dd>2<span class=\"ds-sub\">3 alerts</span></dd></div><div class=\"ds-fig\"><dt>Instances OK</dt><dd>4<span class=\"ds-of\">/6</span></dd></div><div class=\"ds-fig\"><dt>Workers online</dt><dd>9<span class=\"ds-of\">/10</span></dd></div></dl>",
+      "css": ".ds-figs { display: grid; grid-template-columns: 1.7fr 1fr 1fr; gap: 1px; margin: 0; background: #d9d9d4; border: 1px solid #d9d9d4; border-radius: 4px; overflow: hidden; color: #111111; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; } .ds-fig { padding: .9rem 1.25rem; background: #ffffff; } .ds-fig dt { font-size: .8125rem; color: #575754; } .ds-fig dd { margin: 0; font-family: 'Office Code Pro', ui-monospace, Consolas, monospace; font-size: 1.5rem; font-weight: 500; line-height: 1.25; letter-spacing: -.02em; font-variant-numeric: tabular-nums; } .ds-fig:first-child dd { font-size: 2rem; } .ds-fig-alert { background: color-mix(in srgb, #7d5a00 7%, #ffffff); } .ds-fig-alert dd { color: #7d5a00; } .ds-sub { display: block; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; font-size: .8125rem; font-weight: 400; letter-spacing: 0; color: #575754; } .ds-of { color: #575754; }"
+    },
+    {
+      "name": "Ledger Row",
+      "kind": "custom",
+      "refersTo": "ledger-row",
+      "description": "One row of the single bordered ledger: state chip, mono name with role tag, up to two alert lines, right-aligned mono figures, chevron. Warn and crit rows take a 5% wash; hover darkens by 4%.",
+      "html": "<div class=\"ds-ledger\"><div class=\"ds-head\"><span>State</span><span>Instance</span><span>Alerts</span><span class=\"ds-r\">Last OK</span><span class=\"ds-r\">Workers</span><span></span></div><div class=\"ds-row\"><span class=\"ds-state\">Unreachable</span><span class=\"ds-id\"><span class=\"ds-name\">edge-paris</span><span class=\"ds-tag\">scheduler</span></span><span class=\"ds-alerts\">Instance unreachable</span><span class=\"ds-num\">3 min ago</span><span class=\"ds-num\">0/2</span><svg viewBox=\"0 0 20 20\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m5 8 5 5 5-5\"/></svg></div></div>",
+      "css": ".ds-ledger { --cols: 8.5rem minmax(9rem, 12rem) minmax(0, 1fr) 6.5rem 4rem 1.25rem; background: #ffffff; border: 1px solid #d9d9d4; border-radius: 4px; overflow: hidden; color: #111111; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; } .ds-head, .ds-row { display: grid; grid-template-columns: var(--cols); gap: .5rem 1rem; align-items: start; } .ds-head { padding: .55rem .9rem; font-size: .8125rem; color: #575754; background: #f6f6f4; border-bottom: 1px solid #d9d9d4; } .ds-r { text-align: right; } .ds-row { padding: .85rem .9rem; min-height: 3.25rem; background: color-mix(in srgb, #b3261e 5%, #ffffff); cursor: pointer; } .ds-row:hover { background: color-mix(in srgb, #111111 4%, color-mix(in srgb, #b3261e 5%, #ffffff)); } .ds-row:focus-visible { outline: 2px solid #a84d14; outline-offset: -2px; } .ds-state { color: #b3261e; font-family: 'Office Code Pro', ui-monospace, Consolas, monospace; font-size: .875rem; font-weight: 500; } .ds-id { display: flex; align-items: baseline; gap: .6rem; min-width: 0; } .ds-name { font-family: 'Office Code Pro', ui-monospace, Consolas, monospace; font-size: 1rem; font-weight: 600; } .ds-tag { padding: .05rem .4rem; border-radius: 3px; font-family: 'Office Code Pro', ui-monospace, Consolas, monospace; font-size: .75rem; font-weight: 500; color: #575754; background: #f6f6f4; box-shadow: inset 0 0 0 1px #d9d9d4; } .ds-alerts { color: #b3261e; font-size: .875rem; font-weight: 500; } .ds-num { font-family: 'Office Code Pro', ui-monospace, Consolas, monospace; font-size: .8125rem; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; } .ds-row svg { color: #575754; justify-self: center; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Copper fill, 2.5rem tall, 3px radius, weight 500. Dark ink text on dark theme, white on light.",
+      "html": "<button class=\"ds-btn\">Save</button>",
+      "css": ".ds-btn { min-height: 2.5rem; padding: .375rem .9rem; border: 1px solid #a84d14; border-radius: 3px; background: #a84d14; color: #ffffff; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; font-weight: 500; cursor: pointer; } .ds-btn:hover { background: color-mix(in srgb, #a84d14 88%, white); } .ds-btn:focus-visible { outline: 2px solid #a84d14; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Surface-filled field with 1px seam border and 3px radius; copper border and 2px soft ring on focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Search\">",
+      "css": ".ds-input { min-height: 2.5rem; padding: .375rem .75rem; background: #ffffff; color: #111111; border: 1px solid #d9d9d4; border-radius: 3px; font-family: 'Switzer', 'Segoe UI', system-ui, sans-serif; } .ds-input::placeholder { color: #575754; opacity: .8; } .ds-input:focus { outline: none; border-color: #a84d14; box-shadow: 0 0 0 2px color-mix(in srgb, #a84d14 28%, transparent); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Ledger",
+    "overview": "Periscope reads like a ledger, not a dashboard of floating cards: one strip of figures, then one table of instances whose columns run straight from the first row to the last. A reader scans down a column to compare and across a row to understand an instance. Every alert is a tinted line inside the instance it belongs to; there is no separate alert feed. Light is the default theme (neutral paper), dark is a reader choice with the same structure.\n\nThe system avoids the look of generated dashboards: floating rounded cards, pill chips, shadows, hover lift, big hero numbers. It keeps what makes a page fast to read: a left index with one drawn icon per page, a small periscope mark, tinted state chips with a glyph and a word, and a faint wash on problem rows so the instance to check is visible at a glance.",
+    "keyCharacteristics": [
+      "Neutral paper ground, white single-level surfaces, 1px seams, 3-4px corners. No shadows, no gradients.",
+      "Status as glyph + word + state colour, softly tinted. Copper only for action, place and the brand mark.",
+      "Switzer for reading, Office Code Pro for data (names, figures, hosts, versions, times).",
+      "Problem instances sort first and carry their alerts on the row; every row starts collapsed.",
+      "Light and dark themes share one token set (`data-bs-theme`); the page starts light."
+    ],
+    "rules": [
+      {
+        "name": "The Hue Means State Rule",
+        "body": "Green, amber, coral and slate are used only for state. Copper is only for interaction and place, and is never used for a status or a badge.",
+        "section": "colors"
+      },
+      {
+        "name": "The Soft Tint Rule",
+        "body": "A status appears as a glyph and a word in the state colour on a 9-14% tint of that colour with a 28-32% ring, with 3px corners. Never a solid fill, never a pill. Problem rows take a 5% wash.",
+        "section": "colors"
+      },
+      {
+        "name": "The Never Colour Alone Rule",
+        "body": "A status colour always comes with its glyph shape and a word.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Tables, KPI figures, instance counts and fact values use `tabular-nums` so refreshing numbers do not shift.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Container Rule",
+        "body": "A block of related content (the figures, the ledger, a table) is one bordered white surface with 4px corners. Containers are never nested inside each other.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No Motion for Show Rule",
+        "body": "The only movement is the chevron turning when a row opens. No hover lift, no dimming of siblings, no entrance animation.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do align every repeated value in a shared grid so columns run straight from row to row.",
+      "Do carry state with a glyph, a word and a colour, and nothing else.",
+      "Do keep copper for action, place and the brand mark only: links, the primary button, the current page icon, focus.",
+      "Do use mono only for data (names, figures, hosts, versions, times) and Switzer for everything the reader reads.",
+      "Do keep a 2.75rem minimum height on menu items and the language switch (2.5rem on other controls) and a visible 2px focus outline with 2px offset.",
+      "Do keep destructive actions at least 1.25rem from any neighbouring control and behind a confirmation."
+    ],
+    "donts": [
+      "Don't nest containers, or use rounded pills, shadows, hover lift, sibling dimming or entrance animation.",
+      "Don't use copper for a status, or green, amber or coral for interaction.",
+      "Don't use an eyebrow, a decorative icon outside the page icons and the brand mark, or a coloured stripe on one side of a row.",
+      "Don't copy HyperOtter's palette or mascot; only its sans-plus-mono logic is shared."
+    ]
+  }
+}

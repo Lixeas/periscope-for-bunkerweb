@@ -1,7 +1,7 @@
 (() => {
-  let t = "light";
+  let t = "light";  // light unless the reader chose dark
   try {
-    t = localStorage.getItem("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    t = localStorage.getItem("theme") || "light";
   } catch (e) { /* storage blocked: light theme */ }
   document.documentElement.setAttribute("data-bs-theme", t);
 })();
@@ -48,6 +48,12 @@ document.addEventListener("DOMContentLoaded", () => {
       try { localStorage.setItem("theme", next); } catch (e) { /* ignored */ }
     });
   }
+  // destructive forms ask first (a native dialog: no inline JS needed under the CSP)
+  document.querySelectorAll("form[data-confirm]").forEach((f) => {
+    f.addEventListener("submit", (e) => {
+      if (!confirm(f.dataset.confirm || document.body.dataset.msgConfirmDelete)) e.preventDefault();
+    });
+  });
   document.querySelectorAll("[data-passkey]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const out = document.getElementById("passkey-error");

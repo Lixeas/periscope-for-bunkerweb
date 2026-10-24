@@ -1,50 +1,90 @@
+{#- Drawn icons, one stroke weight. 20px grid, stroke follows currentColor. -#}
+{% macro ico(name) -%}
+{%- set paths = {
+  'periscope': '<path d="M6 17V7a3 3 0 0 1 3-3h7"/><path d="M16 2v4"/><path d="M3 17h7"/><circle cx="6" cy="12" r="1.2"/>',
+  'home': '<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="11" y="3" width="6" height="6" rx="1"/><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/>',
+  'services': '<path d="M10 3 3 6.5 10 10l7-3.5L10 3Z"/><path d="m3 10 7 3.5 7-3.5"/><path d="m3 13.5 7 3.5 7-3.5"/>',
+  'bans': '<circle cx="10" cy="10" r="7"/><path d="m5 5 10 10"/>',
+  'jobs': '<circle cx="10" cy="10" r="7"/><path d="M10 6v4.5l3 1.5"/>',
+  'certs': '<path d="M10 2.5 16 5v4.5c0 3.6-2.4 6.3-6 8-3.6-1.7-6-4.4-6-8V5l6-2.5Z"/><path d="m7.2 10 2 2 3.6-3.8"/>',
+  'instances': '<rect x="3" y="4" width="14" height="5" rx="1"/><rect x="3" y="11" width="14" height="5" rx="1"/><path d="M6 6.5h.01M6 13.5h.01"/>',
+  'users': '<circle cx="8" cy="7" r="3"/><path d="M2.5 16c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5"/><path d="M13.5 4.2a3 3 0 0 1 0 5.6M15.5 11.8c1.2.7 1.9 2 2.2 3.7"/>',
+  'audit': '<path d="M5 3h8l3 3v11H5V3Z"/><path d="M8 9h5M8 12h5M8 15h3"/>',
+  'account': '<circle cx="10" cy="7" r="3.2"/><path d="M3.5 17c.7-3.4 3.2-5 6.5-5s5.8 1.6 6.5 5"/>',
+  'theme': '<circle cx="10" cy="10" r="7"/><path d="M10 3a7 7 0 0 1 0 14Z" fill="currentColor"/>',
+  'logout': '<path d="M8 3H4v14h4"/><path d="M12 6.5 15.5 10 12 13.5M15.5 10H7.5"/>',
+  'chevron': '<path d="m6 8 4 4 4-4"/>',
+  'ok': '<circle cx="10" cy="10" r="7"/><path d="m6.8 10.2 2.2 2.2 4.2-4.4"/>',
+  'warn': '<path d="M10 3 17.5 16h-15L10 3Z"/><path d="M10 8v4M10 14.2h.01"/>',
+  'crit': '<path d="M6.5 3h7L17 6.5v7L13.5 17h-7L3 13.5v-7L6.5 3Z"/><path d="m7.5 7.5 5 5m0-5-5 5"/>',
+  'off': '<circle cx="10" cy="10" r="7" stroke-dasharray="2.4 2.4"/>'
+} -%}
+<svg class="ico" viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">{{ paths[name] | safe }}</svg>
+{%- endmacro %}
+
+{#- Status chip: shape + word + colour, never colour alone. level: ok | warn | crit | off -#}
+{% macro chip(level, label) -%}
+<span class="chip chip-{{ level }}">{{ ico(level) }}<span>{{ label }}</span></span>
+{%- endmacro %}
+
 {% macro instance_badge(status) -%}
-{%- set cls = {'ok': 'success', 'degraded': 'warning', 'down': 'danger'}[status] | default('secondary') -%}
-{%- set label = {'ok': 'OK', 'degraded': _('Degraded'), 'down': _('Unreachable'), 'unknown': _('Unknown')}[status] | default(status) -%}
-<span class="badge text-bg-{{ cls }}">{{ label }}</span>
+{%- set lvl = {'ok': 'ok', 'degraded': 'warn', 'down': 'crit'}[status] | default('off') -%}
+{%- set label = {'ok': _('OK'), 'degraded': _('Degraded'), 'down': _('Unreachable'), 'unknown': _('Unknown')}[status] | default(status) -%}
+{{ chip(lvl, label) }}
 {%- endmacro %}
 
 {% macro cert_badge(status) -%}
-{%- set cls = {'ok': 'success', 'orange': 'warning', 'red': 'danger', 'expired': 'danger'}[status] | default('secondary') -%}
+{%- set lvl = {'ok': 'ok', 'orange': 'warn', 'red': 'crit', 'expired': 'crit'}[status] | default('off') -%}
 {%- set label = {'ok': _('Valid'), 'orange': _('Expires soon'), 'red': _('Critical'), 'expired': _('Expired'), 'none': _('None')}[status] | default(status) -%}
-<span class="badge text-bg-{{ cls }}">{{ label }}</span>
+{{ chip(lvl, label) }}
 {%- endmacro %}
 
 {% macro mode_badge(mode) -%}
-{%- if mode == 'block' -%}<span class="badge text-bg-success">block</span>
-{%- elif mode == 'detect' -%}<span class="badge text-bg-warning">detect</span>
-{%- else -%}<span class="badge text-bg-secondary">{{ _("unknown") }}</span>{%- endif -%}
+{%- if mode == 'block' -%}<span class="tag tag-block">block</span>
+{%- elif mode == 'detect' -%}<span class="tag tag-detect">detect</span>
+{%- else -%}<span class="tag">{{ _("unknown") }}</span>{%- endif -%}
 {%- endmacro %}
 
 {% macro missing(names) -%}
-{%- if names %}<div class="small text-warning-emphasis">{{ _("⚠ missing on: {names}", names=names | join(', ')) }}</div>{% endif -%}
+{%- if names %}<div class="note-warn">{{ ico('warn') }}<span>{{ _("missing on: {names}", names=names | join(', ')) }}</span></div>{% endif -%}
 {%- endmacro %}
 
 {% macro node_badge(status) -%}
-{%- set cls = {'up': 'success', 'loading': 'secondary', 'down': 'danger', 'failover': 'warning'}[status] | default('secondary') -%}
-{%- set label = {'up': _('Online'), 'loading': _('Starting'), 'down': _('Offline'), 'failover': 'Failover'}[status] | default(status or _('Unknown')) -%}
-<span class="badge text-bg-{{ cls }}">{{ label }}</span>
+{%- set lvl = {'up': 'ok', 'loading': 'off', 'down': 'crit', 'failover': 'warn'}[status] | default('off') -%}
+{%- set label = {'up': _('Online'), 'loading': _('Starting'), 'down': _('Offline'), 'failover': _('Failover')}[status] | default(status or _('Unknown')) -%}
+{{ chip(lvl, label) }}
 {%- endmacro %}
 
-{% macro nodes_block(c) -%}
-<div class="mt-3 border-top pt-2">
-  <div class="small fw-semibold">{{ _("Nodes:") }}
-    {% if c.nodes is none %}<span class="text-secondary">{{ _("not collected yet") }}</span>
-    {% elif not c.nodes %}<span class="text-secondary">{{ _("none") }}</span>
-    {% else %}<span data-nodes-summary>{{ _("{up}/{total} online", up=c.nodes_up, total=c.nodes_total) }}</span>{% endif %}
-  </div>
-  {% if c.nodes %}
-  <ul class="list-unstyled small mb-0 mt-1">
-    {% for n in c.nodes %}
-    <li class="py-1 border-top">
-      <div class="d-flex justify-content-between align-items-start gap-2">
-        <span><span class="badge text-bg-info">worker</span> <strong>{{ n.name or n.hostname }}</strong></span>
-        {{ node_badge(n.status) }}
-      </div>
-      <div class="text-secondary">{{ n.hostname }}{% if n.port %}:{{ n.port }}{% endif %}{% if n.type %} · {{ n.type }}{% endif %} · {{ _("seen {ago}", ago=n.last_seen | ago) }}</div>
-    </li>
-    {% endfor %}
-  </ul>
-  {% endif %}
+{#- One alert line of an instance. The code comes from queries._alerts and is translated here. -#}
+{% macro alert_text(a) -%}
+{%- if a.code == 'down' -%}{{ _("Instance unreachable") }}
+{%- elif a.code == 'degraded' -%}{{ _("Instance degraded") }}
+{%- elif a.code == 'stale' -%}{{ _("Data is stale") }}
+{%- elif a.code == 'node_down' -%}{{ _("Worker {name} is offline", name=a.name) }}
+{%- elif a.code == 'node_failover' -%}{{ _("Worker {name} is in failover", name=a.name) }}
+{%- elif a.code == 'cert_expired' -%}{{ _("{count} certificate(s) expired", count=a.count) }}
+{%- elif a.code == 'cert_red' -%}{{ _("{count} certificate(s) expire in under 7 days", count=a.count) }}
+{%- elif a.code == 'cert_orange' -%}{{ _("{count} certificate(s) expire in under 21 days", count=a.count) }}
+{%- endif -%}
+{%- endmacro %}
+
+{#- Workers of one instance (the nginx nodes the scheduler manages), one ruled line each. -#}
+{% macro workers_rail(c) -%}
+<div class="workers-head">{{ _("Nodes:") }}
+  {% if c.nodes is none %}<span class="muted">{{ _("not collected yet") }}</span>
+  {% elif not c.nodes %}<span class="muted">{{ _("none") }}</span>
+  {% else %}<span data-nodes-summary>{{ _("{up}/{total} online", up=c.nodes_up, total=c.nodes_total) }}</span>{% endif %}
 </div>
+{% if c.nodes %}
+<ul class="workers">
+  {% for n in c.nodes %}
+  <li class="worker">
+    <div class="worker-top"><span class="tag tag-role">{{ _("worker") }}</span>{{ node_badge(n.status) }}</div>
+    <strong class="worker-name">{{ n.name or n.hostname }}</strong>
+    <div class="mono muted">{{ n.hostname }}{% if n.port %}:{{ n.port }}{% endif %}{% if n.type %} · {{ n.type }}{% endif %}</div>
+    <div class="muted small">{{ _("seen {ago}", ago=n.last_seen | ago) }}</div>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
 {%- endmacro %}

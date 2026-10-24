@@ -1,49 +1,99 @@
 {% extends "base.html" %}
-{% from "_macros.html" import instance_badge, nodes_block with context %}
-{% block title %}{{ _("Home") }}{% endblock %}
+{% from "_macros.html" import instance_badge, workers_rail, alert_text, chip, ico with context %}
+{% block title %}{{ _("Dashboard") }}{% endblock %}
 {% block content %}
-<h1 class="h4 mb-3">{{ _("Overview") }}</h1>
-<div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3"><div class="card tile h-100"><div class="card-body">
-    <div class="text-secondary small">{{ _("Instances OK") }}</div>
-    <div class="value"><span data-summary="instances_ok">{{ s.instances_ok }}</span> / <span data-summary="instances_total">{{ s.instances_total }}</span></div>
-  </div></div></div>
-  <div class="col-6 col-lg-3"><div class="card tile h-100"><div class="card-body">
-    <div class="text-secondary small">{{ _("Active bans (unique IPs)") }}</div>
-    <div class="value" data-summary="bans_active">{{ s.bans_active }}</div>
-  </div></div></div>
-  <div class="col-6 col-lg-3"><div class="card tile h-100"><div class="card-body">
-    <div class="text-secondary small">{{ _("Certificates to watch") }}</div>
-    <div class="value"><a href="/certificates" data-summary="certs_warn" class="text-reset">{{ s.certs_warn }}</a></div>
-    {% set certs_none %}<span data-summary="certs_none">{{ s.certs_none }}</span>{% endset %}
-    <div class="small text-secondary">{{ _("{count} without certificate", count=certs_none) }}</div>
-  </div></div></div>
-  <div class="col-6 col-lg-3"><div class="card tile h-100"><div class="card-body">
-    <div class="text-secondary small">{{ _("Stale data") }}</div>
-    <div class="value" data-summary="instances_stale">{{ s.instances_stale }}</div>
-  </div></div></div>
-</div>
+<h1 class="page-title">{{ _("Overview") }}</h1>
+<div id="live" class="visually-hidden" role="status" aria-live="polite" data-msg="{{ _('{alerts} alerts, {ok} of {total} instances OK') }}"></div>
+
+{% set todo = cards | selectattr('sev', 'in', ['crit', 'warn']) | list %}
+<dl class="figs" data-alerts="{{ s.alerts_total }}" data-ok="{{ s.instances_ok }}">
+  <div class="fig{% if todo %} fig-alert{% endif %}">
+    <dt>{{ _("Instances to check") }}</dt>
+    <dd>{{ todo | length }}
+      {% if todo %}<span class="fig-sub"><span data-summary="alerts_total">{{ s.alerts_total }}</span> {{ _("alerts") }}</span>
+      <span class="fig-names">{% for c in todo %}<a href="#inst-{{ c.id }}">{{ c.name }}</a>{% endfor %}</span>
+      {% else %}<span class="visually-hidden" data-summary="alerts_total">{{ s.alerts_total }}</span>{% endif %}
+    </dd>
+  </div>
+  <div class="fig">
+    <dt>{{ _("Instances OK") }}</dt>
+    <dd><span data-summary="instances_ok">{{ s.instances_ok }}</span><span class="of">/<span data-summary="instances_total">{{ s.instances_total }}</span></span></dd>
+  </div>
+  <div class="fig">
+    <dt>{{ _("Workers online") }}</dt>
+    <dd><span data-summary="nodes_up">{{ s.nodes_up }}</span><span class="of">/<span data-summary="nodes_total">{{ s.nodes_total }}</span></span></dd>
+  </div>
+  <div class="fig">
+    <dt>{{ _("Services") }}</dt>
+    <dd><a href="/services" data-summary="services_total">{{ s.services_total }}</a></dd>
+  </div>
+  <div class="fig">
+    <dt>{{ _("Certificates") }}</dt>
+    <dd><a href="/certificates" data-summary="certs_total">{{ s.certs_total }}</a>{% if s.certs_warn %}<span class="fig-sub">{{ _("{count} to watch", count=s.certs_warn) }}</span>{% endif %}</dd>
+  </div>
+  <div class="fig">
+    <dt>{{ _("Active bans (unique IPs)") }}</dt>
+    <dd><a href="/bans" data-summary="bans_active">{{ s.bans_active }}</a></dd>
+  </div>
+</dl>
 
 {% if not cards %}
 {% set add_link %}<a href="/admin/instances">{{ _("Add an instance") }}</a>{% endset %}
-<div class="alert alert-info">{{ _("No instance registered.") }}{% if user.role == 'admin' %} {{ add_link }}.{% endif %}</div>
+<div class="alert alert-info mt-4">{{ _("No instance registered.") }}{% if user.role == 'admin' %} {{ add_link }}.{% endif %}</div>
 {% endif %}
-<div class="row g-3">
+
+<h2 class="section-title">{{ _("Instances") }}</h2>
+<div class="ledger">
+  <div class="ledger-head" aria-hidden="true">
+    <span>{{ _("State") }}</span><span>{{ _("Instance") }}</span><span>{{ _("Alerts") }}</span>
+    <span class="led-r">{{ _("Last OK") }}</span><span class="led-r">{{ _("Version") }}</span><span class="led-r">{{ _("Latency") }}</span><span class="led-r">{{ _("Workers") }}</span><span></span>
+  </div>
   {% for c in cards %}
-  <div class="col-md-6 col-xl-4"><div class="card h-100"><div class="card-body">
-    <div class="d-flex justify-content-between align-items-start">
-      <h2 class="h6 mb-0">{{ c.name }} <span class="badge text-bg-primary">{{ c.role }}</span></h2>
-      {% if c.enabled %}{{ instance_badge(c.status) }}{% else %}<span class="badge text-bg-secondary">{{ _("Disabled") }}</span>{% endif %}
+  <details id="inst-{{ c.id }}" class="inst inst-{{ c.sev }}">
+    <summary aria-labelledby="nm-{{ c.id }} st-{{ c.id }}" aria-describedby="al-{{ c.id }}">
+      <span class="inst-state" id="st-{{ c.id }}">
+        {% if not c.enabled %}{{ chip('off', _("Disabled")) }}
+        {% elif c.status == 'ok' and c.sev != 'ok' %}{{ chip(c.sev, _("Needs check")) }}
+        {% else %}{{ instance_badge(c.status) }}{% endif %}
+      </span>
+      <span class="inst-id">
+        <span class="inst-name" id="nm-{{ c.id }}">{{ c.name }}</span>
+        <span class="tag tag-role">{{ _("scheduler") }}</span>
+      </span>
+      <span class="inst-alerts" id="al-{{ c.id }}">
+        {% for a in c.alerts[:2] %}
+        <span class="alert-chip alert-{{ a.level }}">{{ ico('crit' if a.level == 'crit' else 'warn') }}<span>{{ alert_text(a) }}</span></span>
+        {% endfor %}
+        {% if c.alerts | length > 2 %}<span class="alert-more">+{{ c.alerts | length - 2 }}</span>{% endif %}
+        {% if not c.alerts and c.enabled %}<span class="muted small">{{ _("Nothing to check") }}</span>{% endif %}
+      </span>
+      <span class="led-num"><span class="visually-hidden">{{ _("Last OK") }}: </span>{{ c.last_ok_at | ago }}</span>
+      <span class="led-num{% if not c.version %} led-none{% endif %}"><span class="visually-hidden">{{ _("Version") }}: </span>{{ c.version or '—' }}</span>
+      <span class="led-num{% if c.latency_ms is none %} led-none{% endif %}"><span class="visually-hidden">{{ _("Latency") }}: </span>{% if c.latency_ms is not none %}{{ '%.0f'|format(c.latency_ms) }} ms{% else %}—{% endif %}</span>
+      <span class="led-num"><span class="visually-hidden">{{ _("Workers online") }}: </span>{{ c.nodes_up }}/{{ c.nodes_total }}</span>
+      <span class="inst-chev">{{ ico('chevron') }}</span>
+    </summary>
+    <div class="inst-body">
+      <div class="inst-facts">
+        <dl class="facts">
+          <div><dt>{{ _("Version") }}</dt><dd>{{ c.version or '—' }}</dd></div>
+          <div><dt>{{ _("Latency") }}</dt><dd>{% if c.latency_ms is not none %}{{ '%.0f'|format(c.latency_ms) }} ms{% else %}—{% endif %}</dd></div>
+          <div><dt>{{ _("Last collection") }}</dt><dd>{{ c.last_ok_at | ago }}{% if c.enabled and c.stale %} <span class="tag tag-warn">{{ _("stale") }}</span>{% endif %}</dd></div>
+          <div><dt>{{ _("Services") }}</dt><dd>{{ c.services_total }}</dd></div>
+          <div><dt>{{ _("Certificates") }}</dt><dd>{{ c.certs_total }}</dd></div>
+        </dl>
+        {% if c.alerts | length > 2 %}
+        <ul class="alert-list">
+          {% for a in c.alerts[2:] %}
+          <li class="alert-{{ a.level }}">{{ ico('crit' if a.level == 'crit' else 'warn') }}<span>{{ alert_text(a) }}</span></li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if c.last_error %}<div class="inst-error">{{ c.last_error | stored }}</div>{% endif %}
+      </div>
+      <div class="inst-workers">{{ workers_rail(c) }}</div>
     </div>
-    <dl class="row small mb-0 mt-2">
-      <dt class="col-5">{{ _("Version") }}</dt><dd class="col-7">{{ c.version or '—' }}</dd>
-      <dt class="col-5">{{ _("Latency") }}</dt><dd class="col-7">{% if c.latency_ms is not none %}{{ '%.0f'|format(c.latency_ms) }} ms{% else %}—{% endif %}</dd>
-      <dt class="col-5">{{ _("Last collection") }}</dt>
-      <dd class="col-7">{{ c.last_ok_at | ago }}{% if c.enabled and c.stale %} <span class="badge text-bg-warning">{{ _("stale") }}</span>{% endif %}</dd>
-    </dl>
-    {% if c.last_error %}<div class="small text-danger mt-2">{{ c.last_error | stored }}</div>{% endif %}
-    {{ nodes_block(c) }}
-  </div></div></div>
+  </details>
   {% endfor %}
 </div>
 {% endblock %}

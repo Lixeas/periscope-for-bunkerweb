@@ -7,23 +7,23 @@
 {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 
 <div class="table-responsive mb-5">
-<table class="table align-middle">
-  <thead><tr><th>{{ _("Name") }}</th><th>{{ _("API URL") }}</th><th>{{ _("Authentication") }}</th><th>{{ _("TLS probe") }}</th><th>{{ _("State") }}</th><th>{{ _("Last collection") }}</th><th></th></tr></thead>
+<table class="table table-stack align-middle">
+  <thead><tr><th>{{ _("Name") }}</th><th>{{ _("API URL") }}</th><th>{{ _("Authentication") }}</th><th>{{ _("TLS probe") }}</th><th>{{ _("State") }}</th><th>{{ _("Last collection") }}</th><th><span class="visually-hidden">{{ _("Actions") }}</span></th></tr></thead>
   <tbody>
   {% for i in instances %}
   <tr>
-    <td>{{ i.name }}</td>
-    <td>{{ i.base_url }}</td>
-    <td>{% if i.auth_mode == 'user' %}{{ _("API user") }} <code>{{ i.api_username }}</code>{% else %}{{ _("API token") }}{% endif %}</td>
-    <td>{{ i.probe_target }}:{{ i.tls_port }}</td>
-    <td>{% if i.enabled %}{{ instance_badge(i.status) }}{% else %}<span class="badge text-bg-secondary">{{ _("Disabled") }}</span>{% endif %}
+    <td data-label="{{ _('Name') }}">{{ i.name }}</td>
+    <td data-label="{{ _('API URL') }}">{{ i.base_url }}</td>
+    <td data-label="{{ _('Authentication') }}">{% if i.auth_mode == 'user' %}{{ _("API user") }} <code>{{ i.api_username }}</code>{% else %}{{ _("API token") }}{% endif %}</td>
+    <td data-label="{{ _('TLS probe') }}">{{ i.probe_target }}:{{ i.tls_port }}</td>
+    <td data-label="{{ _('State') }}">{% if i.enabled %}{{ instance_badge(i.status) }}{% else %}<span class="badge text-bg-secondary">{{ _("Disabled") }}</span>{% endif %}
         {% if i.last_error %}<div class="small text-danger">{{ i.last_error | stored }}</div>{% endif %}</td>
-    <td>{{ i.last_ok_at | ago }}</td>
+    <td data-label="{{ _('Last collection') }}">{{ i.last_ok_at | ago }}</td>
     <td class="text-nowrap">
-      <a class="btn btn-sm btn-outline-secondary" href="/admin/instances/{{ i.id }}">{{ _("Edit") }}</a>
-      <form method="post" action="/admin/instances/{{ i.id }}/delete" class="d-inline">
+      <a class="btn btn-sm btn-outline-secondary" href="/admin/instances/{{ i.id }}" aria-label="{{ _('Edit {name}', name=i.name) }}">{{ _("Edit") }}</a>
+      <form method="post" action="/admin/instances/{{ i.id }}/delete" class="d-inline" data-confirm="{{ _('Delete instance {name}? Its collected data is removed too.', name=i.name) }}">
         <input type="hidden" name="csrf" value="{{ csrf }}">
-        <button class="btn btn-sm btn-outline-danger">{{ _("Delete") }}</button>
+        <button class="btn btn-sm btn-outline-danger" aria-label="{{ _('Delete {name}', name=i.name) }}">{{ _("Delete") }}</button>
       </form>
     </td>
   </tr>
