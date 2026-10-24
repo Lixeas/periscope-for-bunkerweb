@@ -23,9 +23,42 @@ def _node_view(n: dict) -> dict:
             "last_seen": diff._parse_ts(n.get("last_seen"))}
 
 
+SEV_ORDER = {"crit": 0, "warn": 1, "ok": 2, "off": 3}
+
+
+def _alerts(c: dict, certs: dict[str, int]) -> list[dict]:
+    """Things to check on one instance, worst first. `code` is a stable key the template translates."""
+    if not c["enabled"]:
+        return []
+    out = []
+    if c["status"] == "down":
+        out.append({"level": "crit", "code": "down"})
+    node_alerts = [{"level": "crit" if n["status"] == "down" else "warn",
+                    "code": "node_down" if n["status"] == "down" else "node_failover",
+                    "name": n["name"] or n["hostname"]}
+                   for n in c["nodes"] or [] if n["status"] in ("down", "failover")]
+    out += node_alerts
+    if c["status"] == "degraded" and not node_alerts:
+        out.append({"level": "warn", "code": "degraded"})
+    if c["stale"] and c["status"] != "down":
+        out.append({"level": "warn", "code": "stale"})
+    for key, level, code in (("expired", "crit", "cert_expired"), ("red", "crit", "cert_red"),
+                             ("orange", "warn", "cert_orange")):
+        if certs.get(key):
+            out.append({"level": level, "code": code, "count": certs[key]})
+    out.sort(key=lambda a: SEV_ORDER[a["level"]])
+    return out
+
+
 def instance_cards(db: Session, now: datetime) -> list[dict]:
     cfg = get_settings()
     snaps = {s.instance_id: s.payload for s in db.query(Snapshot).filter_by(kind="instances")}
+    svc_snaps = {s.instance_id: s.payload for s in db.query(Snapshot).filter_by(kind="services")}
+    cert_counts: dict[int, dict[str, int]] = {}
+    for p in db.query(CertProbe):
+        st = diff.cert_status(p.present, p.not_after, now)
+        by = cert_counts.setdefault(p.instance_id, {})
+        by[st] = by.get(st, 0) + 1
     cards = [
         {"role": "scheduler",
          # None = nodes never collected (unknown); [] = the scheduler declares none
@@ -39,11 +72,21 @@ def instance_cards(db: Session, now: datetime) -> list[dict]:
     for c in cards:
         c["nodes_total"] = len(c["nodes"] or [])
         c["nodes_up"] = sum(n["status"] == "up" for n in c["nodes"] or [])
+        certs = cert_counts.get(c["id"], {})
+        c["certs_total"] = sum(v for k, v in certs.items() if k != "none")  # certificates actually served
+        c["certs_warn"] = sum(certs.get(k, 0) for k in ("expired", "red", "orange"))
+        c["services_total"] = sum(1 for s in svc_snaps.get(c["id"]) or []
+                                  if isinstance(s, dict) and not s.get("draft"))
+        c["alerts"] = _alerts(c, certs)
+        c["sev"] = ("off" if not c["enabled"] else c["alerts"][0]["level"] if c["alerts"] else "ok")
+    # instances to check first
+    cards.sort(key=lambda c: (SEV_ORDER[c["sev"]], c["name"]))
     return cards
 
 
 def summary(db: Session, now: datetime) -> dict:
-    active = [c for c in instance_cards(db, now) if c["enabled"]]
+    all_cards = instance_cards(db, now)
+    active = [c for c in all_cards if c["enabled"]]
     ips = {str(b.get("ip", "")) for payload in _by_instance(db, "bans").values() for b in payload}
     statuses = [diff.cert_status(p.present, p.not_after, now)
                 for p, _ in db.query(CertProbe, Instance)
@@ -52,6 +95,11 @@ def summary(db: Session, now: datetime) -> dict:
         "instances_total": len(active),
         "instances_ok": sum(c["status"] == "ok" for c in active),
         "instances_stale": sum(c["stale"] for c in active),
+        "nodes_total": sum(c["nodes_total"] for c in active),
+        "nodes_up": sum(c["nodes_up"] for c in active),
+        "services_total": sum(c["services_total"] for c in active),
+        "certs_total": sum(c["certs_total"] for c in active),
+        "alerts_total": sum(len(c["alerts"]) for c in active),
         "bans_active": len(ips),
         "certs_warn": sum(s in ("expired", "red", "orange") for s in statuses),
         "certs_none": statuses.count("none"),

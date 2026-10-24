@@ -63,8 +63,12 @@ def test_summary_counts_only_enabled_instances(fresh_db):
     now = seed()
     with session_scope() as s:
         out = queries.summary(s, now)
-    assert out == {"instances_total": 2, "instances_ok": 1, "instances_stale": 1,
-                   "bans_active": 2, "certs_warn": 1, "certs_none": 1}
+    assert {k: out[k] for k in ("instances_total", "instances_ok", "instances_stale",
+                                "bans_active", "certs_warn", "certs_none")} == {
+        "instances_total": 2, "instances_ok": 1, "instances_stale": 1,
+        "bans_active": 2, "certs_warn": 1, "certs_none": 1}
+    assert (out["nodes_up"], out["nodes_total"], out["certs_total"]) == (1, 2, 2)
+    assert out["alerts_total"] == sum(len(c["alerts"]) for c in queries.instance_cards(s, now) if c["enabled"])
 
 
 def test_services_gaps_and_filters(fresh_db):
@@ -148,3 +152,17 @@ def test_instance_cards_carry_role_and_nodes(fresh_db):
     assert (cards["bw1"]["nodes_up"], cards["bw1"]["nodes_total"]) == (1, 2)
     assert cards["bw1"]["nodes"][0]["last_seen"].year == 2026 and cards["bw1"]["nodes"][1]["last_seen"] is None
     assert cards["bw2"]["nodes"] is None and cards["bw2"]["nodes_total"] == 0
+
+
+def test_instance_cards_alerts_are_sorted_worst_first(fresh_db):
+    now = seed()
+    with session_scope() as s:
+        cards = queries.instance_cards(s, now)
+    by = {c["name"]: c for c in cards}
+    codes = [a["code"] for a in by["bw1"]["alerts"]]
+    assert "cert_red" in codes                        # x.example expires in 3 days
+    assert [a["level"] for a in by["bw1"]["alerts"]] == sorted(
+        (a["level"] for a in by["bw1"]["alerts"]), key=queries.SEV_ORDER.get)
+    assert by["bw2"]["alerts"] and by["bw3"]["alerts"] == [] and by["bw3"]["sev"] == "off"
+    # the instances to check come first, disabled ones last
+    assert [c["sev"] for c in cards] == sorted((c["sev"] for c in cards), key=queries.SEV_ORDER.get)
