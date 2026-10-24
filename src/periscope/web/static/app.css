@@ -247,7 +247,11 @@ h2.h4 { font-size: 1.0625rem; } h2.h5 { font-size: 1rem; } h3.h6 { font-size: .9
 .table thead th { font-size: .8125rem; font-weight: 600; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line); white-space: nowrap; }
 .table tbody tr:hover > * { background-color: var(--surface-2); }
 .table tbody tr:last-child > * { border-bottom: 0; }
-th .sort { all: unset; display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; border-radius: 2px; min-height: 1.5rem; padding-inline: .15rem; margin-inline: -.15rem; }
+.page-sum { margin: -.5rem 0 1rem; font-size: .875rem; color: var(--muted); }
+.page-sum.bad { color: var(--warn); font-weight: 500; }
+.section-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.section-row .btn { padding-inline: .25rem; }
+th .sort { all: unset; display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; border-radius: 2px; min-height: 2.75rem; padding-inline: .15rem; margin-inline: -.15rem; }
 th .sort:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 th .sort::after { content: ""; width: .4rem; height: .4rem; flex: none; opacity: .35; margin-bottom: .2rem;
   border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }

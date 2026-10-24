@@ -69,6 +69,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const show = () => document.querySelectorAll("[data-auth-for]").forEach((f) => { f.hidden = f.dataset.authFor !== mode.value; });
     mode.addEventListener("change", show); show();
   }
+  // expand / collapse every instance row (the ledger is swapped on refresh, so rows are looked up at click time)
+  const expand = document.querySelector("[data-expand]");
+  if (expand) {
+    expand.addEventListener("click", () => {
+      const rows = [...document.querySelectorAll("details.inst")];
+      const open = !rows.every((d) => d.open);
+      rows.forEach((d) => { d.open = open; });
+      expand.textContent = open ? expand.dataset.open : expand.dataset.closed;
+    });
+  }
   // destructive forms ask first (a native dialog: no inline JS needed under the CSP)
   document.querySelectorAll("form[data-confirm]").forEach((f) => {
     f.addEventListener("submit", (e) => {

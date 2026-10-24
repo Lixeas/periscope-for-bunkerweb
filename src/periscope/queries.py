@@ -155,8 +155,10 @@ def bans(db: Session, q: str = "") -> list[dict]:
 
 
 def jobs(db: Session) -> list[dict]:
-    return [{**j, "instance": n, "next_run": diff.next_run(j.get("last_run"), j.get("every"))}
+    rows = [{**j, "instance": n, "next_run": diff.next_run(j.get("last_run"), j.get("every"))}
             for n, p in sorted(_by_instance(db, "jobs").items()) for j in p]
+    rows.sort(key=lambda j: j.get("success") is not False)  # failures first, stable otherwise
+    return rows
 
 
 def plugins(db: Session) -> tuple[list[str], list[dict]]:
