@@ -2,10 +2,12 @@
 {% from "_macros.html" import account_tabs, chip with context %}
 {% block title %}{{ _("Users") }}{% endblock %}
 {% block content %}
-<h1 class="page-title">{{ _("Users") }}</h1>
+<div class="head-row">
+  <h1 class="page-title">{{ _("Users") }}</h1>
+  <button type="button" class="btn btn-primary" data-dlg-open="dlg-add-user">{{ _("Create a user") }}</button>
+</div>
 {{ account_tabs('users') }}
 {% if msg %}<div class="alert alert-info" role="status">{{ msg }}</div>{% endif %}
-{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 
 <div class="table-responsive mb-5">
 <table class="table table-stack align-middle">
@@ -47,8 +49,10 @@
 </table>
 </div>
 
-<h2 class="section-title">{{ _("Create a user") }}</h2>
-<form method="post" action="/admin/users" class="col-lg-5">
+<dialog class="dlg" id="dlg-add-user" aria-labelledby="dlg-add-user-t"{% if error %} data-open{% endif %}>
+<h2 class="dlg-title" id="dlg-add-user-t">{{ _("Create a user") }}</h2>
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+<form method="post" action="/admin/users">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="mb-3"><label class="form-label" for="username">{{ _("Username") }}</label>
     <input class="form-control" id="username" name="username" autocomplete="off" required></div>
@@ -57,6 +61,10 @@
   <div class="mb-3"><label class="form-label" for="password">{{ _("Initial password ({n} characters minimum)", n=MIN_PASSWORD) }}</label>
     <input class="form-control" id="password" name="password" type="password" autocomplete="new-password" minlength="{{ MIN_PASSWORD }}" required>
     <div class="form-text">{{ _("Share it through a secure channel; the second factor will be required at first login.") }}</div></div>
-  <button class="btn btn-primary">{{ _("Create") }}</button>
+  <div class="dlg-actions">
+    <button type="button" class="btn btn-outline-secondary" data-dlg-close>{{ _("Cancel") }}</button>
+    <button class="btn btn-primary">{{ _("Create") }}</button>
+  </div>
 </form>
+</dialog>
 {% endblock %}

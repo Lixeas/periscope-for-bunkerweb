@@ -63,6 +63,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (d.open) { d.open = false; if (d.contains(document.activeElement)) d.querySelector("summary").focus(); }
     });
   });
+  // modal forms (<dialog>): opened by a button, closed by Cancel, Escape or a click on the backdrop;
+  // a dialog rendered with data-open (server-side validation error) reopens with its message
+  document.querySelectorAll("[data-dlg-open]").forEach((b) => {
+    b.addEventListener("click", () => document.getElementById(b.dataset.dlgOpen).showModal());
+  });
+  document.querySelectorAll("dialog.dlg").forEach((d) => {
+    d.addEventListener("click", (e) => { if (e.target === d || e.target.closest("[data-dlg-close]")) d.close(); });
+    if (d.hasAttribute("data-open")) d.showModal();
+  });
   // the add-instance form shows only the credentials of the chosen authentication mode
   const mode = document.getElementById("auth_mode");
   if (mode) {

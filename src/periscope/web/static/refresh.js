@@ -63,6 +63,7 @@
     const s = Math.floor((Date.now() - fresh) / 1000);
     stamp.textContent = s < 10 ? stamp.dataset.now
       : s < 90 ? stamp.dataset.s.replace("{n}", s) : stamp.dataset.m.replace("{n}", Math.round(s / 60));
+    stamp.classList.toggle("stale", s > 90);  // two missed 30 s cycles
     stamp.hidden = false;
   };
   if (stamp && (document.querySelector("meta[name=autoreload]") || document.querySelector("[data-summary]"))) {

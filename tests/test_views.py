@@ -45,8 +45,6 @@ def test_bans_page_renders_duration_permanent_and_epoch_date(client):
     assert "Permanent" in t                               # exp 0 / permanent
     assert 'data-v="1000000000000"' in t and 'data-v="60"' in t  # numeric sort, permanent last
     assert "CrowdSec" in t and "service" in t             # badge crowdsec_lease + ban_scope
-    assert "Remaining duration as returned by BunkerWeb; “Permanent” if the ban does not expire." in t
-    assert "telle que renvoyée" not in t
 
 
 def test_bans_page_search(client):

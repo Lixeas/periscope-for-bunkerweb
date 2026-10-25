@@ -32,7 +32,7 @@ One process (FastAPI + Jinja2) with a background collector (30 s) and a slower T
 
 ## Brand Commitments
 
-Name: "Periscope for BunkerWeb", short name "Periscope". Independent identity, distinct from BunkerWeb: no Bunkerity logo or brand colors. The footer disclaimer "Independent project, not affiliated with Bunkerity" stays. A full visual rework is requested; no existing visual element is binding.
+Name: "Periscope for BunkerWeb", short name "Periscope". Independent identity, distinct from BunkerWeb: no Bunkerity logo or brand colors. The non-affiliation disclaimer lives in the README, not in the UI; the sidebar links to the GitHub repo. A full visual rework is requested; no existing visual element is binding.
 
 ## Evidence on Hand
 

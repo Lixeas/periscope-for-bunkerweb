@@ -181,7 +181,6 @@ def test_login_page_defaults_to_english_with_html_lang_and_switcher(anon):
 def test_login_page_in_french_from_accept_language(anon):
     r = anon.get("/login", headers={"accept-language": "fr-CH,fr;q=0.9,en;q=0.5"})
     assert '<html lang="fr"' in r.text and "Mot de passe" in r.text and "Continuer" in r.text
-    assert "Projet indépendant, non affilié à Bunkerity." in r.text.replace("&#39;", "'")
     assert re.search(r'value="fr" lang="fr"[^>]*aria-current="true"', r.text)
 
 

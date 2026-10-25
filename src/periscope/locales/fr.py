@@ -52,10 +52,7 @@ CATALOG: dict[str, str] = {
     "BunkerWeb API URL": "URL de l'API BunkerWeb",
     "BunkerWeb instances": "Instances BunkerWeb",
     "Cancel": "Annuler",
-    "Certificate actually served by each instance (direct TLS probe, SNI = service domain). "
-    "Red: less than 7 days or expired; orange: less than 21 days.":
-        "Certificat réellement servi par chaque instance (sonde TLS directe, SNI = domaine du service). "
-        "Rouge : moins de 7 jours ou expiré ; orange : moins de 21 jours.",
+    "Certificate actually served, read by a TLS probe.": "Certificat réellement servi, relevé par une sonde TLS.",
     "Certificates": "Certificats",
     "Change": "Modifier",
     "Change password": "Changer le mot de passe",
@@ -103,11 +100,11 @@ CATALOG: dict[str, str] = {
     "Filter": "Filtrer",
     "Filter…": "Filtrer…",
     "Frequency": "Fréquence",
+    "GitHub repository, opens a new tab": "Dépôt GitHub, s'ouvre dans un nouvel onglet",
     "HTTP {status} on {path}": "HTTP {status} sur {path}",
     "HTTP {status} on {path} (credentials rejected)": "HTTP {status} sur {path} (identifiants refusés)",
     "Dashboard": "Tableau de bord",
     "I have saved my codes": "J'ai enregistré mes codes",
-    "Independent project, not affiliated with Bunkerity.": "Projet indépendant, non affilié à Bunkerity.",
     "Initial password ({n} characters minimum)": "Mot de passe initial ({n} caractères minimum)",
     "Instance": "Instance",
     "Instance added": "Instance ajoutée",
@@ -203,8 +200,6 @@ CATALOG: dict[str, str] = {
     "Regenerate": "Régénérer",
     "Regenerate backup codes": "Régénérer les codes de secours",
     "Register a passkey": "Enregistrer une passkey",
-    "Remaining duration as returned by BunkerWeb; “Permanent” if the ban does not expire.":
-        "Durée restante renvoyée par BunkerWeb ; « Permanent » si le ban n'expire pas.",
     "Reset": "Réinitialiser",
     "Reset 2FA": "Réinitialiser le 2FA",
     "Response is not JSON (is this really the BunkerWeb API?)":
@@ -350,7 +345,8 @@ CATALOG: dict[str, str] = {
     "Updated just now": "Actualisé à l'instant",
     "Updated {n} s ago": "Actualisé il y a {n} s",
     "Updated {n} min ago": "Actualisé il y a {n} min",
-    "Needs check: the instance answers but has open alerts. Stale: the last successful collection is older than expected. Certificates turn orange under 21 days and red under 7.": "À vérifier : l'instance répond mais a des alertes ouvertes. Périmées : la dernière collecte réussie est plus ancienne que prévu. Les certificats passent à l'orange sous 21 jours et au rouge sous 7.",
+    "The instance answers but has open alerts.": "L'instance répond mais a des alertes ouvertes.",
+    "The last successful collection is older than expected.": "La dernière collecte réussie est plus ancienne que prévu.",
     "{total} services, {diff} not on every instance": "{total} services, dont {diff} absents d'une instance",
     "{total} bans, {ips} unique IPs, {permanent} permanent": "{total} bans, {ips} IP uniques, {permanent} permanents",
     "{total} certificates, {warn} to watch": "{total} certificats, {warn} à surveiller",

@@ -42,8 +42,7 @@ def test_docs_disabled(client):
     assert client.get("/openapi.json").status_code == 404
 
 
-def test_login_page_shows_name_and_non_affiliation_footer(client):
+def test_login_page_shows_name(client):
     r = client.get("/login")
     assert r.status_code == 200
     assert "Periscope for BunkerWeb" in r.text
-    assert "Independent project, not affiliated with Bunkerity." in r.text

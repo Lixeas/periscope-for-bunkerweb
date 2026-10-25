@@ -37,6 +37,7 @@
     {% endif %}
   </nav>
   <div class="side-foot">
+    <a class="repo-link" href="https://github.com/Lixeas/periscope-for-bunkerweb" target="_blank" rel="noopener noreferrer">{{ ico('git') }}<span>Lixeas/periscope-for-bunkerweb</span><span aria-hidden="true">↗</span><span class="visually-hidden">{{ _("GitHub repository, opens a new tab") }}</span></a>
     {% block side_lang %}{{ lang_menu('side') }}{% endblock %}
   </div>
 </aside>
@@ -63,9 +64,6 @@
 <main id="main" class="main">
 {% block content %}{% endblock %}
 </main>
-<footer class="foot">
-  <div>{{ _("Independent project, not affiliated with Bunkerity.") }}</div>
-</footer>
 </div>
 </body>
 </html>

@@ -2,9 +2,11 @@
 {% from "_macros.html" import instance_badge, chip with context %}
 {% block title %}{{ _("Instances") }}{% endblock %}
 {% block content %}
-<h1 class="page-title">{{ _("BunkerWeb instances") }}</h1>
+<div class="head-row">
+  <h1 class="page-title">{{ _("BunkerWeb instances") }}</h1>
+  <button type="button" class="btn btn-primary" data-dlg-open="dlg-add-instance">{{ _("Add an instance") }}</button>
+</div>
 {% if msg %}<div class="alert alert-info" role="status">{{ msg }}</div>{% endif %}
-{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 
 <div class="table-responsive mb-5">
 <table class="table table-stack align-middle">
@@ -33,8 +35,10 @@
 </table>
 </div>
 
-<h2 class="section-title">{{ _("Add an instance") }}</h2>
-<form method="post" action="/admin/instances" class="col-lg-6">
+<dialog class="dlg" id="dlg-add-instance" aria-labelledby="dlg-add-instance-t"{% if error %} data-open{% endif %}>
+<h2 class="dlg-title" id="dlg-add-instance-t">{{ _("Add an instance") }}</h2>
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+<form method="post" action="/admin/instances">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="mb-3"><label class="form-label" for="name">{{ _("Name") }}</label>
     <input class="form-control" id="name" name="name" value="{{ form.name or '' }}" required></div>
@@ -72,6 +76,10 @@
   <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="force" name="force">
     <label class="form-check-label" for="force">{{ _("Save despite the failed test") }}</label></div>
   {% endif %}
-  <button class="btn btn-primary">{{ _("Test and add") }}</button>
+  <div class="dlg-actions">
+    <button type="button" class="btn btn-outline-secondary" data-dlg-close>{{ _("Cancel") }}</button>
+    <button class="btn btn-primary">{{ _("Test and add") }}</button>
+  </div>
 </form>
+</dialog>
 {% endblock %}

@@ -107,6 +107,10 @@ body.has-side .side { display: flex; flex-direction: column; gap: 1.5rem; positi
 .menu a[aria-current="page"] .ico { color: var(--accent); }
 .menu-sep { height: 1px; background: var(--line); margin: .6rem .7rem; }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; }
+.repo-link { display: flex; align-items: center; gap: .5rem; min-height: 2.75rem; padding: .4rem .7rem; border-radius: 4px; color: var(--muted); font-family: var(--mono); font-size: .8125rem; min-width: 0; }
+.repo-link:hover { color: var(--accent); background: var(--surface-2); }
+.repo-link .ico { width: 1rem; height: 1rem; }
+.repo-link span:nth-of-type(1) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (min-width: 68.01rem) { .side-foot { border-top: 1px solid var(--line); padding-top: .75rem; } }
 
 .page { min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
@@ -115,8 +119,8 @@ body:not(.has-side) .main .row > [class*="col-"] { flex: 0 0 100%; width: 100%; 
 .main { flex: 1; padding: 1.75rem clamp(1rem, 3vw, 2.5rem) 3rem; max-width: 92rem; width: 100%; }
 body:not(.has-side) .main { padding-inline: 0; }
 .refreshed { margin-right: auto; font-size: .8125rem; color: var(--muted); }
+.refreshed.stale { color: var(--warn); }
 .topbar { display: flex; align-items: center; gap: .75rem; justify-content: flex-end; padding: .9rem clamp(1rem, 3vw, 2.5rem) 0; }
-.foot { padding: 1rem clamp(1rem, 3vw, 2.5rem) 1.25rem; color: var(--muted); font-size: .8125rem; }
 /* Dropdowns: native <details>; the language one opens upward from the index, the account one down from the top right */
 .pop { position: relative; }
 .pop > summary { list-style: none; cursor: pointer; }
@@ -262,6 +266,12 @@ th[aria-sort="descending"] .sort::after { opacity: 1; }
 th[aria-sort] .sort { color: var(--text); }
 .table-responsive + p { margin-top: .75rem; }
 
+.head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+/* Modal forms: native <dialog>, colours from the theme tokens so both themes follow */
+.dlg { width: min(34rem, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 1.5rem; background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 6px; }
+.dlg::backdrop { background: rgb(0 0 0 / .55); }
+.dlg-title { font-size: 1.125rem; font-weight: 600; margin: 0 0 1rem; }
+.dlg-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1.25rem; }
 .form-control, .form-select { background-color: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 3px; min-height: 2.75rem; }
 .form-control::placeholder { color: var(--muted); opacity: .8; }
 .form-control:focus, .form-select:focus { background-color: var(--surface); color: var(--text); border-color: var(--accent);
@@ -298,7 +308,6 @@ td form.d-inline, td .btn-outline-danger { margin-left: 1.25rem; }
 hr { border-color: var(--line); opacity: 1; }
 .card { --bs-card-bg: var(--surface); --bs-card-border-color: var(--line); }
 body:not(.has-side) .main { padding-top: 12vh; }
-body:not(.has-side) .foot { text-align: center; }
 body:not(.has-side) .topbar { justify-content: center; }
 
 /* ───────── Narrow screens: the index becomes a scrolling top bar, the ledger stacks ───────── */
@@ -312,7 +321,7 @@ body:not(.has-side) .topbar { justify-content: center; }
   .side-foot { margin: 0 0 0 auto; flex-direction: row; gap: .25rem; order: 2; }
   .brand { order: 1; }
   .side-foot .pop-btn { padding: 0 .5rem; gap: .25rem; }
-  .side-foot .pop-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .side-foot .pop-btn span, .repo-link span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .pop-side .pop-panel { bottom: auto; top: 100%; left: auto; right: 0; margin: .25rem 0 0; }
   .ledger-head { display: none; }
   .inst > summary { grid-template-columns: minmax(0, 1fr) auto; }
