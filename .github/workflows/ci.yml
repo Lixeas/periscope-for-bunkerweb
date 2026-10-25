@@ -15,3 +15,21 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check src tests
       - run: python -m pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t periscope:ci .
+      - name: Start the container and wait for it to answer
+        run: |
+          docker run -d --name periscope \
+            -e PERISCOPE_SECRET_KEY="$(python3 -c 'import base64,os;print(base64.urlsafe_b64encode(os.urandom(32)).decode())')" \
+            -e PERISCOPE_COOKIE_SECURE=false \
+            -p 8000:8000 periscope:ci
+          for i in $(seq 1 30); do
+            curl -fsS -o /dev/null http://127.0.0.1:8000/login && exit 0
+            sleep 2
+          done
+          docker logs periscope
+          exit 1
