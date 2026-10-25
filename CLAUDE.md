@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Read-only** monitoring web application for 2 to 10 BunkerWeb instances (same network) through their API. Python 3.11+, FastAPI, SQLAlchemy, Jinja2. Spec: `docs/superpowers/specs/`, implementation plans: `docs/superpowers/plans/`. The UI is bilingual: English (source, default) and French, with a language switch (see "Internationalisation").
+**Read-only** monitoring web application for 2 to 10 BunkerWeb instances (same network) through their API. Python 3.11+, FastAPI, SQLAlchemy, Jinja2. The UI is bilingual: English (source, default) and French, with a language switch (see "Internationalisation").
 
 ## Commands
 
