@@ -449,7 +449,7 @@ def test_message_dicts_only_hold_catalog_msgids():
 # --- English smoke test: no French left in the visible text -------------------------------------
 
 def visible(raw: str) -> str:
-    raw = re.sub(r"(?s)<script.*?</script>|<style.*?</style>", "", raw)
+    raw = re.sub(r"(?s)<script.*?</script\s*>|<style.*?</style\s*>", "", raw)
     return html.unescape(raw).replace("Français", "")  # the language's own name is legitimate
 
 
