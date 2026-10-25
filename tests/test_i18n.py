@@ -1,5 +1,5 @@
-import html
 import re
+from html.parser import HTMLParser
 from types import SimpleNamespace
 
 import pytest
@@ -448,9 +448,33 @@ def test_message_dicts_only_hold_catalog_msgids():
 
 # --- English smoke test: no French left in the visible text -------------------------------------
 
+class _Visible(HTMLParser):
+    """Text and attribute values a reader can see, without the content of <script> and <style>."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.hidden = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self.hidden += 1
+        self.parts += [v for _, v in attrs if v]
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style") and self.hidden:
+            self.hidden -= 1
+
+    def handle_data(self, data):
+        if not self.hidden:
+            self.parts.append(data)
+
+
 def visible(raw: str) -> str:
-    raw = re.sub(r"(?is)<script.*?</script\s*>|<style.*?</style\s*>", "", raw)
-    return html.unescape(raw).replace("Français", "")  # the language's own name is legitimate
+    parser = _Visible()
+    parser.feed(raw)
+    parser.close()
+    return " ".join(parser.parts).replace("Français", "")  # the language's own name is legitimate
 
 
 def test_english_pages_contain_no_accented_letters(logged):
