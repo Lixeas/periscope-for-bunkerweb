@@ -6,3 +6,9 @@ data/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+
+# local Impeccable working notes, not published
+.impeccable/critique/
+.impeccable/questions/
+.impeccable/review/
+.impeccable/surfaces/
