@@ -215,7 +215,8 @@ def test_report_cannot_touch_another_instance_and_is_size_capped(fresh_db, monke
         assert s.query(Snapshot).filter_by(instance_id=oid).count() == 0
         s.get(Instance, iid).last_attempt_at = None
     monkeypatch.setattr(get_settings(), "agent_max_report_bytes", 100)
-    assert c.post("/v1/report", json=report()).status_code == 400
+    r = c.post("/v1/report", json=report())
+    assert r.status_code == 400 and r.json() == {"error": "invalid report"}  # no exception text echoed
 
 
 def test_disabled_instance_report_not_stored_and_revocation(fresh_db):
@@ -429,3 +430,39 @@ def test_agent_module_never_needs_the_console_secret(monkeypatch, tmp_path):
     assert "secret_key" not in AgentSettings.model_fields
     key, csr = agent_mod.pki.new_key_and_csr()
     assert b"PRIVATE KEY" in key and b"CERTIFICATE REQUEST" in csr
+
+
+# --- agent errors are rendered with str.format: only msgids of the code get through ---------------------
+
+@pytest.mark.parametrize("raw", [
+    '{"m":"{x:>999999999}","p":{"x":"a"}}',            # memory exhaustion at each page view
+    '{"m":"{x.__class__.__mro__}","p":{"x":"a"}}',      # attribute walk
+    '{"m":"{kind}: {detail}","p":{"kind":"x","detail":{"m":"{d:>99999999}","p":{"d":1}}}}',  # nested
+    '{"m":"{kind}: {detail}","p":{"kind":["list"]}}',   # non-scalar parameter
+    '{"m":"{kind}: {detail}","p":{"__x":"y"},"extra":1}',
+    '{"l":[{"m":"{x:>99999999}","p":{"x":1}}]}',        # a packed list from the agent
+])
+def test_agent_error_with_foreign_format_string_is_neutralized(raw):
+    stored = agent_server.clean_error(raw)
+    assert i18n.render("en", stored) == "Unrecognized message from the agent"
+    assert i18n.render("fr", stored) == "Message de l'agent non reconnu"
+
+
+def test_agent_error_known_messages_and_plain_text_kept():
+    ok = i18n.pack("{kind}: {detail}", kind="network", detail=i18n.pack_data("timeout on {path}", path="/ping"))
+    assert i18n.render("en", agent_server.clean_error(ok)) == "network: timeout on /ping"
+    assert agent_server.clean_error("{x:>99999999} not json") == "{x:>99999999} not json"
+    assert i18n.render("en", "{x:>99999999} not json") == "{x:>99999999} not json"  # never formatted
+    rep = parse_report(report(errors=['{"m":"{x:>999999999}","p":{"x":"a"}}', ok]))
+    assert [i18n.render("en", e) for e in rep.collected.errors] == [
+        "Unrecognized message from the agent", "network: timeout on /ping"]
+
+
+def test_agent_files_private(tmp_path):
+    d = tmp_path / "agent"
+    d.mkdir(mode=0o755)
+    d.chmod(0o755)
+    (d / "agent.key.tmp").write_text("planted")
+    (d / "agent.key.tmp").chmod(0o666)
+    agent_mod._write(d / "agent.key", b"secret", private=True)
+    assert oct((d / "agent.key").stat().st_mode & 0o777) == "0o600" and (d / "agent.key").read_bytes() == b"secret"

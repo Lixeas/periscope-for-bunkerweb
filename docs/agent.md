@@ -53,17 +53,20 @@ The agent listener is a separate HTTPS server (its own FastAPI app, no cookies, 
 
 1. In **Instances → Add an instance**, give it a name and tags (for example the customer's name), and choose **Periscope agent**.
 2. Periscope shows an **enrollment bundle** once. It contains the listener URL, the single-use token and the CA fingerprint. Treat it as a secret until it is used.
-3. On a machine in the customer's network that can reach the BunkerWeb API (and the TLS port of its services), deploy the agent. With Docker, from a checkout of this repository:
+3. On a machine in the customer's network that can reach the BunkerWeb API (and the TLS port of its services), deploy the agent. With Docker, only `docker-compose.agent.yml` is needed: it uses the released image `ghcr.io/lixeas/periscope-for-bunkerweb`, no checkout or build.
 
    ```bash
+   curl -fsSLO https://raw.githubusercontent.com/Lixeas/periscope-for-bunkerweb/v0.2.1/docker-compose.agent.yml
    echo 'TheReadOnlyApiUserPassword' > bw_api_password.txt && chmod 600 bw_api_password.txt
    export BW_API_URL=http://10.0.0.5:8888   # the local BunkerWeb API (root path included)
-   docker compose -f docker-compose.agent.yml build
+   export PERISCOPE_VERSION=0.2.1           # the version of your console
    docker compose -f docker-compose.agent.yml run --rm periscope-agent periscope agent enroll 'psc1.…'
    docker compose -f docker-compose.agent.yml up -d
    ```
 
-   Without Docker: `pip install .`, set the variables below, then `periscope agent enroll 'psc1.…'` and `periscope agent run` (as a systemd service, for example).
+   Keep the agents on the same version as the console (`PERISCOPE_VERSION=0.2` follows the patch releases of 0.2). To upgrade: change `PERISCOPE_VERSION`, then `docker compose -f docker-compose.agent.yml pull && docker compose -f docker-compose.agent.yml up -d`; the enrollment (volume `agent-data`) is kept. If the container package is private, run `docker login ghcr.io` first with a token allowed to read packages.
+
+   Without Docker: `pip install .` from a checkout, set the variables below, then `periscope agent enroll 'psc1.…'` and `periscope agent run` (as a systemd service, for example).
 4. The instance turns `ok` on the dashboard after the first report (about 30 s).
 
 Create the read-only API user on that BunkerWeb exactly as for the direct mode ([guide](bunkerweb-api-user.md)); its IP allow-list only needs the agent's address.

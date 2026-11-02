@@ -88,7 +88,8 @@ def parse_bundle(bundle: str) -> tuple[str, str, str]:
 def _write(path: Path, data: bytes, private: bool = False) -> None:
     """Atomic write (temporary file + rename); private files are created 0600."""
     tmp = path.with_suffix(path.suffix + ".tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600 if private else 0o644)
+    tmp.unlink(missing_ok=True)  # O_EXCL below: a leftover (or planted) file never keeps its own mode
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600 if private else 0o644)
     with os.fdopen(fd, "wb") as f:
         f.write(data)
     os.replace(tmp, path)
@@ -118,6 +119,7 @@ async def enroll(bundle: str, d: Path, transport=None) -> str:
     """Pin the console's CA, generate the key locally, have the CSR signed; return the instance name."""
     url, token, fp = parse_bundle(bundle)
     d.mkdir(parents=True, exist_ok=True)
+    d.chmod(0o700)  # holds the agent's private key
     f = _files(d)
     # 1. CA fetched without verification, then accepted ONLY if its fingerprint is the one in the bundle
     async with httpx.AsyncClient(base_url=url, verify=False, timeout=10, transport=transport) as c:
