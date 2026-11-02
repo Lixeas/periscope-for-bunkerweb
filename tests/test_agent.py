@@ -215,7 +215,8 @@ def test_report_cannot_touch_another_instance_and_is_size_capped(fresh_db, monke
         assert s.query(Snapshot).filter_by(instance_id=oid).count() == 0
         s.get(Instance, iid).last_attempt_at = None
     monkeypatch.setattr(get_settings(), "agent_max_report_bytes", 100)
-    assert c.post("/v1/report", json=report()).status_code == 400
+    r = c.post("/v1/report", json=report())
+    assert r.status_code == 400 and r.json() == {"error": "invalid report"}  # no exception text echoed
 
 
 def test_disabled_instance_report_not_stored_and_revocation(fresh_db):

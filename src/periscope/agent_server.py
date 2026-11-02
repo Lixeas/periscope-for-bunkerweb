@@ -240,7 +240,9 @@ def create_agent_app() -> FastAPI:
         try:
             rep = parse_report(await _json_body(request, get_settings().agent_max_report_bytes))
         except ReportError as e:
-            return _err(400, f"invalid report: {e}")
+            # the reason goes to the console's log only: never echo exception text to the client
+            log.warning("invalid agent report from %s: %s", _ip(request), e)
+            return _err(400, "invalid report")
         ip = _ip(request)
 
         def do():
