@@ -7,6 +7,7 @@
 {% set nd = rows | selectattr('missing_on') | list | length %}
 <p class="page-sum{% if nd %} bad{% endif %}">{{ _("{total} services, {diff} not on every instance", total=rows | length, diff=nd) }}</p>
 <form method="get" class="row g-2 mb-3">
+  {% if current_tag %}<input type="hidden" name="tag" value="{{ current_tag }}">{% endif %}
   <div class="col-auto"><label class="visually-hidden" for="f-inst">{{ _("Instance") }}</label>
     <select class="form-select" id="f-inst" name="instance">
       <option value="">{{ _("All instances") }}</option>
@@ -18,7 +19,7 @@
       <option value="block" {% if mode == 'block' %}selected{% endif %}>{{ _("block") }}</option>
       <option value="detect" {% if mode == 'detect' %}selected{% endif %}>{{ _("detect") }}</option>
     </select></div>
-  <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Filter") }}</button>{% if instance or mode or diff %} <a class="btn btn-link" href="/services">{{ _("Clear") }}</a>{% endif %}</div>
+  <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Filter") }}</button>{% if instance or mode or diff %} <a class="btn btn-link" href="/services{% if current_tag %}?tag={{ current_tag | urlencode }}{% endif %}">{{ _("Clear") }}</a>{% endif %}</div>
   <div class="col-auto ms-auto"><input class="form-control" type="search" placeholder="{{ _('Search…') }}" aria-label="{{ _('Search') }}" data-filter-for="t-services"></div>
 </form>
 <div class="table-responsive">

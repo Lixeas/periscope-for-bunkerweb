@@ -1,0 +1,39 @@
+# Periscope AGENT, deployed in a customer's network next to one BunkerWeb instance (docs/agent.md).
+# It only opens outbound connections: to the local BunkerWeb API, to the TLS port of the services
+# and to the console's agent listener. Nothing is published.
+#
+#   echo 'ReadOnlyApiUserPassword' > bw_api_password.txt && chmod 600 bw_api_password.txt
+#   export BW_API_URL=http://10.0.0.5:8888
+#   docker compose -f docker-compose.agent.yml run --rm periscope-agent periscope agent enroll 'psc1....'
+#   docker compose -f docker-compose.agent.yml up -d
+services:
+  periscope-agent:
+    build: .
+    restart: unless-stopped
+    command: ["periscope", "agent", "run"]
+    environment:
+      PERISCOPE_AGENT_DIR: /data/agent
+      PERISCOPE_AGENT_BW_URL: "${BW_API_URL:?set BW_API_URL to the local BunkerWeb API}"
+      PERISCOPE_AGENT_BW_USERNAME: "${BW_API_USERNAME:-periscope}"
+      PERISCOPE_AGENT_BW_PASSWORD_FILE: /run/secrets/bw_api_password
+      PERISCOPE_AGENT_BW_VERIFY_TLS: "${BW_API_VERIFY_TLS:-true}"
+      PERISCOPE_AGENT_PROBE_HOST: "${BW_PROBE_HOST:-}"
+      PERISCOPE_AGENT_TLS_PORT: "${BW_TLS_PORT:-443}"
+    secrets: [bw_api_password]
+    volumes:
+      - agent-data:/data   # private key + certificates: keep it
+    healthcheck:
+      disable: true        # the image's healthcheck targets the web UI, absent here
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+secrets:
+  bw_api_password:
+    file: ./bw_api_password.txt
+
+volumes:
+  agent-data: {}

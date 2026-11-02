@@ -6,6 +6,8 @@
 <div id="live" class="visually-hidden" role="status" aria-live="polite" data-msg="{{ _('{alerts} alerts, {ok} of {total} instances OK') }}"></div>
 
 {% set todo = cards | selectattr('sev', 'in', ['crit', 'warn']) | list %}
+{% set tq = ('?tag=' ~ (current_tag | urlencode)) if current_tag else '' %}
+{% set ta = ('&tag=' ~ (current_tag | urlencode)) if current_tag else '' %}
 <dl class="figs" data-alerts="{{ s.alerts_total }}" data-ok="{{ s.instances_ok }}">
   <div class="fig{% if todo %} fig-alert{% endif %}">
     <dt>{{ _("Instances to check") }}</dt>
@@ -25,15 +27,15 @@
   </div>
   <div class="fig">
     <dt>{{ _("Services") }}</dt>
-    <dd><a href="/services" data-summary="services_total">{{ s.services_total }}</a>{% if s.services_diff %}<span class="fig-sub"><a href="/services?diff=1">{{ _("{count} not on every instance", count=s.services_diff) }}</a></span>{% endif %}</dd>
+    <dd><a href="/services{{ tq }}" data-summary="services_total">{{ s.services_total }}</a>{% if s.services_diff %}<span class="fig-sub"><a href="/services?diff=1{{ ta }}">{{ _("{count} not on every instance", count=s.services_diff) }}</a></span>{% endif %}</dd>
   </div>
   <div class="fig">
     <dt>{{ _("Certificates") }}</dt>
-    <dd><a href="/certificates" data-summary="certs_total">{{ s.certs_total }}</a>{% if s.certs_warn %}<span class="fig-sub">{{ _("{count} to watch", count=s.certs_warn) }}</span>{% endif %}</dd>
+    <dd><a href="/certificates{{ tq }}" data-summary="certs_total">{{ s.certs_total }}</a>{% if s.certs_warn %}<span class="fig-sub">{{ _("{count} to watch", count=s.certs_warn) }}</span>{% endif %}</dd>
   </div>
   <div class="fig">
     <dt>{{ _("Active bans (unique IPs)") }}</dt>
-    <dd><a href="/bans" data-summary="bans_active">{{ s.bans_active }}</a></dd>
+    <dd><a href="/bans{{ tq }}" data-summary="bans_active">{{ s.bans_active }}</a></dd>
   </div>
 </dl>
 
@@ -82,6 +84,8 @@
           <div><dt>{{ _("Last collection") }}</dt><dd>{{ c.last_ok_at | ago }}{% if c.enabled and c.stale %} <span class="tag tag-warn" title="{{ _('The last successful collection is older than expected.') }}">{{ _("stale") }}</span>{% endif %}</dd></div>
           <div><dt>{{ _("Services") }}</dt><dd>{{ c.services_total }}</dd></div>
           <div><dt>{{ _("Certificates") }}</dt><dd>{{ c.certs_total }}</dd></div>
+          <div><dt>{{ _("Connection") }}</dt><dd>{% if c.connection == 'agent' %}<span title="{{ _('Reported by a Periscope agent') }}">{{ _("agent") }}</span>{% else %}{{ _("Direct API") }}{% endif %}</dd></div>
+          {% if c.tags %}<div><dt>{{ _("Tags") }}</dt><dd class="tag-list">{% for t in c.tags %}<a class="tag" href="?tag={{ t | urlencode }}">{{ t }}</a>{% endfor %}</dd></div>{% endif %}
         </dl>
         {% if c.alerts | length > 2 %}
         <ul class="alert-list">

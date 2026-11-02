@@ -1,7 +1,7 @@
 from datetime import datetime
 from urllib.parse import urlparse
 
-from sqlalchemy import JSON, ForeignKey, LargeBinary, String, UniqueConstraint
+from sqlalchemy import JSON, Column, ForeignKey, LargeBinary, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from periscope.clock import utcnow
@@ -56,13 +56,28 @@ class Session(Base):
     last_seen: Mapped[datetime] = mapped_column(default=utcnow)
 
 
+instance_tags = Table(
+    "instance_tags", Base.metadata,
+    Column("instance_id", ForeignKey("instances.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class Tag(Base):
+    """Free label grouping instances (typically one tag per customer)."""
+    __tablename__ = "tags"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(32), unique=True)
+
+
 class Instance(Base):
     __tablename__ = "instances"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(64), unique=True)
-    base_url: Mapped[str] = mapped_column(String(255))
-    token_enc: Mapped[str] = mapped_column(String(512), default="", server_default="")  # mode token
-    auth_mode: Mapped[str] = mapped_column(String(8), default="token", server_default="token")  # token | user
+    # direct = Periscope polls the BunkerWeb API itself (API user); agent = a Periscope agent next
+    # to the instance pushes its reports over mutual TLS (no inbound access to the instance's network).
+    connection: Mapped[str] = mapped_column(String(8), default="direct", server_default="direct")
+    base_url: Mapped[str] = mapped_column(String(255), default="")  # direct mode only
     api_username: Mapped[str] = mapped_column(String(128), default="", server_default="")
     api_password_enc: Mapped[str] = mapped_column(String(512), default="", server_default="")
     verify_tls: Mapped[bool] = mapped_column(default=True)
@@ -75,8 +90,22 @@ class Instance(Base):
     last_error: Mapped[str] = mapped_column(String(1024), default="")
     version: Mapped[str | None] = mapped_column(String(32), default=None)
     latency_ms: Mapped[float | None] = mapped_column(default=None)
+    # agent mode: sha256 (hex) of the DER of the agent's current client certificate ('' = not enrolled)
+    agent_cert_fp: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    agent_cert_not_after: Mapped[datetime | None] = mapped_column(default=None)
+    # renewed certificate, promoted to current at its first use (the old one works until then)
+    agent_next_cert_fp: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    agent_enroll_hash: Mapped[str] = mapped_column(String(64), default="", server_default="")  # sha256, single use
+    agent_enroll_expires: Mapped[datetime | None] = mapped_column(default=None)
+    agent_ip: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    agent_version: Mapped[str] = mapped_column(String(32), default="", server_default="")
     snapshots: Mapped[list["Snapshot"]] = relationship(cascade="all, delete-orphan")
     probes: Mapped[list["CertProbe"]] = relationship(cascade="all, delete-orphan")
+    tags: Mapped[list[Tag]] = relationship(secondary=instance_tags, order_by=Tag.name, lazy="selectin")
+
+    @property
+    def is_agent(self) -> bool:
+        return self.connection == "agent"
 
     @property
     def probe_target(self) -> str:
@@ -115,3 +144,10 @@ class AuditLog(Base):
     event: Mapped[str] = mapped_column(String(64))
     detail: Mapped[str] = mapped_column(String(512), default="")
     ip: Mapped[str] = mapped_column(String(64), default="")
+
+
+class Setting(Base):
+    """Small key/value store (the agent certificate authority lives here, its key encrypted)."""
+    __tablename__ = "settings"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")

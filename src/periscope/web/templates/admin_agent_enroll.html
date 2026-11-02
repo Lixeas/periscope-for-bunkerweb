@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Enroll the agent of {name}", name=inst.name) }}{% endblock %}
+{% block content %}
+<h1 class="page-title">{{ _("Enroll the agent of “{name}”", name=inst.name) }}</h1>
+<div class="alert alert-warning" role="status">{{ _("This bundle is shown only once. It can be used once, until {date}.", date=inst.agent_enroll_expires | dt) }}</div>
+<div class="col-lg-9">
+  <h2 class="section-title">{{ _("1. Enrollment bundle") }}</h2>
+  <p>{{ _("It contains the console address, a single-use token and the fingerprint of the console's certificate authority. Treat it as a secret until it is used.") }}</p>
+  <code class="bundle mb-2" id="bundle">{{ bundle }}</code>
+  <button type="button" class="btn btn-outline-secondary btn-sm mb-3" data-copy="bundle" data-done="{{ _('Copied') }}">{{ _("Copy") }}</button>
+  <dl class="facts mb-4">
+    <div><dt>{{ _("Console address for agents") }}</dt><dd><code>{{ console_url }}</code></dd></div>
+    <div><dt>{{ _("CA fingerprint (SHA-256)") }}</dt><dd><code class="text-break">{{ ca_fp }}</code></dd></div>
+  </dl>
+  <h2 class="section-title">{{ _("2. On a machine in the instance's network") }}</h2>
+  <p>{{ _("Install the agent (same image as the console), give it the API user of the local BunkerWeb, then enroll it:") }}</p>
+<pre class="bundle mb-3">export PERISCOPE_AGENT_DIR=/data/agent
+export PERISCOPE_AGENT_BW_URL=http://bunkerweb-api:8888
+export PERISCOPE_AGENT_BW_USERNAME=periscope
+export PERISCOPE_AGENT_BW_PASSWORD_FILE=/run/secrets/bw_api_password
+periscope agent enroll '&lt;bundle&gt;'
+periscope agent run</pre>
+  <p>{{ _("The agent generates its private key locally, checks the console's CA against the fingerprint, and receives a client certificate valid 90 days, renewed automatically. It only opens outbound connections: nothing to open in the customer's firewall except outbound access to the console.") }}</p>
+  <a class="btn btn-primary" href="/admin/instances/{{ inst.id }}">{{ _("Done") }}</a>
+</div>
+{% endblock %}

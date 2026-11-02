@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     cookie_secure: bool = True
     session_idle_seconds: int = 8 * 3600
     session_max_seconds: int = 24 * 3600
+    max_parallel: int = 20  # instances collected / probed at the same time
+    max_parallel_probes: int = 50  # TLS handshakes in flight at the same time
+    # Agent listener (mutual TLS), enabled when agent_public_url is set: the URL the agents use to
+    # reach it, e.g. https://periscope-agents.example.com:8443 (its host goes in the server certificate).
+    agent_public_url: str = ""
+    agent_listen_host: str = "0.0.0.0"
+    agent_listen_port: int = 8443
+    agent_enroll_ttl: int = 24 * 3600  # validity of an enrollment token (s)
+    agent_max_report_bytes: int = 8 * 1024 * 1024
 
 
 @lru_cache

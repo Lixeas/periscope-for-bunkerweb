@@ -118,6 +118,10 @@ body:not(.has-side) .page { max-width: 30rem; margin: 0 auto; width: 100%; paddi
 body:not(.has-side) .main .row > [class*="col-"] { flex: 0 0 100%; width: 100%; max-width: 100%; }  /* the page is already narrow: the Bootstrap column must not shrink it again */
 .main { flex: 1; padding: 1.75rem clamp(1rem, 3vw, 2.5rem) 3rem; max-width: 92rem; width: 100%; }
 body:not(.has-side) .main { padding-inline: 0; }
+.tag-scope { margin: 0; }
+.tag-scope .form-select { min-width: 10rem; }
+.tag-list { display: inline-flex; flex-wrap: wrap; gap: .25rem; }
+.bundle { display: block; padding: .75rem; border-radius: 4px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); word-break: break-all; white-space: pre-wrap; font-size: .8125rem; }
 .refreshed { margin-right: auto; font-size: .8125rem; color: var(--muted); }
 .refreshed.stale { color: var(--warn); }
 .topbar { display: flex; align-items: center; gap: .75rem; justify-content: flex-end; padding: .9rem clamp(1rem, 3vw, 2.5rem) 0; }
@@ -360,8 +364,8 @@ body:not(.has-side) .topbar { justify-content: center; }
 /* Mono is for data: names, figures, hosts, versions, times. Everything else reads in Switzer. */
 .fig dd, .inst-name, .worker-name, .led-num, .facts dd { font-family: var(--mono); }
 /* the ledger row already shows these figures, depending on how many columns fit */
-@media (min-width: 80rem) { .facts div:nth-child(-n+3) { display: none; } }
-@media (min-width: 68.01rem) and (max-width: 79.99rem) { .facts div:nth-child(3) { display: none; } }
+@media (min-width: 80rem) { .inst-facts .facts div:nth-child(-n+3) { display: none; } }
+@media (min-width: 68.01rem) and (max-width: 79.99rem) { .inst-facts .facts div:nth-child(3) { display: none; } }
 
 /* Mid widths: keep state, instance, alerts, last OK and workers; version and latency move into the opened row */
 @media (min-width: 68.01rem) and (max-width: 79.99rem) {

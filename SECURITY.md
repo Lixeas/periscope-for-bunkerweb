@@ -14,4 +14,4 @@ Only the latest commit on `main` receives fixes.
 
 ## Scope
 
-Periscope is a read-only monitoring tool for BunkerWeb. Reports about its login and session handling, stored credentials (encrypted with `PERISCOPE_SECRET_KEY`), CSRF/origin checks, or anything that would let it write to a BunkerWeb instance are especially welcome.
+Periscope is a read-only monitoring tool for BunkerWeb. Reports about its login and session handling, the agent listener and its mutual TLS (certificate authority, enrollment, report validation), stored credentials (encrypted with `PERISCOPE_SECRET_KEY`), CSRF/origin checks, or anything that would let it write to a BunkerWeb instance are especially welcome.

@@ -52,7 +52,8 @@ class Fake:
 
 def add_instance() -> int:
     with session_scope() as s:
-        inst = Instance(name="i1", base_url="http://10.0.0.5:8888", token_enc=encrypt("t"))
+        inst = Instance(name="i1", base_url="http://10.0.0.5:8888", api_username="periscope",
+                        api_password_enc=encrypt("t"))
         s.add(inst)
         s.flush()
         return inst.id
@@ -216,18 +217,11 @@ async def test_failing_version_lookup_does_not_degrade(fresh_db):
 
 def add_user_instance(password="pw") -> int:
     with session_scope() as s:
-        inst = Instance(name="u1", base_url="http://10.0.0.5:8888", auth_mode="user",
+        inst = Instance(name="u1", base_url="http://10.0.0.5:8888",
                         api_username="periscope", api_password_enc=encrypt(password))
         s.add(inst)
         s.flush()
         return inst.id
-
-
-def test_default_client_token_mode(fresh_db):
-    iid = add_instance()
-    with session_scope() as s:
-        c = collector.default_client(s.get(Instance, iid))
-    assert c.token == "t" and c._credentials is None
 
 
 def test_default_client_user_mode_caches_token_by_fingerprint(fresh_db):

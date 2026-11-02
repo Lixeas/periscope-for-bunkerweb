@@ -5,14 +5,14 @@ BunkerWeb's API knows three kinds of credentials. Periscope should only ever use
 | Credential | What it can do | Use it for Periscope? |
 |---|---|---|
 | Admin API account (`API_USERNAME` / `API_PASSWORD`) | Everything | **No** |
-| Static `API_TOKEN` | Everything (admin) | **No** (troubleshooting only) |
+| Static `API_TOKEN` | Everything (admin) | **No** (not supported) |
 | **Restricted API user** (declared in an ACL bootstrap file) | Only the permissions you grant, e.g. read-only | **Yes** |
 
 The restricted API user is a login of BunkerWeb's **API** only. It is independent of the BunkerWeb web UI account and of the admin API account, and you can declare several of them.
 
 ## How Periscope uses it
 
-In **Instances**, choose the "API user" mode and enter the username and password. Periscope stores them encrypted, exchanges them for a short-lived token with `POST /auth` (HTTP Basic), sends it as `Authorization: Bearer <token>`, and **renews it automatically**: the token is kept in memory and, on a `401` (expiry; `API_BISCUIT_TTL_SECONDS` defaults to 3600 s), Periscope re-authenticates once and replays the request. The connection test in the "add instance" form exercises `/auth`, so a wrong password is reported as "Authentication refused".
+In **Instances**, choose **Direct API** and enter the username and password (with **Periscope agent**, the same credentials are given to the agent instead, see [agent.md](agent.md)). Periscope stores them encrypted, exchanges them for a short-lived token with `POST /auth` (HTTP Basic), sends it as `Authorization: Bearer <token>`, and **renews it automatically**: the token is kept in memory and, on a `401` (expiry; `API_BISCUIT_TTL_SECONDS` defaults to 3600 s), Periscope re-authenticates once and replays the request. The connection test in the "add instance" form exercises `/auth`, so a wrong password is reported as "Authentication refused".
 
 ## Creating the read-only API user, step by step
 
@@ -132,10 +132,8 @@ Finally, in Periscope open **Instances**, enter the API URL, choose **API user**
 
 The resource-type keys (`instances`, `services`, `bans`, `jobs`, `plugins`, `global_config`, plus `cache` and `configs`), the permission names, the `/auth` credential fields (HTTP Basic, or form/JSON fields `username` and `password`) and its response (`{"token": "<biscuit>"}`, errors 401, 403 and 500) are **confirmed from the BunkerWeb v1.6.17 source code and documentation**. This comes from **reading the source, not from testing a live instance**. Other facts from the source: a non-admin user cannot use Basic auth on the other routes (only the Bearer token from `POST /auth` works), and the `cache_read` and `configs_read` permissions exist if you ever want to extend what is read.
 
-**Instance version.** In "API user" mode, Periscope reads the BunkerWeb version from the `version` fact embedded in the Biscuit token issued by `/auth`; it is readable without any key (derived from the v1.6.17 source, to be confirmed on a live instance). It falls back to `info.version` of the public `/openapi.json` document (under the API root path if one is set), which currently returns HTTP 500 on at least one real 1.6.17 instance. In "API token" mode only the OpenAPI fallback is available. If neither works the version shows "—"; the instance status is unaffected.
+**Instance version.** Periscope reads the BunkerWeb version from the `version` fact embedded in the Biscuit token issued by `/auth`; it is readable without any key (derived from the v1.6.17 source, to be confirmed on a live instance). It falls back to `info.version` of the public `/openapi.json` document (under the API root path if one is set), which currently returns HTTP 500 on at least one real 1.6.17 instance. If neither works the version shows "—"; the instance status is unaffected.
 
-## "API token" mode (discouraged)
+## The static API token is not supported
 
-A static `API_TOKEN` is sent as-is as a Bearer token. It grants **full administrator** access to BunkerWeb. It is stored encrypted and never displayed again, but reserve it for troubleshooting and restrict network access to the API (IP allow-list).
-
-To migrate an existing instance, edit it, switch to "API user" and enter the new credentials (the stored token is then erased).
+Periscope used to accept the static `API_TOKEN` as a Bearer token. It grants **full administrator** access to BunkerWeb, so it is no longer supported. Instances that used it are kept after the upgrade but **disabled**, with a message on their page: edit each one, enter the restricted API user and its password, and enable it again.

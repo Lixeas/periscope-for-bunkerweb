@@ -477,13 +477,22 @@ def visible(raw: str) -> str:
     return " ".join(parser.parts).replace("Français", "")  # the language's own name is legitimate
 
 
-def test_english_pages_contain_no_accented_letters(logged):
+def test_english_pages_contain_no_accented_letters(logged, monkeypatch):
+    from periscope.config import get_settings
+    from periscope.tags import assign
+    monkeypatch.setattr(get_settings(), "agent_public_url", "https://agents.example.test:8443")
     client, csrf = logged
     with session_scope() as s:
-        s.query(Instance).filter_by(name="bw1").one().last_error = i18n.pack_many(
-            [i18n.pack("{count} nodes offline: {names}", count=2, names="a")])
+        bw1 = s.query(Instance).filter_by(name="bw1").one()
+        bw1.last_error = i18n.pack_many([i18n.pack("{count} nodes offline: {names}", count=2, names="a")])
+        assign(s, bw1, ["acme"])
+    enroll = client.post("/admin/instances", data={"csrf": csrf, "name": "remote", "connection": "agent"})
+    assert enroll.status_code == 200 and not ACCENTS.findall(visible(enroll.text))
+    with session_scope() as s:
+        agent_id = s.query(Instance).filter_by(name="remote").one().id
     paths = ["/login", "/dashboard", "/services", "/bans", "/jobs", "/certificates", "/account",
-             "/admin/instances", "/admin/instances/1", "/admin/users", "/admin/audit"]
+             "/admin/instances", "/admin/instances/1", f"/admin/instances/{agent_id}", "/admin/users",
+             "/admin/audit", "/dashboard?tag=acme"]
     paths += [f"/account?m={c}" for c in routes_account.MESSAGES]
     paths += [f"/admin/users?m={c}" for c in routes_admin.USER_MESSAGES]
     paths += [f"/admin/instances?m={c}" for c in routes_admin.MESSAGES]
@@ -496,9 +505,9 @@ def test_english_pages_contain_no_accented_letters(logged):
         client.post("/admin/users", data={"csrf": csrf, "username": "x", "password": "short"}),
         client.post("/admin/users", data={"csrf": csrf, "username": "alice", "password": "x" * 14}),
         client.post("/admin/instances", data={"csrf": csrf, "name": "n", "base_url": "ftp://x",
-                                              "auth_mode": "token", "token": "t"}),
+                                              "connection": "direct", "tags": "bad;tag"}),
         client.post("/admin/instances/1", data={"csrf": csrf, "name": "bw1", "base_url": "http://zz",
-                                                "auth_mode": "token", "tls_port": "443"}),
+                                                "tls_port": "443"}),
         client.post("/account/backup-codes", data={"csrf": csrf, "password": "correct horse battery"}),
     ]
     for r in pages:

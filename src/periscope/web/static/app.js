@@ -72,12 +72,25 @@ document.addEventListener("DOMContentLoaded", () => {
     d.addEventListener("click", (e) => { if (e.target === d || e.target.closest("[data-dlg-close]")) d.close(); });
     if (d.hasAttribute("data-open")) d.showModal();
   });
-  // the add-instance form shows only the credentials of the chosen authentication mode
-  const mode = document.getElementById("auth_mode");
+  // the add-instance form shows only the fields of the chosen connection (direct API or agent)
+  const mode = document.getElementById("connection");
   if (mode) {
-    const show = () => document.querySelectorAll("[data-auth-for]").forEach((f) => { f.hidden = f.dataset.authFor !== mode.value; });
+    const show = () => document.querySelectorAll("[data-conn-for]").forEach((f) => {
+      f.hidden = f.dataset.connFor !== mode.value;
+      f.querySelectorAll("input").forEach((i) => { i.disabled = f.hidden; });
+    });
     mode.addEventListener("change", show); show();
   }
+  // the tag switcher applies as soon as a tag is chosen
+  document.querySelectorAll("select[data-autosubmit]").forEach((s) => s.addEventListener("change", () => s.form.submit()));
+  // copy buttons (enrollment bundle): copies the text of the element named by data-copy
+  document.querySelectorAll("[data-copy]").forEach((b) => {
+    b.addEventListener("click", async () => {
+      const src = document.getElementById(b.dataset.copy);
+      try { await navigator.clipboard.writeText(src.textContent.trim()); b.textContent = b.dataset.done || b.textContent; }
+      catch (e) { window.getSelection().selectAllChildren(src); }
+    });
+  });
   // expand / collapse every instance row (the ledger is swapped on refresh, so rows are looked up at click time)
   const expand = document.querySelector("[data-expand]");
   if (expand) {

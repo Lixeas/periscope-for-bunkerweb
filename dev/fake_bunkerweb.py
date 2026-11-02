@@ -3,7 +3,9 @@
   FAKE_DAYS=15 FAKE_TLS_PORT=9443 uvicorn --app-dir dev fake_bunkerweb:app --port 9001
   FAKE_DAYS=60 FAKE_TLS_PORT=9444 FAKE_EXTRA=1 uvicorn --app-dir dev fake_bunkerweb:app --port 9002
 
-In Periscope: URL http://127.0.0.1:9001 (any token), empty probe host, TLS port 9443.
+In Periscope: Direct API, URL http://127.0.0.1:9001, API user `periscope` / `secret`, empty probe host,
+TLS port 9443. Agent mode: PERISCOPE_AGENT_BW_URL=http://127.0.0.1:9001, same credentials,
+PERISCOPE_AGENT_TLS_PORT=9443.
 
 The responses reproduce the REAL shapes of the BunkerWeb v1.6.17 API, derived from reading the source
 (not captured from a live instance): /ping without version, /services with security_mode,

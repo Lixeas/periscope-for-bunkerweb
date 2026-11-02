@@ -112,9 +112,23 @@ templates.env.globals["ASSET_V"] = int(max((_STATIC / n).stat().st_mtime for n i
 templates.env.globals["LANGUAGES"] = (("en", "English"), ("fr", "Français"))
 
 
+# Pages that accept the `tag` filter (the switcher in the top bar keeps it while navigating).
+SCOPED = ("/dashboard", "/services", "/bans", "/jobs", "/certificates", "/admin/instances")
+
+
 def render(request: Request, name: str, status: int = 200, **ctx):
     row = getattr(request.state, "session", None)
     ctx.setdefault("user", None)
+    ctx["all_tags"], ctx["current_tag"] = [], ""
+    if ctx["user"] is not None:
+        from periscope.db import session_scope
+        from periscope.tags import names
+
+        with session_scope() as s:
+            ctx["all_tags"] = names(s)
+        tag = request.query_params.get("tag", "")
+        ctx["current_tag"] = tag if tag in ctx["all_tags"] else ""
+        ctx["tag_scoped"] = request.url.path in SCOPED
     ctx["csrf"] = row.csrf if row else ""
     ctx["lang"] = i18n.lang_for(request)
     # Where the language switcher returns to: a GET page only (never a POST-only URL).

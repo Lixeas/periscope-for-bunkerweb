@@ -13,6 +13,10 @@ services:
     # allow only the proxy IP in the firewall. Never publish on a public interface.
     ports:
       - "${PERISCOPE_BIND:-127.0.0.1}:${PERISCOPE_PORT:-8000}:8000"
+      # Agent listener (mutual TLS, only active when PERISCOPE_AGENT_PUBLIC_URL is set): the agents
+      # in remote networks connect here. Publish it where they can reach it (PERISCOPE_AGENT_BIND),
+      # directly or through a TCP/TLS passthrough, never behind a TLS-terminating proxy (docs/agent.md).
+      - "${PERISCOPE_AGENT_BIND:-127.0.0.1}:${PERISCOPE_AGENT_PORT:-8443}:8443"
     read_only: true
     tmpfs:
       - /tmp
