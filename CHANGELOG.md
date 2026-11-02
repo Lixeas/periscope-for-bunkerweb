@@ -14,6 +14,12 @@ the new version.
 ### Security
 - Agent listener: an invalid agent report no longer echoes the exception text in the HTTP response;
   the reason is logged on the console only (code scanning: information exposure through an exception).
+- Agent listener: error messages sent by an agent are only kept if they are messages of Periscope's own
+  code with plain parameters; anything else is stored as plain text. A compromised agent could
+  otherwise inject a Python format string, rendered at each page view (memory exhaustion,
+  attribute walk).
+- Agent: the agent directory is created `0700`, and the private key can no longer inherit the mode of
+  a leftover temporary file.
 
 ## [0.2.0]
 

@@ -305,6 +305,7 @@ CATALOG: dict[str, str] = {
     "Too many failures: account temporarily locked.": "Trop d'échecs : compte temporairement verrouillé.",
     "Two-step verification": "Vérification en deux étapes",
     "Unexpected HTTP response": "Réponse HTTP inattendue",
+    "Unrecognized message from the agent": "Message de l'agent non reconnu",
     "Unknown": "Inconnu",
     "Unreachable": "Injoignable",
     "Unsupported language": "Langue non prise en charge",

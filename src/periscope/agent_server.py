@@ -39,6 +39,8 @@ from periscope.clock import utcnow
 from periscope.collector import KINDS, Collected
 from periscope.config import get_settings
 from periscope.db import session_scope
+from periscope.i18n import N_, pack
+from periscope.locales.fr import CATALOG
 from periscope.models import Instance
 from periscope.tlsprobe import CertInfo
 
@@ -90,6 +92,48 @@ def _date(v) -> datetime | None:
     return d.astimezone(UTC).replace(tzinfo=None) if d.tzinfo else d
 
 
+# Stored messages are rendered with str.format (i18n.render): an agent-chosen msgid would be a format
+# string under the agent's control ("{x:>999999999}" = memory exhaustion at each page view,
+# "{x.__class__}" = attribute walk). Only msgids of the code are accepted (all of them are in the
+# French catalog, enforced by tests/test_i18n.py), with plain parameters; anything else is kept as
+# plain text, which is displayed as is and never formatted.
+KNOWN_MSGIDS = frozenset(CATALOG)
+
+
+def _clean_message(data, depth: int = 0) -> dict | None:
+    if depth > 3 or not isinstance(data, dict) or set(data) - {"m", "p"} or data.get("m") not in KNOWN_MSGIDS:
+        return None
+    params = data.get("p") or {}
+    if not isinstance(params, dict) or len(params) > 10:
+        return None
+    out = {}
+    for k, v in params.items():
+        if not isinstance(k, str) or not k.isidentifier() or len(k) > 32:
+            return None
+        if isinstance(v, dict):
+            v = _clean_message(v, depth + 1)
+            if v is None:
+                return None
+        elif isinstance(v, str):
+            v = v[:512]
+        elif not (v is None or isinstance(v, bool | int | float)):
+            return None
+        out[k] = v
+    return {"m": data["m"], "p": out}
+
+
+def clean_error(raw: str) -> str:
+    """An agent's error as a safe stored message: a packed message of the code, or plain text."""
+    try:
+        data = json.loads(raw)
+    except (ValueError, RecursionError):
+        return raw[:512]  # not JSON: displayed as is
+    msg = _clean_message(data)
+    if msg is None:
+        return pack(N_("Unrecognized message from the agent"))
+    return json.dumps(msg, ensure_ascii=False, separators=(",", ":"))
+
+
 def parse_report(body) -> Report:
     """Strict validation of an agent report (an agent's machine may be compromised: never trust it)."""
     if not isinstance(body, dict) or body.get("protocol") != PROTOCOL:
@@ -121,7 +165,7 @@ def parse_report(body) -> Report:
                 bool(p.get("present")), _text(p.get("issuer") or "", 255), _date(p.get("not_after")),
                 _text(p.get("error") or "", 512))
     version = _text(body.get("version"), 64, optional=True)
-    return Report(Collected(status, [_text(e) for e in errors], _number(body.get("latency_ms")),
+    return Report(Collected(status, [clean_error(_text(e)) for e in errors], _number(body.get("latency_ms")),
                             version[:32] if version else None, results),
                   infos, (_text(body.get("agent_version") or "", 64) or "")[:32])
 
