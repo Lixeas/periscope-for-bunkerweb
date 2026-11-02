@@ -27,6 +27,8 @@ Agent mode locally: also export `PERISCOPE_AGENT_PUBLIC_URL=https://localhost:84
 
 Demo without a real instance: `dev/fake_bunkerweb.py` (see its header for the 2 uvicorn commands, ports 9001/9002, TLS 9443/9444). `FAKE_AUTH=1 FAKE_TTL=<s>` enables `POST /auth` (user `periscope`, password `FAKE_PASSWORD`, default `secret`) and requires an expiring Bearer on the data endpoints.
 
+Releases (`docs/releasing.md`): semantic version `vX.Y.Z`, single source `__version__` in `src/periscope/__init__.py` (pyproject reads it); notes in `CHANGELOG.md` (write under `## [Unreleased]`). `python dev/release.py bump major|minor|patch` sets the version and moves the notes. Never tag or publish by hand: the `release` job of `.github/workflows/ci.yml` creates the tag, the GitHub release and the GHCR image on push to `main` (i.e. at merge) when the tag does not exist yet; the `version` job checks pull requests.
+
 Migration: `alembic revision --autogenerate -m "..."` (uses `alembic.ini`, throwaway SQLite `data/autogen.db`); the app applies `alembic upgrade head` at startup via `periscope.db.migrate()`. Migrations live in `src/periscope/migrations/` (inside the package).
 
 ## Architecture
