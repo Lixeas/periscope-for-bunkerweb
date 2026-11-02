@@ -11,6 +11,11 @@ the new version.
 
 ## [0.2.1]
 
+### Changed
+- `docker-compose.agent.yml` uses the released image `ghcr.io/lixeas/periscope-for-bunkerweb`
+  (pinned with `PERISCOPE_VERSION`) instead of building from a checkout: the file alone is enough to
+  deploy an agent at a customer's site.
+
 ### Security
 - Agent listener: an invalid agent report no longer echoes the exception text in the HTTP response;
   the reason is logged on the console only (code scanning: information exposure through an exception).
