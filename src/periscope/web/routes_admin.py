@@ -1,43 +1,50 @@
 import re
+import secrets
+from datetime import timedelta
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
-from periscope import collector
+from periscope import collector, pki, queries
+from periscope.agent import make_bundle
+from periscope.agent_server import enroll_token_hash
 from periscope.auth.audit import audit
 from periscope.auth.passwords import MIN_LENGTH, hash_password
 from periscope.auth.users import create_user
 from periscope.bw_client import BWClient, BWError
+from periscope.clock import utcnow
 from periscope.config import get_settings
 from periscope.crypto import encrypt
 from periscope.db import get_db
 from periscope.i18n import N_, LocalizedError, lang_for, localize, tr, translate
 from periscope.models import AuditLog, Instance, Session, User
+from periscope.tags import assign as assign_tags
+from periscope.tags import parse as tag_list
+from periscope.tags import prune as prune_tags
 from periscope.web.deps import require_admin
 from periscope.web.render import render
 from periscope.web.routes_auth import ip_of
 
 router = APIRouter(prefix="/admin")
 
-AUTH_MODES = ("token", "user")
+CONNECTIONS = ("direct", "agent")
 MESSAGES = {
     "added": N_("Instance added; first collection in progress."),
     "saved": N_("Instance saved."),
     "deleted": N_("Instance deleted."),
+    "revoked": N_("Agent revoked: its certificate is no longer accepted."),
 }
 KIND_LABEL = {"network": N_("Instance unreachable"),
-              "auth": N_("Authentication refused (token, credentials or insufficient permissions)"),
+              "auth": N_("Authentication refused (credentials or insufficient permissions)"),
               "http": N_("Unexpected HTTP response"),
               "data": N_("Response is not JSON (is this really the BunkerWeb API?)")}
 
 
-async def check_instance(base_url: str, verify_tls: bool, token: str | None = None,
-                         credentials: tuple[str, str] | None = None) -> BWError | None:
-    """Connection test: ping + one authenticated call (in user mode, this exercises POST /auth).
+async def check_instance(base_url: str, verify_tls: bool, credentials: tuple[str, str]) -> BWError | None:
+    """Connection test: ping + one authenticated call (exercises POST /auth).
     Returns the error (displayed translated by the caller) or None."""
-    client = BWClient(base_url, token, credentials=credentials,
-                      timeout=get_settings().http_timeout, verify=verify_tls)
+    client = BWClient(base_url, credentials, timeout=get_settings().http_timeout, verify=verify_tls)
     try:
         await client.ping()
         await client.bans()
@@ -61,7 +68,7 @@ def clean_url(raw: str) -> str:
     return raw.rstrip("/")
 
 
-def validate_fields(db, name: str, base_url: str, tls_port: int, exclude_id: int | None = None) -> tuple[str, str]:
+def validate_name(db, name: str, exclude_id: int | None = None) -> str:
     name = name.strip()
     if not re.fullmatch(r"[A-Za-z0-9._ -]{1,64}", name):
         raise LocalizedError(N_("Invalid name (1-64 characters: letters, digits, space, . _ -)"))
@@ -70,6 +77,11 @@ def validate_fields(db, name: str, base_url: str, tls_port: int, exclude_id: int
         clash = clash.filter(Instance.id != exclude_id)
     if clash.first():
         raise LocalizedError(N_("An instance with this name already exists"))
+    return name
+
+
+def validate_fields(db, name: str, base_url: str, tls_port: int, exclude_id: int | None = None) -> tuple[str, str]:
+    name = validate_name(db, name, exclude_id)
     if not 1 <= tls_port <= 65535:
         raise LocalizedError(N_("Invalid TLS port"))
     return name, clean_url(base_url)
@@ -77,72 +89,107 @@ def validate_fields(db, name: str, base_url: str, tls_port: int, exclude_id: int
 
 def instances_page(request: Request, db, user: User, error=None, form=None, status=200):
     code = MESSAGES.get(request.query_params.get("m"))
+    q = db.query(Instance).order_by(Instance.name)
+    ids = queries.scope(db, request.query_params.get("tag", ""))
+    if ids is not None:
+        q = q.filter(Instance.id.in_(ids))
     return render(request, "admin_instances.html", status=status, user=user, error=error, form=form or {},
-                  msg=tr(request, code) if code else None,
-                  instances=db.query(Instance).order_by(Instance.name).all())
+                  msg=tr(request, code) if code else None, instances=q.all(),
+                  agents_enabled=bool(get_settings().agent_public_url))
+
+
+def new_enroll_token(inst: Instance) -> str:
+    """Single-use enrollment token (only its hash is kept), valid PERISCOPE_AGENT_ENROLL_TTL seconds."""
+    token = secrets.token_urlsafe(32)
+    inst.agent_enroll_hash = enroll_token_hash(token)
+    inst.agent_enroll_expires = utcnow() + timedelta(seconds=get_settings().agent_enroll_ttl)
+    return token
+
+
+def enroll_page(request: Request, db, user: User, inst: Instance, token: str):
+    """Shown once: the token is not stored in clear and cannot be displayed again."""
+    cfg = get_settings()
+    bundle = make_bundle(cfg.agent_public_url, token, pki.ca_fingerprint(db))
+    db.commit()
+    return render(request, "admin_agent_enroll.html", user=user, inst=inst, bundle=bundle,
+                  ca_fp=pki.ca_fingerprint(db), console_url=cfg.agent_public_url)
 
 
 @router.get("/instances")
-async def instances_get(request: Request, user: User = Depends(require_admin), db=Depends(get_db)):
+def instances_get(request: Request, user: User = Depends(require_admin), db=Depends(get_db)):
     return instances_page(request, db, user)
 
 
 @router.post("/instances")
 async def instances_add(request: Request, background: BackgroundTasks,
-                        name: str = Form(""), base_url: str = Form(""), auth_mode: str = Form("token"),
-                        token: str = Form(""), api_username: str = Form(""), api_password: str = Form(""),
+                        name: str = Form(""), connection: str = Form("direct"), tags: str = Form(""),
+                        base_url: str = Form(""), api_username: str = Form(""), api_password: str = Form(""),
                         probe_host: str = Form(""), tls_port: int = Form(443),
                         verify_tls: bool = Form(False), force: bool = Form(False),
                         user: User = Depends(require_admin), db=Depends(get_db)):
     form = {"name": name, "base_url": base_url, "probe_host": probe_host, "tls_port": tls_port,
-            "verify_tls": verify_tls, "auth_mode": auth_mode, "api_username": api_username}
-    token, api_username = token.strip(), api_username.strip()
+            "verify_tls": verify_tls, "connection": connection, "api_username": api_username, "tags": tags}
+    api_username = api_username.strip()
+    lang = lang_for(request)
     try:
-        name, base_url = validate_fields(db, name, base_url, tls_port)
-        if auth_mode not in AUTH_MODES:
-            raise LocalizedError(N_("Invalid authentication mode"))
-        if auth_mode == "token" and not token:
-            raise LocalizedError(N_("Token required"))
-        if auth_mode == "user" and not (api_username and api_password):
-            raise LocalizedError(N_("API username and password required"))
+        if connection not in CONNECTIONS:
+            raise LocalizedError(N_("Invalid connection mode"))
+        tag_names = tag_list(tags)
+        if connection == "agent":
+            name = validate_name(db, name)
+            if not get_settings().agent_public_url:
+                raise LocalizedError(N_("The agent mode needs PERISCOPE_AGENT_PUBLIC_URL on the console"))
+        else:
+            name, base_url = validate_fields(db, name, base_url, tls_port)
+            if not (api_username and api_password):
+                raise LocalizedError(N_("API username and password required"))
     except ValueError as e:
-        return instances_page(request, db, user, localize(lang_for(request), e), form, 400)
+        return instances_page(request, db, user, localize(lang, e), form, 400)
+    if connection == "agent":
+        inst = Instance(name=name, connection="agent", status="unknown")
+        db.add(inst)
+        db.flush()
+        assign_tags(db, inst, tag_names)
+        token = new_enroll_token(inst)
+        audit(db, "instance_added", user.username, detail=f"{name} (agent)", ip=ip_of(request))
+        audit(db, "agent_enroll_token", user.username, detail=name, ip=ip_of(request))
+        return enroll_page(request, db, user, inst, token)
     if not force:
         db.commit()  # releases the SQLite write lock during the network call
-        err = await check_instance(base_url, verify_tls,
-                                   token=token if auth_mode == "token" else None,
-                                   credentials=(api_username, api_password) if auth_mode == "user" else None)
+        err = await check_instance(base_url, verify_tls, (api_username, api_password))
         if err:
-            lang = lang_for(request)
             detail = f"{translate(lang, KIND_LABEL[err.kind])} — {err.localize(lang)}"
             return instances_page(request, db, user, translate(lang, N_("Connection test failed: {error}"), error=detail),
                                   {**form, "failed": True}, 400)
-    inst = Instance(name=name, base_url=base_url, verify_tls=verify_tls,
-                    probe_host=probe_host.strip(), tls_port=tls_port, auth_mode=auth_mode)
-    if auth_mode == "user":
-        inst.api_username, inst.api_password_enc = api_username, encrypt(api_password)
-    else:
-        inst.token_enc = encrypt(token)
+    inst = Instance(name=name, base_url=base_url, verify_tls=verify_tls, connection="direct",
+                    probe_host=probe_host.strip(), tls_port=tls_port,
+                    api_username=api_username, api_password_enc=encrypt(api_password))
     db.add(inst)
     db.flush()
-    audit(db, "instance_added", user.username, detail=f"{name} ({auth_mode})", ip=ip_of(request))
+    assign_tags(db, inst, tag_names)
+    audit(db, "instance_added", user.username, detail=f"{name} (direct)", ip=ip_of(request))
     db.commit()
     background.add_task(collector.refresh_instance, inst.id)
     return RedirectResponse("/admin/instances?m=added", 303)
 
 
+def edit_page(request: Request, inst: Instance, user: User, error=None, status=200):
+    return render(request, "admin_instance_edit.html", status=status, user=user, inst=inst, error=error,
+                  tags_value=", ".join(t.name for t in inst.tags), now=utcnow())
+
+
 @router.get("/instances/{inst_id}")
-async def instance_edit_get(request: Request, inst_id: int, user: User = Depends(require_admin), db=Depends(get_db)):
+def instance_edit_get(request: Request, inst_id: int, user: User = Depends(require_admin), db=Depends(get_db)):
     inst = db.get(Instance, inst_id)
     if inst is None:
         return RedirectResponse("/admin/instances", 303)
-    return render(request, "admin_instance_edit.html", user=user, inst=inst, error=None)
+    return edit_page(request, inst, user)
 
 
 @router.post("/instances/{inst_id}")
 async def instance_edit_post(request: Request, inst_id: int, background: BackgroundTasks,
-                             name: str = Form(""), base_url: str = Form(""), auth_mode: str = Form(""),
-                             token: str = Form(""), api_username: str = Form(""), api_password: str = Form(""),
+                             name: str = Form(""), tags: str = Form(""), base_url: str = Form(""),
+                             api_username: str = Form(""), api_password: str = Form(""),
                              probe_host: str = Form(""), tls_port: int = Form(443),
                              verify_tls: bool = Form(False), enabled: bool = Form(False),
                              user: User = Depends(require_admin), db=Depends(get_db)):
@@ -151,56 +198,73 @@ async def instance_edit_post(request: Request, inst_id: int, background: Backgro
         return RedirectResponse("/admin/instances", 303)
 
     def fail(msg: str):
-        return render(request, "admin_instance_edit.html", status=400, user=user, inst=inst,
-                      error=tr(request, msg))
+        return edit_page(request, inst, user, msg, 400)
 
+    lang = lang_for(request)
     try:
-        name, base_url = validate_fields(db, name, base_url, tls_port, exclude_id=inst_id)
+        tag_names = tag_list(tags)
+        if inst.is_agent:
+            name = validate_name(db, name, exclude_id=inst_id)
+        else:
+            name, base_url = validate_fields(db, name, base_url, tls_port, exclude_id=inst_id)
     except ValueError as e:
-        return fail(localize(lang_for(request), e))
-    mode = auth_mode or inst.auth_mode
-    token, api_username = token.strip(), api_username.strip()
-    if mode not in AUTH_MODES:
-        return fail(N_("Invalid authentication mode"))
-    switching = mode != inst.auth_mode
-    url_changed = base_url != inst.base_url
-    if mode == "token":
-        if (switching or url_changed) and not token:
-            return fail(N_("Changing the mode requires entering the token") if switching
-                        else N_("Changing the URL requires re-entering the token"))
-    else:
-        username = api_username or inst.api_username
-        if switching and not (api_username and api_password):
-            return fail(N_("Changing the mode requires entering the API username and password"))
+        return fail(localize(lang, e))
+    if not inst.is_agent:
+        username = api_username.strip() or inst.api_username
         if not username:
-            return fail(N_("API username required"))
-        if (url_changed or username != inst.api_username) and not api_password:
-            return fail(N_("Changing the URL or the user requires re-entering the API password"))
-    inst.name, inst.base_url, inst.probe_host = name, base_url, probe_host.strip()
-    inst.tls_port, inst.verify_tls, inst.enabled = tls_port, verify_tls, enabled
-    inst.auth_mode = mode
-    if mode == "token":
-        inst.api_username, inst.api_password_enc = "", ""
-        if token:
-            inst.token_enc = encrypt(token)
-    else:
-        inst.token_enc = ""
-        inst.api_username = api_username or inst.api_username
+            return fail(tr(request, N_("API username required")))
+        if (base_url != inst.base_url or username != inst.api_username or not inst.api_password_enc) \
+                and not api_password:
+            return fail(tr(request, N_("Changing the URL or the user requires re-entering the API password")))
+        inst.base_url, inst.probe_host, inst.tls_port, inst.verify_tls = base_url, probe_host.strip(), tls_port, verify_tls
+        inst.api_username = username
         if api_password:
             inst.api_password_enc = encrypt(api_password)
-    audit(db, "instance_edited", user.username, detail=f"{name} ({mode})", ip=ip_of(request))
+            inst.last_error = ""  # e.g. the message left by the removal of the static token mode
+    inst.name, inst.enabled = name, enabled
+    assign_tags(db, inst, tag_names)
+    audit(db, "instance_edited", user.username, detail=f"{name} ({inst.connection})", ip=ip_of(request))
     db.commit()
-    if inst.enabled:
+    if inst.enabled and not inst.is_agent:
         background.add_task(collector.refresh_instance, inst.id)
     return RedirectResponse("/admin/instances?m=saved", 303)
 
 
+@router.post("/instances/{inst_id}/agent-token")
+def instance_agent_token(request: Request, inst_id: int, user: User = Depends(require_admin), db=Depends(get_db)):
+    """New single-use enrollment token (re-enrollment: the current certificate stays valid until it is used)."""
+    inst = db.get(Instance, inst_id)
+    if inst is None or not inst.is_agent:
+        return RedirectResponse("/admin/instances", 303)
+    if not get_settings().agent_public_url:
+        return edit_page(request, inst, user,
+                         tr(request, N_("The agent mode needs PERISCOPE_AGENT_PUBLIC_URL on the console")), 400)
+    token = new_enroll_token(inst)
+    audit(db, "agent_enroll_token", user.username, detail=inst.name, ip=ip_of(request))
+    return enroll_page(request, db, user, inst, token)
+
+
+@router.post("/instances/{inst_id}/agent-revoke")
+def instance_agent_revoke(request: Request, inst_id: int, user: User = Depends(require_admin), db=Depends(get_db)):
+    inst = db.get(Instance, inst_id)
+    if inst is None or not inst.is_agent:
+        return RedirectResponse("/admin/instances", 303)
+    inst.agent_cert_fp = inst.agent_next_cert_fp = inst.agent_enroll_hash = ""
+    inst.agent_cert_not_after = inst.agent_enroll_expires = None
+    inst.status, inst.last_attempt_at = "unknown", None
+    audit(db, "agent_revoked", user.username, detail=inst.name, ip=ip_of(request))
+    db.commit()
+    return RedirectResponse("/admin/instances?m=revoked", 303)
+
+
 @router.post("/instances/{inst_id}/delete")
-async def instance_delete(request: Request, inst_id: int, user: User = Depends(require_admin), db=Depends(get_db)):
+def instance_delete(request: Request, inst_id: int, user: User = Depends(require_admin), db=Depends(get_db)):
     inst = db.get(Instance, inst_id)
     if inst:
         audit(db, "instance_deleted", user.username, detail=inst.name, ip=ip_of(request))
         db.delete(inst)
+        db.flush()
+        prune_tags(db)
         db.commit()
     return RedirectResponse("/admin/instances?m=deleted", 303)
 
@@ -338,6 +402,11 @@ EVENT_LABELS = {
     "instance_added": N_("Instance added"),
     "instance_edited": N_("Instance edited"),
     "instance_deleted": N_("Instance deleted"),
+    "agent_enroll_token": N_("Agent enrollment token created"),
+    "agent_enrolled": N_("Agent enrolled"),
+    "agent_enroll_failed": N_("Agent enrollment refused"),
+    "agent_cert_renewed": N_("Agent certificate renewed"),
+    "agent_revoked": N_("Agent revoked"),
     "user_created": N_("User created"),
     "user_deleted": N_("User deleted"),
     "user_role_changed": N_("User role changed"),

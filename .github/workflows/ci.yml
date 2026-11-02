@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
-      - run: ruff check src tests
+      - run: ruff check src tests dev
       - run: python -m pytest -q
 
   docker:
@@ -36,3 +36,85 @@ jobs:
           done
           docker logs periscope
           exit 1
+
+  # Pull requests: the version may stay the same (no release) or go up by exactly one step, with its
+  # notes in CHANGELOG.md. Nothing is tagged or published here.
+  version:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Compare with the target branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          base=$(git show "origin/${BASE_REF}:src/periscope/__init__.py" | sed -n 's/^__version__ = "\(.*\)"$/\1/p')
+          python dev/release.py check --base "$base"
+          version=$(python dev/release.py current)
+          if [ "$version" != "$base" ] && git ls-remote --exit-code --tags origin "refs/tags/v${version}" >/dev/null; then
+            echo "::error::tag v${version} already exists: bump the version"
+            exit 1
+          fi
+
+  # After the merge (push to main), once the tests and the image build pass: if the version in
+  # src/periscope/__init__.py has no tag yet, create the tag vX.Y.Z, the GitHub release (notes from
+  # CHANGELOG.md) and the container image ghcr.io/<owner>/<repo>:X.Y.Z.
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Version to release
+        id: v
+        run: |
+          version=$(python dev/release.py current)
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v${version}" >/dev/null; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            echo "v${version} already released: nothing to do"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Tag and GitHub release
+        if: steps.v.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          python dev/release.py notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+          gh release create "v${VERSION}" --target "$GITHUB_SHA" --title "v${VERSION}" \
+            --notes-file "$RUNNER_TEMP/notes.md"
+      - name: Container image
+        if: steps.v.outputs.new == 'true'
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          image="ghcr.io/${REPO,,}"
+          minor="${VERSION%.*}"
+          echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker build \
+            --label "org.opencontainers.image.version=${VERSION}" \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${REPO}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            -t "${image}:${VERSION}" -t "${image}:${minor}" -t "${image}:latest" .
+          docker push --all-tags "${image}"

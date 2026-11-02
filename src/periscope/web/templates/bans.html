@@ -7,9 +7,10 @@
 {% set np = rows | selectattr('permanent') | list | length %}
 <p class="page-sum">{{ _("{total} bans, {ips} unique IPs, {permanent} permanent", total=rows | length, ips=rows | map(attribute='ip') | unique | list | length, permanent=np) }}</p>
 <form method="get" class="row g-2 mb-3">
+  {% if current_tag %}<input type="hidden" name="tag" value="{{ current_tag }}">{% endif %}
   <div class="col-auto"><label class="visually-hidden" for="q">{{ _("IP") }}</label>
     <input class="form-control" id="q" name="q" value="{{ q }}" placeholder="{{ _('Search an IP') }}"></div>
-  <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Search") }}</button>{% if q %} <a class="btn btn-link" href="/bans">{{ _("Clear") }}</a>{% endif %}</div>
+  <div class="col-auto"><button class="btn btn-outline-secondary">{{ _("Search") }}</button>{% if q %} <a class="btn btn-link" href="/bans{% if current_tag %}?tag={{ current_tag | urlencode }}{% endif %}">{{ _("Clear") }}</a>{% endif %}</div>
 </form>
 <div class="table-responsive">
 <table class="table table-stack align-middle" id="t-bans" data-table>

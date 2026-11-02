@@ -30,14 +30,14 @@ class BWError(Exception):
 
 class BWClient:
     """Read-only: everything is read through `_get` (GET). The only other request sent is POST /auth,
-    which exchanges the API user's username/password for a Biscuit token.
-    No public write method exists. Neither password nor token in error messages."""
+    which exchanges the API user's username/password for a Biscuit token (`token` = a token obtained
+    earlier, reused until the API rejects it). No public write method exists.
+    Neither password nor token in error messages."""
 
-    def __init__(self, base_url: str, token: str | None = None, *,
-                 credentials: tuple[str, str] | None = None, timeout: float = 5.0,
-                 verify: bool = True, transport=None):
-        if not token and not credentials:
-            raise ValueError("token or credentials required")
+    def __init__(self, base_url: str, credentials: tuple[str, str], *, token: str | None = None,
+                 timeout: float = 5.0, verify: bool = True, transport=None):
+        if not credentials or not all(credentials):
+            raise ValueError("API username and password required")
         self._credentials = credentials
         self.token: str | None = token or None  # exposed so the caller can cache it
         self._http = httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=timeout,
@@ -85,7 +85,7 @@ class BWClient:
         if self.token is None:
             await self._authenticate()
         r = await self._send(path, params)
-        if r.status_code == 401 and self._credentials:
+        if r.status_code == 401:
             # expired/revoked token: a single re-authentication, a single retry
             self.token = None
             await self._authenticate()

@@ -9,11 +9,11 @@ from periscope.models import CertProbe, Instance, Snapshot
 def seed():
     now = utcnow()
     with session_scope() as s:
-        a = Instance(name="bw1", base_url="http://a:8888", token_enc="x", status="ok", version="1.6.0",
+        a = Instance(name="bw1", base_url="http://a:8888", status="ok", version="1.6.0",
                      last_ok_at=now, latency_ms=12.0)
-        b = Instance(name="bw2", base_url="http://b:8888", token_enc="x", status="down",
+        b = Instance(name="bw2", base_url="http://b:8888", status="down",
                      last_ok_at=now - timedelta(hours=1), last_error="network: timeout")
-        off = Instance(name="bw3", base_url="http://c:8888", token_enc="x", enabled=False)
+        off = Instance(name="bw3", base_url="http://c:8888", enabled=False)
         s.add_all([a, b, off])
         s.flush()
         snaps = {
@@ -166,3 +166,25 @@ def test_instance_cards_alerts_are_sorted_worst_first(fresh_db):
     assert by["bw2"]["alerts"] and by["bw3"]["alerts"] == [] and by["bw3"]["sev"] == "off"
     # the instances to check come first, disabled ones last
     assert [c["sev"] for c in cards] == sorted((c["sev"] for c in cards), key=queries.SEV_ORDER.get)
+
+
+def test_tag_scope_filters_every_view_and_gaps_stay_inside_the_scope(fresh_db):
+    from periscope.models import Tag
+    from periscope.tags import assign
+    now = utcnow()
+    seed()
+    with session_scope() as s:
+        bw1 = s.query(Instance).filter_by(name="bw1").one()
+        assign(s, bw1, ["acme"])
+    with session_scope() as s:
+        ids = queries.scope(s, "acme")
+        assert ids == {bw1.id} and queries.scope(s, "") is None and queries.scope(s, "nope") == set()
+        assert [c["name"] for c in queries.instance_cards(s, now, ids)] == ["bw1"]
+        assert queries.instance_cards(s, now, ids)[0]["tags"] == ["acme"]
+        rows, names = queries.services(s, ids=ids)
+        assert names == ["bw1"] and not any(r["missing_on"] for r in rows)  # bw2 is out of scope
+        assert {r["instance"] for r in queries.bans(s, ids=ids)} == {"bw1"}
+        assert queries.plugins(s, ids)[0] == ["bw1"] and {j["instance"] for j in queries.jobs(s, ids)} == {"bw1"}
+        assert queries.summary(s, now, ids)["instances_total"] == 1
+        assert queries.summary(s, now, set())["instances_total"] == 0
+        assert s.query(Tag).count() == 1

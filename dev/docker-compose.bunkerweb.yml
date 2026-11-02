@@ -24,7 +24,7 @@
 #   bw2: API URL http://127.0.0.1:8082   probe host 127.0.0.1   TLS port 9443
 #   If Periscope itself runs in a container, replace 127.0.0.1 with
 #   host.docker.internal (or attach it to the networks below).
-#   Token: see "API token" below. Probed domains (SNI):
+#   Credentials: see AUTHENTICATION below. Probed domains (SNI):
 #   app.bw1.test / app.bw2.test (services declared below).
 #
 # AUTHENTICATION (see also docs/bunkerweb-api-user.md)
@@ -35,9 +35,8 @@
 #   `.token`) and renews it on its own (lifetime: API_BISCUIT_TTL_SECONDS, 3600 s by
 #   default according to the docs). Read permissions: instances_read, service_read,
 #   global_config_read, ban_read, job_read, plugin_read.
-#   Discouraged alternative: API_TOKEN, FULL ADMIN access, as a static Bearer.
-#   It stays defined below for dev (`dev-token-bw1` / `dev-token-bw2`);
-#   never do this in prod.
+#   API_TOKEN (FULL ADMIN access) stays defined below for manual curl tests in
+#   dev only (`dev-token-bw1` / `dev-token-bw2`); Periscope no longer uses it.
 #
 # Response alignment: once the instances are registered, compare the real
 # API responses with src/periscope/normalize.py (Plan 3, Task 8).

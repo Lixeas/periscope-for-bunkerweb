@@ -21,15 +21,22 @@ def create_app(run_migrations: bool = True) -> FastAPI:
         cfg = get_settings()
         if run_migrations:
             migrate()
-        task = None
+        tasks, listener = [], None
         if cfg.collector_enabled:
             from periscope import collector
 
-            task = asyncio.create_task(collector.run_forever())
+            tasks.append(asyncio.create_task(collector.run_forever()))
+        if cfg.agent_public_url:
+            from periscope.agent_server import AgentListener
+
+            listener = AgentListener()
+            tasks.append(asyncio.create_task(listener.serve()))
         try:
             yield
         finally:
-            if task:
+            if listener:
+                listener.stop()
+            for task in tasks:
                 task.cancel()
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)

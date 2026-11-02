@@ -5,16 +5,36 @@ from sqlalchemy.orm import Session
 
 from periscope import diff
 from periscope.config import get_settings
-from periscope.models import CertProbe, Instance, Snapshot
+from periscope.models import CertProbe, Instance, Snapshot, Tag
 
 CERT_ORDER = {"expired": 0, "none": 1, "red": 2, "orange": 3, "ok": 4}
 
+# Every view takes an optional `ids` scope: the instance ids of the selected tag (None = all
+# instances). Cross-instance gaps are then computed inside that scope, e.g. within one customer.
 
-def _by_instance(db: Session, kind: str) -> dict[str, list]:
+
+def scope(db: Session, tag: str) -> set[int] | None:
+    """Instance ids carrying `tag` (empty set if the tag does not exist); None when no tag is selected."""
+    if not tag:
+        return None
+    t = db.query(Tag).filter_by(name=tag).one_or_none()
+    return {i.id for i in db.query(Instance).filter(Instance.tags.contains(t))} if t else set()
+
+
+def _instances(db: Session, ids: set[int] | None, enabled_only: bool = True):
+    q = db.query(Instance)
+    if enabled_only:
+        q = q.filter_by(enabled=True)
+    if ids is not None:
+        q = q.filter(Instance.id.in_(ids))
+    return q
+
+
+def _by_instance(db: Session, kind: str, ids: set[int] | None = None) -> dict[str, list]:
     """{instance name: latest snapshot} for enabled instances that have a snapshot of this type."""
-    names = {i.id: i.name for i in db.query(Instance).filter_by(enabled=True)}
+    names = {i.id: i.name for i in _instances(db, ids)}
     return {names[s.instance_id]: s.payload
-            for s in db.query(Snapshot).filter_by(kind=kind) if s.instance_id in names}
+            for s in db.query(Snapshot).filter(Snapshot.kind == kind, Snapshot.instance_id.in_(names))}
 
 
 def _node_view(n: dict) -> dict:
@@ -50,12 +70,16 @@ def _alerts(c: dict, certs: dict[str, int]) -> list[dict]:
     return out
 
 
-def instance_cards(db: Session, now: datetime) -> list[dict]:
+def instance_cards(db: Session, now: datetime, ids: set[int] | None = None) -> list[dict]:
     cfg = get_settings()
-    snaps = {s.instance_id: s.payload for s in db.query(Snapshot).filter_by(kind="instances")}
-    svc_snaps = {s.instance_id: s.payload for s in db.query(Snapshot).filter_by(kind="services")}
+    insts = _instances(db, ids, enabled_only=False).order_by(Instance.name).all()
+    wanted = [i.id for i in insts]
+    snaps = {s.instance_id: s.payload for s in
+             db.query(Snapshot).filter(Snapshot.kind == "instances", Snapshot.instance_id.in_(wanted))}
+    svc_snaps = {s.instance_id: s.payload for s in
+                 db.query(Snapshot).filter(Snapshot.kind == "services", Snapshot.instance_id.in_(wanted))}
     cert_counts: dict[int, dict[str, int]] = {}
-    for p in db.query(CertProbe):
+    for p in db.query(CertProbe).filter(CertProbe.instance_id.in_(wanted)):
         st = diff.cert_status(p.present, p.not_after, now)
         by = cert_counts.setdefault(p.instance_id, {})
         by[st] = by.get(st, 0) + 1
@@ -65,9 +89,9 @@ def instance_cards(db: Session, now: datetime) -> list[dict]:
          "nodes": None if i.id not in snaps else [_node_view(n) for n in snaps[i.id] if isinstance(n, dict)],
          "id": i.id, "name": i.name, "status": i.status, "version": i.version,
          "latency_ms": i.latency_ms, "last_ok_at": i.last_ok_at, "last_error": i.last_error,
-         "enabled": i.enabled,
+         "enabled": i.enabled, "connection": i.connection, "tags": [t.name for t in i.tags],
          "stale": diff.is_stale(i.last_ok_at, now, cfg.poll_interval, cfg.stale_cycles)}
-        for i in db.query(Instance).order_by(Instance.name)
+        for i in insts
     ]
     for c in cards:
         c["nodes_total"] = len(c["nodes"] or [])
@@ -84,15 +108,13 @@ def instance_cards(db: Session, now: datetime) -> list[dict]:
     return cards
 
 
-def summary(db: Session, now: datetime) -> dict:
-    all_cards = instance_cards(db, now)
+def summary(db: Session, now: datetime, ids: set[int] | None = None, cards: list[dict] | None = None) -> dict:
+    all_cards = instance_cards(db, now, ids) if cards is None else cards
     active = [c for c in all_cards if c["enabled"]]
-    ips = {str(b.get("ip", "")) for payload in _by_instance(db, "bans").values() for b in payload}
-    statuses = [diff.cert_status(p.present, p.not_after, now)
-                for p, _ in db.query(CertProbe, Instance)
-                .join(Instance, CertProbe.instance_id == Instance.id).filter(Instance.enabled.is_(True))]
+    ips = {str(b.get("ip", "")) for payload in _by_instance(db, "bans", ids).values() for b in payload}
+    statuses = [diff.cert_status(p.present, p.not_after, now) for p, _ in _cert_rows(db, ids)]
     return {
-        "services_diff": len({r["name"] for r in services(db)[0] if r["missing_on"]}),
+        "services_diff": len({r["name"] for r in services(db, ids=ids)[0] if r["missing_on"]}),
         "instances_total": len(active),
         "instances_ok": sum(c["status"] == "ok" for c in active),
         "instances_stale": sum(c["stale"] for c in active),
@@ -107,8 +129,15 @@ def summary(db: Session, now: datetime) -> dict:
     }
 
 
-def services(db: Session, instance: str = "", mode: str = "", only_diff: bool = False) -> tuple[list[dict], list[str]]:
-    per = _by_instance(db, "services")
+def _cert_rows(db: Session, ids: set[int] | None):
+    q = (db.query(CertProbe, Instance).join(Instance, CertProbe.instance_id == Instance.id)
+         .filter(Instance.enabled.is_(True)))
+    return q if ids is None else q.filter(Instance.id.in_(ids))
+
+
+def services(db: Session, instance: str = "", mode: str = "", only_diff: bool = False,
+             ids: set[int] | None = None) -> tuple[list[dict], list[str]]:
+    per = _by_instance(db, "services", ids)
     missing = diff.gaps({n: {str(s.get("name", "")) for s in p if not s.get("draft")} for n, p in per.items()})
     rows = [{"instance": n, "name": str(s.get("name", "")), "mode": s.get("mode"), "draft": bool(s.get("draft")),
              "missing_on": [] if s.get("draft") else missing.get(str(s.get("name", "")), [])}
@@ -144,8 +173,8 @@ def _ban_row(b: dict, n: str, missing: dict) -> dict:
             "missing_on": missing.get(str(b.get("ip", "")), [])}
 
 
-def bans(db: Session, q: str = "") -> list[dict]:
-    per = _by_instance(db, "bans")
+def bans(db: Session, q: str = "", ids: set[int] | None = None) -> list[dict]:
+    per = _by_instance(db, "bans", ids)
     missing = diff.gaps({n: {str(b.get("ip", "")) for b in p} for n, p in per.items()})
     rows = [_ban_row(b, n, missing) for n, p in per.items() for b in p]
     if q.strip():
@@ -154,24 +183,22 @@ def bans(db: Session, q: str = "") -> list[dict]:
     return rows
 
 
-def jobs(db: Session) -> list[dict]:
+def jobs(db: Session, ids: set[int] | None = None) -> list[dict]:
     rows = [{**j, "instance": n, "next_run": diff.next_run(j.get("last_run"), j.get("every"))}
-            for n, p in sorted(_by_instance(db, "jobs").items()) for j in p]
+            for n, p in sorted(_by_instance(db, "jobs", ids).items()) for j in p]
     rows.sort(key=lambda j: j.get("success") is not False)  # failures first, stable otherwise
     return rows
 
 
-def plugins(db: Session) -> tuple[list[str], list[dict]]:
-    per = _by_instance(db, "plugins")
+def plugins(db: Session, ids: set[int] | None = None) -> tuple[list[str], list[dict]]:
+    per = _by_instance(db, "plugins", ids)
     matrix = diff.plugin_matrix({n: {str(p.get("id", "")): str(p.get("version", "")) for p in pl} for n, pl in per.items()})
     return sorted(per), matrix
 
 
-def certs(db: Session, now: datetime) -> list[dict]:
+def certs(db: Session, now: datetime, ids: set[int] | None = None) -> list[dict]:
     rows = []
-    q = (db.query(CertProbe, Instance).join(Instance, CertProbe.instance_id == Instance.id)
-         .filter(Instance.enabled.is_(True)))
-    for p, i in q:
+    for p, i in _cert_rows(db, ids):
         rows.append({
             "instance": i.name, "domain": p.domain, "present": p.present, "issuer": p.issuer,
             "letsencrypt": "let's encrypt" in p.issuer.lower(), "not_after": p.not_after,

@@ -74,7 +74,7 @@
     if (document.querySelector("meta[name=autoreload]") && idle()) { await softRefresh(); fresh = Date.now(); paint(); return; }
     if (!document.querySelector("[data-summary]")) return;
     try {
-      const r = await fetch("/api/summary", {credentials: "same-origin"});
+      const r = await fetch("/api/summary" + location.search, {credentials: "same-origin"});
       if (r.redirected || !r.ok) { location.reload(); return; }  // session expired
       const data = await r.json();
       const figs = document.querySelector(".figs");

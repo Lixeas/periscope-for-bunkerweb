@@ -3,29 +3,27 @@
 {% block content %}
 <h1 class="page-title">{{ _("Edit “{name}”", name=inst.name) }}</h1>
 {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+{% if inst.last_error and not inst.enabled %}<div class="alert alert-warning" role="status">{{ inst.last_error | stored }}</div>{% endif %}
+<div class="row g-4">
 <form method="post" action="/admin/instances/{{ inst.id }}" class="col-lg-6">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="mb-3"><label class="form-label" for="name">{{ _("Name") }}</label>
     <input class="form-control" id="name" name="name" value="{{ inst.name }}" required></div>
+  <div class="mb-3"><label class="form-label" for="tags">{{ _("Tags") }}</label>
+    <input class="form-control" id="tags" name="tags" value="{{ tags_value }}" placeholder="{{ _('e.g. customer-a, production') }}">
+    <div class="form-text">{{ _("Comma-separated, e.g. one tag per customer; every view can be filtered by tag.") }}</div></div>
+  <div class="mb-3"><div class="form-label">{{ _("Connection") }}</div>
+    <div>{% if inst.is_agent %}{{ _("Periscope agent (remote network, mutual TLS)") }}{% else %}{{ _("Direct API (same network as Periscope)") }}{% endif %}</div>
+    <div class="form-text">{{ _("The connection mode cannot be changed: delete the instance and add it again.") }}</div></div>
+  {% if not inst.is_agent %}
   <div class="mb-3"><label class="form-label" for="base_url">{{ _("BunkerWeb API URL") }}</label>
     <input class="form-control" id="base_url" name="base_url" value="{{ inst.base_url }}" required></div>
-  <div class="mb-3"><label class="form-label" for="auth_mode">{{ _("Authentication mode") }}</label>
-    <select class="form-select" id="auth_mode" name="auth_mode">
-      <option value="user" {% if inst.auth_mode == 'user' %}selected{% endif %}>{{ _("API user (recommended)") }}</option>
-      <option value="token" {% if inst.auth_mode != 'user' %}selected{% endif %}>{{ _("API token") }}</option>
-    </select>
-    <div class="form-text">{{ _("Changing the mode requires entering the secrets of the new mode.") }}</div></div>
   <fieldset class="border rounded p-3 mb-3">
-    <legend class="fs-6">{{ _("“API user” mode") }}</legend>
+    <legend class="fs-6">{{ _("BunkerWeb API user") }}</legend>
     <div class="mb-3"><label class="form-label" for="api_username">{{ _("API username") }}</label>
       <input class="form-control" id="api_username" name="api_username" autocomplete="off" value="{{ inst.api_username }}"></div>
     <div class="mb-0"><label class="form-label" for="api_password">{{ _("New password (leave empty to keep)") }}</label>
       <input class="form-control" id="api_password" name="api_password" type="password" autocomplete="off"></div>
-  </fieldset>
-  <fieldset class="border rounded p-3 mb-3">
-    <legend class="fs-6">{{ _("“API token” mode") }}</legend>
-    <label class="form-label" for="token">{{ _("New token (leave empty to keep)") }}</label>
-    <input class="form-control" id="token" name="token" type="password" autocomplete="off">
   </fieldset>
   <div class="row">
     <div class="col-8 mb-3"><label class="form-label" for="probe_host">{{ _("TLS probe host") }}</label>
@@ -35,9 +33,36 @@
   </div>
   <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="verify_tls" name="verify_tls" {% if inst.verify_tls %}checked{% endif %}>
     <label class="form-check-label" for="verify_tls">{{ _("Verify the API certificate (if HTTPS)") }}</label></div>
+  {% endif %}
   <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="enabled" name="enabled" {% if inst.enabled %}checked{% endif %}>
     <label class="form-check-label" for="enabled">{{ _("Instance enabled (collected)") }}</label></div>
   <button class="btn btn-primary">{{ _("Save") }}</button>
   <a class="btn btn-link" href="/admin/instances">{{ _("Cancel") }}</a>
 </form>
+{% if inst.is_agent %}
+<section class="col-lg-6" aria-labelledby="agent-t">
+  <h2 class="section-title" id="agent-t">{{ _("Agent") }}</h2>
+  <dl class="facts">
+    <div><dt>{{ _("Enrollment") }}</dt><dd>{% if inst.agent_cert_fp %}{{ _("Enrolled") }}{% elif inst.agent_enroll_expires and inst.agent_enroll_expires > now %}{{ _("Token pending until {date}", date=inst.agent_enroll_expires | dt) }}{% else %}{{ _("Not enrolled") }}{% endif %}</dd></div>
+    {% if inst.agent_cert_fp %}
+    <div><dt>{{ _("Certificate") }}</dt><dd><code title="{{ inst.agent_cert_fp }}">{{ inst.agent_cert_fp[:16] }}…</code> {{ _("until {date}", date=inst.agent_cert_not_after | date) }}</dd></div>
+    {% endif %}
+    <div><dt>{{ _("Last report") }}</dt><dd>{{ inst.last_attempt_at | ago }}</dd></div>
+    <div><dt>{{ _("Agent address") }}</dt><dd>{{ inst.agent_ip or '—' }}</dd></div>
+    <div><dt>{{ _("Agent version") }}</dt><dd>{{ inst.agent_version or '—' }}</dd></div>
+  </dl>
+  <form method="post" action="/admin/instances/{{ inst.id }}/agent-token" class="d-inline">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn btn-outline-secondary">{{ _("New enrollment bundle") }}</button>
+  </form>
+  {% if inst.agent_cert_fp %}
+  <form method="post" action="/admin/instances/{{ inst.id }}/agent-revoke" class="d-inline" data-confirm="{{ _('Revoke the agent of {name}? Its certificate is refused at once; it must be enrolled again.', name=inst.name) }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn btn-outline-danger">{{ _("Revoke the agent") }}</button>
+  </form>
+  {% endif %}
+  <p class="form-text mt-2">{{ _("A new bundle lets you reinstall the agent; the current certificate stays valid until the new one is issued.") }}</p>
+</section>
+{% endif %}
+</div>
 {% endblock %}

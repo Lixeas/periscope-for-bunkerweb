@@ -10,36 +10,39 @@ from periscope.web.render import render
 router = APIRouter()
 
 
+# `tag` (query string) scopes every view to the instances carrying that tag (one customer).
+
 @router.get("/dashboard")
-async def dashboard(request: Request, user: User = Depends(current_user), db=Depends(get_db)):
-    now = utcnow()
-    return render(request, "dashboard.html", user=user,
-                  cards=queries.instance_cards(db, now), s=queries.summary(db, now))
+def dashboard(request: Request, tag: str = "", user: User = Depends(current_user), db=Depends(get_db)):
+    now, ids = utcnow(), queries.scope(db, tag)
+    cards = queries.instance_cards(db, now, ids)
+    return render(request, "dashboard.html", user=user, cards=cards, s=queries.summary(db, now, ids, cards))
 
 
 @router.get("/api/summary")
-async def api_summary(user: User = Depends(current_user), db=Depends(get_db)):
-    return queries.summary(db, utcnow())
+def api_summary(tag: str = "", user: User = Depends(current_user), db=Depends(get_db)):
+    return queries.summary(db, utcnow(), queries.scope(db, tag))
 
 
 @router.get("/services")
-async def services(request: Request, instance: str = "", mode: str = "", diff: str = "",
-                   user: User = Depends(current_user), db=Depends(get_db)):
-    rows, names = queries.services(db, instance, mode, bool(diff))
+def services(request: Request, instance: str = "", mode: str = "", diff: str = "", tag: str = "",
+             user: User = Depends(current_user), db=Depends(get_db)):
+    rows, names = queries.services(db, instance, mode, bool(diff), queries.scope(db, tag))
     return render(request, "services.html", user=user, rows=rows, names=names, instance=instance, mode=mode, diff=bool(diff))
 
 
 @router.get("/bans")
-async def bans(request: Request, q: str = "", user: User = Depends(current_user), db=Depends(get_db)):
-    return render(request, "bans.html", user=user, rows=queries.bans(db, q), q=q)
+def bans(request: Request, q: str = "", tag: str = "", user: User = Depends(current_user), db=Depends(get_db)):
+    return render(request, "bans.html", user=user, rows=queries.bans(db, q, queries.scope(db, tag)), q=q)
 
 
 @router.get("/jobs")
-async def jobs(request: Request, user: User = Depends(current_user), db=Depends(get_db)):
-    names, matrix = queries.plugins(db)
-    return render(request, "jobs.html", user=user, jobs=queries.jobs(db), now=utcnow(), names=names, matrix=matrix)
+def jobs(request: Request, tag: str = "", user: User = Depends(current_user), db=Depends(get_db)):
+    ids = queries.scope(db, tag)
+    names, matrix = queries.plugins(db, ids)
+    return render(request, "jobs.html", user=user, jobs=queries.jobs(db, ids), now=utcnow(), names=names, matrix=matrix)
 
 
 @router.get("/certificates")
-async def certificates(request: Request, user: User = Depends(current_user), db=Depends(get_db)):
-    return render(request, "certificates.html", user=user, rows=queries.certs(db, utcnow()))
+def certificates(request: Request, tag: str = "", user: User = Depends(current_user), db=Depends(get_db)):
+    return render(request, "certificates.html", user=user, rows=queries.certs(db, utcnow(), queries.scope(db, tag)))

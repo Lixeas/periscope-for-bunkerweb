@@ -117,3 +117,24 @@ def test_dashboard_lists_scheduler_and_worker_nodes(client):
     assert "Online" in t and "Offline" in t  # text label, not just the color
     assert "<script>x</script>" not in t and "&lt;script&gt;x&lt;/script&gt;" in t
     assert "not collected yet" in t  # bw2: never collected
+
+
+def test_views_accept_tag_and_nav_keeps_it(fresh_db):
+    from periscope.db import session_scope
+    from periscope.models import Instance
+    from periscope.tags import assign
+    from tests.helpers import login_as, make_client
+    from tests.test_queries import seed
+    seed()
+    with session_scope() as s:
+        assign(s, s.query(Instance).filter_by(name="bw1").one(), ["acme"])
+    with make_client() as c:
+        login_as(c, "alice", "reader")
+        page = c.get("/dashboard?tag=acme").text
+        assert 'id="inst-' in page and ">bw2<" not in page and 'href="/services?tag=acme"' in page
+        assert '<option value="acme" selected>' in page
+        for path in ("/services", "/bans", "/jobs", "/certificates"):
+            r = c.get(f"{path}?tag=acme")
+            assert r.status_code == 200 and "bw2" not in r.text, path
+        assert c.get("/api/summary?tag=acme").json()["instances_total"] == 1
+        assert c.get("/api/summary").json()["instances_total"] == 2
