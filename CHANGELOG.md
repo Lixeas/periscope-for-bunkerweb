@@ -9,6 +9,12 @@ the new version.
 
 ## [Unreleased]
 
+## [0.2.1]
+
+### Security
+- Agent listener: an invalid agent report no longer echoes the exception text in the HTTP response;
+  the reason is logged on the console only (code scanning: information exposure through an exception).
+
 ## [0.2.0]
 
 ### Added
