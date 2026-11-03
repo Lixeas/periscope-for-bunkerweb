@@ -9,6 +9,11 @@ the new version.
 
 ## [Unreleased]
 
+### Changed
+- `docker-compose.yml` runs the released image `ghcr.io/lixeas/periscope-for-bunkerweb` (pinned with
+  `PERISCOPE_VERSION` in `.env`) by default; building from source is still available with
+  `docker-compose.build.yml`. The README's getting started and upgrade steps cover both.
+
 ## [0.2.1]
 
 ### Changed

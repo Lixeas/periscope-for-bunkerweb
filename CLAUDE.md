@@ -29,6 +29,8 @@ Demo without a real instance: `dev/fake_bunkerweb.py` (see its header for the 2 
 
 Releases (`docs/releasing.md`): semantic version `vX.Y.Z`, single source `__version__` in `src/periscope/__init__.py` (pyproject reads it); notes in `CHANGELOG.md` (write under `## [Unreleased]`). `python dev/release.py bump major|minor|patch` sets the version and moves the notes. Never tag or publish by hand: the `release` job of `.github/workflows/ci.yml` creates the tag, the GitHub release and the GHCR image on push to `main` (i.e. at merge) when the tag does not exist yet; the `version` job checks pull requests.
 
+Deployment: `docker-compose.yml` runs the released image `ghcr.io/lixeas/periscope-for-bunkerweb:${PERISCOPE_VERSION}` (recommended); `docker-compose.build.yml` is an override that builds from the checkout instead; `docker-compose.agent.yml` runs an agent from the released image.
+
 Migration: `alembic revision --autogenerate -m "..."` (uses `alembic.ini`, throwaway SQLite `data/autogen.db`); the app applies `alembic upgrade head` at startup via `periscope.db.migrate()`. Migrations live in `src/periscope/migrations/` (inside the package).
 
 ## Architecture

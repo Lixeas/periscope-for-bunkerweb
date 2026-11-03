@@ -1,0 +1,7 @@
+# Build Periscope from this checkout instead of pulling the released image (development, or to run
+# unreleased changes). Use it on top of docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  periscope:
+    image: periscope-for-bunkerweb:local
+    build: .

@@ -33,7 +33,19 @@ How it works: [docs/architecture.md](docs/architecture.md).
 You need Docker with the Compose plugin and BunkerWeb instances whose API is enabled.
 
 1. **Create a read-only API user** on each BunkerWeb instance. Never use the admin account: follow [the step-by-step guide](docs/bunkerweb-api-user.md#creating-the-read-only-api-user-step-by-step).
-2. **Configure Periscope.**
+2. **Get the deployment files.** Two ways; the released image is recommended.
+
+   **Option A: released image (recommended).** No checkout and no build: two files are enough.
+
+   ```bash
+   mkdir periscope && cd periscope
+   curl -fsSLO https://raw.githubusercontent.com/Lixeas/periscope-for-bunkerweb/main/docker-compose.yml
+   curl -fsSL -o .env https://raw.githubusercontent.com/Lixeas/periscope-for-bunkerweb/main/.env.example
+   ```
+
+   The image is `ghcr.io/lixeas/periscope-for-bunkerweb`; `PERISCOPE_VERSION` in `.env` picks the version (see the [releases](https://github.com/Lixeas/periscope-for-bunkerweb/releases)). If the package is not public, run `docker login ghcr.io` first with a token allowed to read packages.
+
+   **Option B: build from source.** For development, or to run unreleased changes:
 
    ```bash
    git clone https://github.com/Lixeas/periscope-for-bunkerweb.git
@@ -41,23 +53,40 @@ You need Docker with the Compose plugin and BunkerWeb instances whose API is ena
    cp .env.example .env
    ```
 
-   In `.env`, set `PERISCOPE_SECRET_KEY` (and **back it up**: without it the stored BunkerWeb credentials cannot be decrypted):
+3. **Configure Periscope.** In `.env`, set `PERISCOPE_SECRET_KEY` (and **back it up**: without it the stored BunkerWeb credentials cannot be decrypted):
 
    ```bash
-   python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())"
+   openssl rand -base64 32 | tr '+/' '-_'
    ```
 
-   For a trial over plain HTTP on `localhost`, also set `PERISCOPE_COOKIE_SECURE=false`.
-3. **Start it** and create the first administrator (12-character password minimum):
+   (or `python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())"`). For a trial over plain HTTP on `localhost`, also set `PERISCOPE_COOKIE_SECURE=false`.
+4. **Start it** and create the first administrator (12-character password minimum):
 
    ```bash
-   docker compose up -d --build
+   # Option A: released image
+   docker compose up -d
+   # Option B: build from source
+   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+
    docker compose exec -it periscope periscope bootstrap-admin --username admin
    ```
 
-4. **Sign in** at `http://localhost:8000`, enrol the mandatory second factor (authenticator app or passkey) and save the backup codes. Then open **Instances** and add each instance: **Direct API** with its API URL and the read-only user's credentials, or **Periscope agent** for an instance in another network ([agent guide](docs/agent.md)). The dashboard fills in after about 30 seconds; certificates appear after the first TLS probe.
+5. **Sign in** at `http://localhost:8000`, enrol the mandatory second factor (authenticator app or passkey) and save the backup codes. Then open **Instances** and add each instance: **Direct API** with its API URL and the read-only user's credentials, or **Periscope agent** for an instance in another network ([agent guide](docs/agent.md)). The dashboard fills in after about 30 seconds; certificates appear after the first TLS probe.
 
 By default Periscope listens on `127.0.0.1:8000` only. To serve it on a domain with HTTPS, see [docs/deploy-behind-proxy.md](docs/deploy-behind-proxy.md).
+
+### Upgrading
+
+Read the [changelog](CHANGELOG.md) first (breaking changes are listed there), back up the `/data` volume, then:
+
+```bash
+# Option A: set the new PERISCOPE_VERSION in .env, then
+docker compose pull && docker compose up -d
+# Option B: update the checkout, then
+git pull && docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+
+Database migrations run automatically at startup. Keep the agents on the same version as the console ([agent guide](docs/agent.md)).
 
 ## Configuration reference
 
@@ -65,6 +94,7 @@ All settings are environment variables prefixed with `PERISCOPE_` (read from the
 
 | Variable | Default | Description |
 |---|---|---|
+| `PERISCOPE_VERSION` | `latest` | Released image run by docker compose (pin it, e.g. `0.2.1`); not used with `docker-compose.build.yml` |
 | `PERISCOPE_SECRET_KEY` | *(required)* | Fernet key used to encrypt BunkerWeb credentials |
 | `PERISCOPE_DATABASE_URL` | `sqlite:///./data/periscope.db` | SQLAlchemy URL (the Docker image uses `/data/periscope.db`) |
 | `PERISCOPE_ORIGINS` | `["http://localhost:8000"]` | Allowed browser origins (JSON list) |
