@@ -13,11 +13,11 @@ Goal 5 (agent CA rotation) moved to v0.4.0.
 
 | # | Goal | Status | PR / notes |
 |---|---|---|---|
-| 3 | Agent healthcheck (+ `/healthz`) | in progress | Branch `v0.3.0`. `/healthz` is also needed by goal 2 |
-| 4 | Agent enrollment rate limit behind a proxy | in progress | Decision: documentation only, no PROXY protocol |
-| 6 | PostgreSQL driver in the image | in progress | Needed by goal 2 |
-| 1 | Outgoing alerts | in progress | Design: `docs/superpowers/specs/2026-11-04-outgoing-alerts-design.md`; docs: `docs/alerts.md`. Implemented on branch `v0.3.0`, PR to come |
-| 2 | Kubernetes compatibility | in progress | Design: `docs/superpowers/specs/2026-11-05-kubernetes-design.md`; guide: `docs/kubernetes.md`. Implemented on branch `v0.3.0`, PR to come |
+| 3 | Agent healthcheck (+ `/healthz`) | done | [#7](https://github.com/Lixeas/periscope-for-bunkerweb/pull/7) |
+| 4 | Agent enrollment rate limit behind a proxy | done | [#7](https://github.com/Lixeas/periscope-for-bunkerweb/pull/7). Decision: documentation only, no PROXY protocol |
+| 6 | PostgreSQL driver in the image | done | [#7](https://github.com/Lixeas/periscope-for-bunkerweb/pull/7) |
+| 1 | Outgoing alerts | done | Design: `docs/superpowers/specs/2026-11-04-outgoing-alerts-design.md`; docs: `docs/alerts.md`. [#7](https://github.com/Lixeas/periscope-for-bunkerweb/pull/7) |
+| 2 | Kubernetes compatibility | done | Design: `docs/superpowers/specs/2026-11-05-kubernetes-design.md`; guide: `docs/kubernetes.md`. [#7](https://github.com/Lixeas/periscope-for-bunkerweb/pull/7) |
 
 ### 1. Outgoing alerts
 
