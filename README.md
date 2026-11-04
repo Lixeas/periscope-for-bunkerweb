@@ -135,7 +135,7 @@ The agent itself is configured with `PERISCOPE_AGENT_DIR` and `PERISCOPE_AGENT_B
 - [Exposing Periscope behind a domain (HTTPS)](docs/deploy-behind-proxy.md)
 - [Architecture](docs/architecture.md)
 - [Development, fake instances and validation against real instances](docs/development.md)
-- [Releases (vX.Y.Z) and the changelog](docs/releasing.md) · [CHANGELOG](CHANGELOG.md)
+- [Releases (vX.Y.Z) and the changelog](docs/releasing.md) · [CHANGELOG](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
 ## License
 

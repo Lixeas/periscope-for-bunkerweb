@@ -12,6 +12,8 @@ The single source of the version is `__version__` in `src/periscope/__init__.py`
 
 ## In a pull request
 
+Feature pull requests do **not** change the version: they only add their notes, and update [`ROADMAP.md`](../ROADMAP.md) when they move a goal. A release is its own pull request (step 2) once the goals of the version are done.
+
 1. Describe the change under `## [Unreleased]` in `CHANGELOG.md` (`### Added`, `### Changed`, `### Fixed`, `### Removed`, `### Security`).
 2. When the pull request should produce a release, bump the version:
 
