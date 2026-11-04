@@ -302,3 +302,51 @@ def test_cert_domain_with_braces_and_unicode(fresh_db):
     eng.evaluate_certs(at(30))
     (n,) = eng.evaluate_certs(at(60))
     assert n.domain == "é{x}.example" and n.type == "cert_red"
+
+
+# --- run_status / run_certs and the collector hooks -------------------------------------------
+
+async def test_run_status_dispatches_what_evaluate_returns(fresh_db, monkeypatch):
+    from periscope import alert_send
+    sent = []
+
+    async def fake_dispatch(notifications, now=None):
+        sent.append(notifications)
+
+    monkeypatch.setattr(alert_send, "dispatch", fake_dispatch)
+    iid = make()
+    await eng.run_status()  # baseline
+    set_status(iid, "down")
+    await eng.run_status()
+    await eng.run_status()
+    assert [[n.type for n in batch] for batch in sent if batch] == [["instance_down"]]
+
+
+async def test_run_never_raises(fresh_db, monkeypatch, caplog):
+    def boom(*a, **k):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(eng, "evaluate_status", boom)
+    monkeypatch.setattr(eng, "evaluate_certs", boom)
+    await eng.run_status()
+    await eng.run_certs()
+    assert "alert" in caplog.text.lower()
+
+
+async def test_collect_all_and_probe_all_call_their_own_alert_run(fresh_db, monkeypatch):
+    from periscope import collector
+    calls = []
+
+    async def status():
+        calls.append("status")
+
+    async def certs():
+        calls.append("certs")
+
+    monkeypatch.setattr(collector, "_enabled_ids", lambda connection="direct": [])
+    monkeypatch.setattr(eng, "run_status", status)
+    monkeypatch.setattr(eng, "run_certs", certs)
+    await collector.collect_all()
+    assert calls == ["status"]
+    await collector.probe_all()
+    assert calls == ["status", "certs"]

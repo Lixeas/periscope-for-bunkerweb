@@ -3,6 +3,9 @@
 Works only from the database (like the web layer). `evaluate_*` return the `Notification`s to send;
 delivery is `alert_send`'s job. State lives in `alert_state` so confirmations survive a restart.
 """
+import asyncio
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -10,6 +13,8 @@ from periscope import diff
 from periscope.clock import utcnow
 from periscope.db import session_scope
 from periscope.models import AlertState, CertProbe, Instance
+
+log = logging.getLogger("periscope.alerts")
 
 CONFIRM = 2  # consecutive observations of a new status before it is notified
 REMIND_AFTER = timedelta(hours=24)  # reminder period while an instance stays degraded / down
@@ -131,3 +136,24 @@ def evaluate_certs(now: datetime | None = None) -> list[Notification]:
                                             not_after=p.not_after, days_left=diff.days_left(p.not_after, now),
                                             message=p.error, since=now))
     return out
+
+
+async def _run(evaluate: Callable[[], list[Notification]]) -> None:
+    """Evaluate (DB work in a thread), then hand over to the dispatcher. Never raises: alerting must
+    not be able to break the collector."""
+    try:
+        notifications = await asyncio.to_thread(evaluate)
+        if notifications:
+            from periscope import alert_send  # alert_send imports this module
+
+            await alert_send.dispatch(notifications)
+    except Exception:
+        log.exception("alert evaluation failed")
+
+
+async def run_status() -> None:
+    await _run(evaluate_status)
+
+
+async def run_certs() -> None:
+    await _run(evaluate_certs)
