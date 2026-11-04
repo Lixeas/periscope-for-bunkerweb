@@ -54,6 +54,16 @@ jobs:
       - run: echo "$PWD/.tools/bin" >> "$GITHUB_PATH"
       - run: python -m pytest -q tests/test_helm_console.py tests/test_helm_agent.py tests/test_helm_charts.py tests/test_release.py
 
+  # Real cluster: the charts are installed on kind, upgraded, and probed (dev/k8s-smoke.sh).
+  kind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: dev/k8s-tools.sh
+      - run: echo "$PWD/.tools/bin" >> "$GITHUB_PATH"
+      - run: docker build -t periscope:ci .
+      - run: dev/k8s-smoke.sh periscope:ci
+
   docker:
     runs-on: ubuntu-latest
     steps:
@@ -103,7 +113,7 @@ jobs:
   # CHANGELOG.md) and the container image ghcr.io/<owner>/<repo>:X.Y.Z.
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, postgres, charts, docker]
+    needs: [test, postgres, charts, kind, docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -155,3 +165,19 @@ jobs:
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             -t "${image}:${VERSION}" -t "${image}:${minor}" -t "${image}:latest" .
           docker push --all-tags "${image}"
+      - name: Helm charts (OCI)
+        if: steps.v.outputs.new == 'true'
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          dev/k8s-tools.sh
+          export PATH="$PWD/.tools/bin:$PATH"
+          owner="${REPO%%/*}"
+          echo "$TOKEN" | helm registry login ghcr.io -u "$ACTOR" --password-stdin
+          for chart in periscope periscope-agent; do
+            helm package "deploy/helm/${chart}" -d "${RUNNER_TEMP}/charts"
+            helm push "${RUNNER_TEMP}/charts/${chart}-${VERSION}.tgz" "oci://ghcr.io/${owner,,}/charts"
+          done
