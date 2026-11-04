@@ -14,8 +14,10 @@ SECURITIES = ("starttls", "ssl", "none")
 MAX_RECIPIENTS = 20
 _PREFIX = "alert_smtp_"
 _HOST_RE = re.compile(r"[A-Za-z0-9._-]{1,253}")
-# one "@", no whitespace / control characters (header injection), a dotted domain
-_ADDRESS_RE = re.compile(r"[^@\s\x00-\x1f\x7f<>,;:\"\\]+@[^@\s\x00-\x1f\x7f<>,;:\"\\]+\.[^@\s\x00-\x1f\x7f<>,;:\"\\]+")
+# characters never allowed in an address: whitespace / control characters (header injection) and the ones that
+# separate or quote addresses
+_FORBIDDEN = frozenset('<>,;:"\\')
+MAX_ADDRESS, MAX_LOCAL = 254, 64
 
 
 @dataclass(frozen=True)
@@ -29,7 +31,16 @@ class SmtpSettings:
 
 
 def is_address(value: str) -> bool:
-    return bool(_ADDRESS_RE.fullmatch(value))
+    """Practical check, linear in the length (no backtracking): one "@", a dotted domain without empty labels,
+    no whitespace, control or separator characters, bounded lengths."""
+    if not value or len(value) > MAX_ADDRESS or value.count("@") != 1:
+        return False
+    if any(c in _FORBIDDEN or c.isspace() or ord(c) < 32 or ord(c) == 127 for c in value):
+        return False
+    local, domain = value.split("@")
+    if not local or len(local) > MAX_LOCAL or "." not in domain:
+        return False
+    return all(domain.split("."))  # no empty label: ".example", "b.", "b..example"
 
 
 def _get(db, key: str, default: str = "") -> str:

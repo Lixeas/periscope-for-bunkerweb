@@ -83,3 +83,24 @@ def test_parse_events():
             cfg.parse_events(bad)
     assert cfg.DEFAULT_EVENTS == "down,degraded,certificate"
     assert cfg.EVENTS == ("down", "degraded", "certificate", "version")
+
+
+def test_is_address_stays_fast_on_hostile_input():
+    """CodeQL: the old regular expression was quadratic on a long run of dots (16 000 chars took ~1 s)."""
+    import time
+    for hostile in ("a@" + "." * 200_000 + " ", "a" * 200_000, "@" * 200_000, "a@" + "b." * 100_000 + "@"):
+        t = time.perf_counter()
+        assert cfg.is_address(hostile) is False
+        assert time.perf_counter() - t < 0.2, hostile[:10]
+
+
+@pytest.mark.parametrize("good", ["a@b.example", "first.last+tag@sub.domain.example", "é@münchen.example", "x@y.zz"])
+def test_is_address_accepts_ordinary_addresses(good):
+    assert cfg.is_address(good) is True
+
+
+@pytest.mark.parametrize("bad", ["", "a", "a@", "@b.example", "a@b", "a@.example", "a@b.", "a@b..example", "a b@c.example",
+                                 "a@@b.example", "a@b@c.example", "a@b.example\r", "<a@b.example>", "a,b@c.example",
+                                 "x" * 65 + "@b.example", "a@" + "b" * 250 + ".example"])
+def test_is_address_rejects_malformed_addresses(bad):
+    assert cfg.is_address(bad) is False

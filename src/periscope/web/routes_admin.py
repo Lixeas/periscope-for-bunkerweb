@@ -274,7 +274,7 @@ def instance_silence(request: Request, inst_id: int, hours: str = Form(""), user
         inst.silenced_until = utcnow() + timedelta(hours=int(hours))
         audit(db, "instance_silenced", user.username, detail=inst.name, ip=ip_of(request))
     db.commit()
-    return RedirectResponse(f"/admin/instances/{inst_id}", 303)
+    return RedirectResponse(f"/admin/instances/{inst.id}", 303)  # the stored id, not the request's path value
 
 
 @router.post("/instances/{inst_id}/delete")
