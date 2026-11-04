@@ -53,12 +53,29 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- if and .Values.persistence.enabled (not (include "periscope.externalDatabase" .)) -}}true{{- end -}}
 {{- end -}}
 
+{{/* Browser origins: explicit config.origins, else derived from the Ingress hosts (https when it has TLS). */}}
 {{- define "periscope.origins" -}}
+{{- if .Values.config.origins -}}
 {{- toJson .Values.config.origins -}}
+{{- else if and .Values.ingress.enabled .Values.ingress.hosts -}}
+{{- $scheme := ternary "https" "http" (not (empty .Values.ingress.tls)) -}}
+{{- $origins := list -}}
+{{- range .Values.ingress.hosts -}}
+{{- $origins = append $origins (printf "%s://%s" $scheme .host) -}}
+{{- end -}}
+{{- toJson $origins -}}
+{{- else -}}
+[]
+{{- end -}}
 {{- end -}}
 
+{{/* WebAuthn RP ID: explicit config.rpId, else the first Ingress host. */}}
 {{- define "periscope.rpId" -}}
+{{- if .Values.config.rpId -}}
 {{- .Values.config.rpId -}}
+{{- else if and .Values.ingress.enabled .Values.ingress.hosts -}}
+{{- (index .Values.ingress.hosts 0).host -}}
+{{- end -}}
 {{- end -}}
 
 {{/* Fail early, with a readable message, on combinations that cannot work. */}}
@@ -68,6 +85,14 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 {{- if and (not .Values.persistence.enabled) (not (include "periscope.externalDatabase" .)) -}}
 {{- fail "persistence: persistence.enabled=false needs an external database (database.url or database.existingSecret); SQLite on a volume would lose all data at every restart" -}}
+{{- end -}}
+{{- if and .Values.ingress.enabled (not .Values.ingress.hosts) -}}
+{{- fail "ingress.hosts: at least one host is required when ingress.enabled is true, e.g. [{host: periscope.example.com}]" -}}
+{{- end -}}
+{{- if .Values.agentListener.enabled -}}
+{{- if not (regexMatch "^https://[^/:[:space:]]+(:[0-9]{1,5})?/?$" .Values.agentListener.publicUrl) -}}
+{{- fail "agentListener.publicUrl: required when agentListener.enabled is true, as https://host[:port] (the name or address agents use to reach the listener; it goes in the listener's certificate)" -}}
+{{- end -}}
 {{- end -}}
 {{- if .Values.config.cookieSecure -}}
 {{- if eq (include "periscope.origins" . | fromJsonArray | len) 0 -}}

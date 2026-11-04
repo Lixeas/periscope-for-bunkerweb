@@ -15,6 +15,9 @@ data:
   PERISCOPE_COOKIE_SECURE: {{ .Values.config.cookieSecure | toString | quote }}
   PERISCOPE_POLL_INTERVAL: {{ .Values.config.pollInterval | toString | quote }}
   PERISCOPE_PROBE_INTERVAL: {{ .Values.config.probeInterval | toString | quote }}
+  {{- if .Values.agentListener.enabled }}
+  PERISCOPE_AGENT_PUBLIC_URL: {{ .Values.agentListener.publicUrl | quote }}
+  {{- end }}
   FORWARDED_ALLOW_IPS: {{ .Values.config.trustedProxies | quote }}
   {{- range $k, $v := .Values.config.extra }}
   {{ $k }}: {{ $v | toString | quote }}

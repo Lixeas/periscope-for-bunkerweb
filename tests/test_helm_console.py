@@ -190,3 +190,73 @@ def test_configmap_defaults():
     assert cm["FORWARDED_ALLOW_IPS"] == "*"
     assert one(render(CHART, values(config={"trustedProxies": "10.0.0.0/8"})), "ConfigMap")["data"][
         "FORWARDED_ALLOW_IPS"] == "10.0.0.0/8"
+
+
+# --- Ingress, derived origins, agent listener ---------------------------------------------------
+
+def ingress_values(**over) -> dict:
+    return merge(ci_values(CHART, "ingress-values.yaml"), over)
+
+
+def test_ingress_renders_and_derives_origins():
+    objs = render(CHART, ingress_values())
+    ing = one(objs, "Ingress")
+    spec = ing["spec"]
+    assert spec["ingressClassName"] == "nginx"
+    assert spec["tls"] == [{"secretName": "periscope-tls", "hosts": ["periscope.example.com"]}]
+    rule = spec["rules"][0]
+    assert rule["host"] == "periscope.example.com"
+    path = rule["http"]["paths"][0]
+    assert (path["path"], path["pathType"]) == ("/", "Prefix")
+    assert path["backend"]["service"] == {"name": one(objs, "Service")["metadata"]["name"], "port": {"name": "http"}}
+    cm = one(objs, "ConfigMap")["data"]
+    assert json.loads(cm["PERISCOPE_ORIGINS"]) == ["https://periscope.example.com"]
+    assert cm["PERISCOPE_RP_ID"] == "periscope.example.com"
+    v = ingress_values()
+    v["ingress"]["tls"] = []
+    assert json.loads(one(render(CHART, v), "ConfigMap")["data"]["PERISCOPE_ORIGINS"]) == ["http://periscope.example.com"]
+
+
+def test_explicit_origins_win_over_derivation():
+    cm = one(render(CHART, ingress_values(config={"origins": ["https://other.example"], "rpId": "other.example"})),
+             "ConfigMap")["data"]
+    assert json.loads(cm["PERISCOPE_ORIGINS"]) == ["https://other.example"] and cm["PERISCOPE_RP_ID"] == "other.example"
+
+
+def test_ingress_disabled_by_default_and_needs_hosts():
+    assert "Ingress" not in kinds(render(CHART, values()))
+    with pytest.raises(HelmError, match="ingress.hosts"):
+        render(CHART, values(ingress={"enabled": True}))
+
+
+def test_agent_listener_service_and_env():
+    v = ci_values(CHART, "agents-values.yaml")
+    objs = render(CHART, v)
+    svcs = {s["metadata"]["name"]: s for s in objs if s["kind"] == "Service"}
+    assert len(svcs) == 2
+    agents = next(s for n, s in svcs.items() if n.endswith("-agents"))
+    assert agents["spec"]["type"] == "LoadBalancer" and agents["spec"]["loadBalancerSourceRanges"] == ["203.0.113.0/24"]
+    assert agents["spec"]["ports"][0]["port"] == 8443 and agents["spec"]["ports"][0]["targetPort"] == "agents"
+    assert agents["spec"]["selector"] == one(objs, "Deployment")["spec"]["selector"]["matchLabels"]
+    assert one(objs, "ConfigMap")["data"]["PERISCOPE_AGENT_PUBLIC_URL"] == "https://agents.example.com:8443"
+    assert {"name": "agents", "containerPort": 8443} in container(objs)["ports"]
+    plain = render(CHART, values())
+    assert len([o for o in plain if o["kind"] == "Service"]) == 1
+    assert "PERISCOPE_AGENT_PUBLIC_URL" not in one(plain, "ConfigMap")["data"]
+    assert all(p["name"] != "agents" for p in container(plain)["ports"])
+
+
+def test_agent_listener_service_options():
+    v = ci_values(CHART, "agents-values.yaml")
+    v["agentListener"]["service"] = {"type": "NodePort", "port": 9443, "annotations": {"lb": "x"}}
+    agents = next(s for s in render(CHART, v) if s["kind"] == "Service" and s["metadata"]["name"].endswith("-agents"))
+    assert agents["spec"]["type"] == "NodePort" and agents["spec"]["ports"][0]["port"] == 9443
+    assert agents["metadata"]["annotations"] == {"lb": "x"} and "loadBalancerSourceRanges" not in agents["spec"]
+
+
+def test_agent_listener_requires_a_valid_public_url():
+    base = ci_values(CHART, "agents-values.yaml")
+    for bad in ("", "http://agents.example.com:8443", "https://", "agents.example.com:8443", "https://a b.example"):
+        v = merge(base, {"agentListener": {"publicUrl": bad}})
+        with pytest.raises(HelmError, match="publicUrl"):
+            render(CHART, v)
