@@ -204,3 +204,101 @@ def test_names_with_braces_are_just_data(fresh_db, name):
     eng.evaluate_status(at(30))
     (n,) = eng.evaluate_status(at(60))
     assert n.instance == name
+
+
+# --- evaluate_certs -------------------------------------------------------------------------
+
+def probe(iid: int, domain="a.example", present=True, days=60.0, now=T0) -> None:
+    from periscope.models import CertProbe
+    with session_scope() as s:
+        p = s.query(CertProbe).filter_by(instance_id=iid, domain=domain).one_or_none()
+        if p is None:
+            p = CertProbe(instance_id=iid, domain=domain)
+            s.add(p)
+        p.present = present
+        p.not_after = now + timedelta(days=days) if present else None
+
+
+def run_certs(iid_times):
+    return [eng.evaluate_certs(at(t)) for t in iid_times]
+
+
+def test_cert_zone_change_is_notified_once(fresh_db):
+    iid = make()
+    probe(iid)
+    eng.evaluate_certs(at(0))  # baseline ok
+    probe(iid, days=20)
+    assert eng.evaluate_certs(at(30)) == []
+    (n,) = eng.evaluate_certs(at(60))
+    assert (n.type, n.event, n.domain, n.instance, n.days_left) == ("cert_orange", "certificate", "a.example", "bw1", 19)
+    assert n.not_after == T0 + timedelta(days=20)
+    assert eng.evaluate_certs(at(90)) == []
+    probe(iid, days=5)
+    eng.evaluate_certs(at(120))
+    assert [x.type for x in eng.evaluate_certs(at(150))] == ["cert_red"]
+    probe(iid, days=-1)
+    eng.evaluate_certs(at(180))
+    assert [x.type for x in eng.evaluate_certs(at(210))] == ["cert_expired"]
+
+
+def test_cert_probe_failure_is_cert_error_not_expiry(fresh_db):
+    iid = make()
+    probe(iid)
+    eng.evaluate_certs(at(0))
+    probe(iid, present=False)
+    eng.evaluate_certs(at(30))
+    (n,) = eng.evaluate_certs(at(60))
+    assert (n.type, n.event) == ("cert_error", "certificate")
+
+
+def test_cert_renewal_resolves(fresh_db):
+    iid = make()
+    probe(iid, days=3)
+    eng.evaluate_certs(at(0))  # silent baseline red
+    probe(iid, days=90)
+    eng.evaluate_certs(at(30))
+    (n,) = eng.evaluate_certs(at(60))
+    assert (n.type, n.event) == ("cert_resolved", "certificate")
+
+
+def test_cert_has_no_reminders(fresh_db):
+    iid = make()
+    probe(iid)
+    eng.evaluate_certs(at(0))
+    probe(iid, days=20)
+    sent = [eng.evaluate_certs(at(t)) for t in (30, 60, 3 * 86400, 5 * 86400)]
+    assert sum(len(x) for x in sent) == 1
+
+
+def test_vanished_domain_state_dropped_silently(fresh_db):
+    from periscope.models import CertProbe
+    iid = make()
+    probe(iid, days=3)
+    eng.evaluate_certs(at(0))
+    assert state(kind="cert", instance_id=iid, subject="a.example") is not None
+    with session_scope() as s:
+        s.query(CertProbe).delete()
+    assert eng.evaluate_certs(at(30)) == []
+    assert state(kind="cert", instance_id=iid, subject="a.example") is None
+
+
+def test_cert_silenced_and_disabled_instances_skipped(fresh_db):
+    iid = make()
+    probe(iid)
+    eng.evaluate_certs(at(0))
+    probe(iid, days=3)
+    set_status(iid, "ok", silenced_until=at(1000))
+    assert run_certs([30, 60, 90]) == [[], [], []]
+    set_status(iid, "ok", silenced_until=None, enabled=False)
+    assert run_certs([120, 150]) == [[], []]
+    assert state(kind="cert", instance_id=iid, subject="a.example") is None
+
+
+def test_cert_domain_with_braces_and_unicode(fresh_db):
+    iid = make()
+    probe(iid, domain="é{x}.example")
+    eng.evaluate_certs(at(0))
+    probe(iid, domain="é{x}.example", days=3)
+    eng.evaluate_certs(at(30))
+    (n,) = eng.evaluate_certs(at(60))
+    assert n.domain == "é{x}.example" and n.type == "cert_red"

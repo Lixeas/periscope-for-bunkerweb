@@ -6,9 +6,10 @@ delivery is `alert_send`'s job. State lives in `alert_state` so confirmations su
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from periscope import diff
 from periscope.clock import utcnow
 from periscope.db import session_scope
-from periscope.models import AlertState, Instance
+from periscope.models import AlertState, CertProbe, Instance
 
 CONFIRM = 2  # consecutive observations of a new status before it is notified
 REMIND_AFTER = timedelta(hours=24)  # reminder period while an instance stays degraded / down
@@ -96,4 +97,37 @@ def evaluate_status(now: datetime | None = None) -> list[Notification]:
                 if not vcreated and vst.notified != inst.version:
                     vst.notified, vst.notified_at = inst.version, now
                     out.append(Notification("instance_version_changed", "version", version=inst.version, **base))
+    return out
+
+
+CERT_TYPES = {"orange": "cert_orange", "red": "cert_red", "expired": "cert_expired", "none": "cert_error",
+              "ok": "cert_resolved"}
+
+
+def evaluate_certs(now: datetime | None = None) -> list[Notification]:
+    """Certificate zone changes per (instance, domain); `none` = the TLS probe failed. No reminders."""
+    now = now or utcnow()
+    out: list[Notification] = []
+    with session_scope() as s:
+        for inst in s.query(Instance).order_by(Instance.id):
+            if not inst.enabled:
+                _drop_states(s, inst.id)
+                continue
+            if inst.silenced_until and inst.silenced_until > now:
+                continue
+            probes = s.query(CertProbe).filter_by(instance_id=inst.id).order_by(CertProbe.domain).all()
+            domains = {p.domain for p in probes}
+            s.query(AlertState).filter(AlertState.kind == "cert", AlertState.instance_id == inst.id,
+                                       AlertState.subject.not_in(domains)).delete(synchronize_session=False)
+            tags = tuple(t.name for t in inst.tags)
+            for p in probes:
+                zone = diff.cert_status(p.present, p.not_after, now)
+                st, created = _get_state(s, "cert", inst.id, p.domain, zone, now)
+                if created:
+                    continue
+                result = step(st, zone, now)
+                if result and result[0] == "change":
+                    out.append(Notification(CERT_TYPES[zone], "certificate", inst.id, inst.name, tags, domain=p.domain,
+                                            not_after=p.not_after, days_left=diff.days_left(p.not_after, now),
+                                            message=p.error, since=now))
     return out
