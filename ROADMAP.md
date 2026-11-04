@@ -8,14 +8,16 @@ Statuses: `todo`, `in progress`, `done`, `dropped`. Released changes are describ
 
 ## v0.3.0
 
+Goals are listed in the order they will be done (numbers are stable identifiers, not the order).
+Goal 5 (agent CA rotation) moved to v0.4.0.
+
 | # | Goal | Status | PR / notes |
 |---|---|---|---|
+| 3 | Agent healthcheck (+ `/healthz`) | todo | `/healthz` is also needed by goal 2 |
+| 4 | Agent enrollment rate limit behind a proxy | todo | Decision: documentation only, no PROXY protocol |
+| 6 | PostgreSQL driver in the image | todo | Needed by goal 2 |
 | 1 | Outgoing alerts | todo | |
-| 2 | Kubernetes compatibility | todo | |
-| 3 | Agent healthcheck | todo | |
-| 4 | Agent enrollment rate limit behind a proxy | todo | |
-| 5 | Agent CA rotation | todo | |
-| 6 | PostgreSQL driver in the image | todo | |
+| 2 | Kubernetes compatibility | todo | Last: depends on goals 3 and 6 |
 
 ### 1. Outgoing alerts
 
@@ -56,9 +58,11 @@ could write a timestamp after each accepted report, and `periscope agent health`
 ### 4. Agent enrollment rate limit behind a proxy
 
 The enrollment limiter is keyed by client IP: behind a TCP proxy every agent shares one address.
-Options: PROXY protocol support on the listener, or a limit keyed by token. At least document it.
+Decision for v0.3.0: document the behaviour and workarounds in `docs/agent.md` only. PROXY protocol
+(header read before the TLS handshake, trusted proxy IPs only) and a limit keyed by token (needs a
+global cap too) are left for later if a real use case appears.
 
-### 5. Agent CA rotation
+### 5. Agent CA rotation (moved to v0.4.0)
 
 No tooling to replace the agents' CA (e.g. after a leak of `PERISCOPE_SECRET_KEY` with the
 database). Add a rotation that keeps the old CA trusted during a transition period and lets agents
