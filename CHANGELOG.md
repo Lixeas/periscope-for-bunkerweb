@@ -10,6 +10,13 @@ the new version.
 ## [Unreleased]
 
 ### Added
+- Outgoing alerts: notify by e-mail (SMTP) or JSON webhook (optional HMAC signature) when an instance
+  turns `degraded` / `down`, when a certificate enters the orange / red / expired zone or its TLS probe
+  fails, and when BunkerWeb changes version. One message per confirmed change (2 cycles), "back to
+  normal" messages, 24 h reminders, grouped messages, per-alert tag and event filters and language
+  (English by default). Configured by admins on the new **Alerts** page (SMTP server, alerts, test
+  buttons, send log); secrets are encrypted and never displayed again. See `docs/alerts.md`.
+- Per-instance alert silence (1 h / 4 h / 24 h) on the instance's edit page.
 - PostgreSQL support in the image: `psycopg` is installed (optional extra `postgres` outside Docker),
   `postgresql://` URLs are accepted as is, dead connections are detected (`pool_pre_ping`). CI runs
   the migrations and an ORM round trip against PostgreSQL 16.

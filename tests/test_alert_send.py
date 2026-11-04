@@ -84,14 +84,17 @@ def test_render_webhook_contract():
     assert data["version"] == 1 and data["lang"] == "en" and data["sent_at"] == "2026-11-04T12:00:00Z"
     assert isinstance(data["summary"], str) and data["summary"]
     first, second, third = data["events"]
-    keys = {"type", "instance", "tags", "status", "message", "domain", "not_after", "days_left", "since"}
+    keys = {"type", "instance", "tags", "status", "message", "domain", "not_after", "days_left", "since", "version"}
     assert all(set(e) == keys for e in data["events"])
     assert (first["type"], first["instance"], first["tags"], first["status"]) == ("instance_down", "bw1", ["a"], "down")
     assert first["message"] == "1 node offline: n1" and first["since"] == "2026-11-04T12:00:00Z"
     assert (second["type"], second["domain"], second["days_left"], second["not_after"]) == (
         "cert_red", "a.example", 2, "2026-11-07T12:00:00Z")
     assert third["type"] == "instance_resolved" and third["message"] == "" and third["domain"] == ""
-    assert second["since"] is None
+    assert second["since"] is None and first["version"] == ""
+    changed = json.loads(send.render_webhook("en", [note("instance_version_changed", "version", version="1.6.17")],
+                                             NOW))["events"][0]
+    assert (changed["type"], changed["version"]) == ("instance_version_changed", "1.6.17")
     assert json.loads(send.render_webhook("fr", sample(), NOW))["lang"] == "fr"
 
 

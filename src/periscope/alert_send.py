@@ -116,7 +116,8 @@ def render_webhook(lang: str, notifications: list[Notification], now: datetime) 
         "version": 1, "sent_at": _iso(now), "lang": lang, "summary": _summary(lang, notifications),
         "events": [{"type": n.type, "instance": n.instance, "tags": list(n.tags), "status": n.status,
                     "message": render_stored(lang, n.message), "domain": n.domain, "not_after": _iso(n.not_after),
-                    "days_left": n.days_left, "since": _iso(n.since)} for n in notifications],
+                    "days_left": n.days_left, "since": _iso(n.since), "version": n.version}
+                   for n in notifications],
     }
     return json.dumps(payload, ensure_ascii=False).encode()
 

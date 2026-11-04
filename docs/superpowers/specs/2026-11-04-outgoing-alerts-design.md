@@ -94,7 +94,8 @@ path and shows the result immediately (and logs it). It does not touch alert sta
   instance URLs); no redirects followed; timeout 10 s; success = 2xx. Header
   `X-Periscope-Signature: sha256=<hex HMAC-SHA256 of the raw body>` when a secret is set. Payload v1:
   `{"version": 1, "sent_at", "lang", "summary", "events": [{"type", "instance", "tags", "status",
-  "message", "domain", "not_after", "days_left", "since"}]}`; `type` ∈ `instance_down`,
+  "message", "domain", "not_after", "days_left", "since", "version"}]}` (`version` is empty except for
+  `instance_version_changed`; added during implementation, the spec had no place for the new version); `type` ∈ `instance_down`,
   `instance_degraded`, `instance_resolved`, `instance_reminder`, `cert_orange`, `cert_red`,
   `cert_expired`, `cert_error`, `cert_resolved`, `instance_version_changed`, `test`.
   Field names are a stable contract (document them in `docs/`).
