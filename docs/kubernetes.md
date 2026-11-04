@@ -17,7 +17,7 @@ The Docker Compose files stay the reference for a single host; the charts give t
 
 Vocabulary in five lines: a **pod** is a running container; a **Deployment** keeps one pod alive; a **Service** gives it a stable address inside the cluster; an **Ingress** publishes a Service on a domain name over HTTP(S); a **Secret** stores a password. **Helm** installs a bundle of these ("a chart") from a short settings file ("values").
 
-Until a release has published the charts, install from a checkout of this repository (`deploy/helm/periscope`). Afterwards the same charts are available as `oci://ghcr.io/lixeas/charts/periscope` and `oci://ghcr.io/lixeas/charts/periscope-agent` (add `--version X.Y.Z`; keep the agents on the console's version).
+Until a release has published the charts, install from a checkout of this repository (`deploy/helm/periscope`). Afterwards the same charts are available as `oci://ghcr.io/lixeas/charts/periscope` and `oci://ghcr.io/lixeas/charts/periscope-agent` (add `--version X.Y.Z`; keep the agents on the console's version). New GitHub packages start private: after the first release, make `charts/periscope` and `charts/periscope-agent` public in the package settings, or `helm registry login ghcr.io` first.
 
 ## 1. The console
 
@@ -68,7 +68,8 @@ ingress:
   hosts:
     - host: periscope.example.com
   tls:
-    - secretName: periscope-tls    # a TLS Secret (for example issued by cert-manager)
+    - secretName: periscope-tls    # a TLS Secret (for example issued by cert-manager from this list of hosts)
+      hosts: [periscope.example.com]
 ```
 
 The browser origin (`https://periscope.example.com`) and the WebAuthn domain are derived from the host; set `config.origins` and `config.rpId` yourself to override. Passkeys only work through the domain name, not through a port-forward (use TOTP there).
@@ -107,7 +108,7 @@ agentListener:
     loadBalancerSourceRanges: ["203.0.113.0/24"]   # optional: who may reach it
 ```
 
-Reserve the DNS name (or a static IP) before installing: the host of `publicUrl` goes into the listener's certificate. If you only learn the load balancer address after the install, run `helm upgrade` with the right `publicUrl`; the pod restarts and the certificate is regenerated (agents keep working: they trust the console's CA, not that certificate).
+Reserve the DNS name (or a static IP) before installing: the host of `publicUrl` goes into the listener's certificate, and every agent keeps the URL from its enrollment bundle and checks that name. If you only learn the load balancer address after the install, run `helm upgrade` with the right `publicUrl` **before enrolling any agent**. Once agents are enrolled the host must not change: repoint the DNS name to a new address instead, or enroll the agents again with new bundles.
 
 ### Install an agent
 
@@ -136,7 +137,7 @@ Reserve the DNS name (or a static IP) before installing: the host of `publicUrl`
    kubectl --namespace periscope-agent get pods      # Init:0/1 for a moment, then 1/1 Running
    ```
 
-The agent enrolls itself in an init container and keeps its key and certificates on a small volume; restarts never enroll again. Create the read-only API user on BunkerWeb as for any direct instance ([guide](bunkerweb-api-user.md)).
+The agent enrolls itself in an init container and keeps its key and certificates on a small volume; restarts never enroll again. Keep the enrollment Secret in place (the chart expects it on every start, even though an enrolled agent no longer uses it). Create the read-only API user on BunkerWeb as for any direct instance ([guide](bunkerweb-api-user.md)).
 
 **Which URL?** Use the address at which BunkerWeb's API answers *from inside the agent's cluster*, root prefix included. The chart cannot discover it. To check a candidate from the same namespace:
 
@@ -146,13 +147,13 @@ kubectl --namespace periscope-agent run curl --rm -it --restart=Never --image=cu
 
 ### When an agent is revoked or its certificate expired
 
-An agent that stays down longer than its certificate lifetime (90 days), or that you revoked, keeps failing its health check and is restarted again and again. Recover it: in the console create a **New enrollment bundle** for the instance, update the Secret, then
+An agent that stays down longer than its certificate lifetime (90 days), or that you revoked, keeps failing its health check and is restarted again and again. Recover it: in the console create a **New enrollment bundle** for the instance, put it in the Secret, then
 
 ```bash
 helm upgrade periscope-agent deploy/helm/periscope-agent --namespace periscope-agent -f agent-values.yaml --set enrollment.force=true
-# once it is healthy again:
-helm upgrade periscope-agent deploy/helm/periscope-agent --namespace periscope-agent -f agent-values.yaml
 ```
+
+`force` makes the init container enroll again with the new bundle, **once**: it remembers which bundle it used, so leaving `force` on does not enroll again at every restart (a bundle can only be used once). Without `force`, a pod that already has an identity never enrolls again, whatever bundle it is given.
 
 A console outage also makes the agent's health probe fail, which restarts the pod; that is harmless.
 
@@ -176,7 +177,7 @@ A console outage also makes the agent's health probe fail, which restarts the po
 | Console pod `Running` but `0/1` ready | `/readyz` fails: the database is unreachable (`kubectl logs`) |
 | `CrashLoopBackOff` on the console | `kubectl logs deploy/periscope`; usually a wrong `database` URL |
 | 403 on a form (sign-in…) | the browser origin is not in `config.origins` (`https://…`, no trailing slash) |
-| Agent pod `Init:Error` | bundle already used or expired: new bundle, then `enrollment.force=true` as above (`kubectl logs … -c enroll`) |
+| Agent pod `Init:Error` | bundle already used or expired: new bundle in the Secret, then `enrollment.force=true` as above (`kubectl logs … -c enroll`) |
 | Agent `Running` but the instance stays `down` | `kubectl logs … -c agent`: wrong `publicUrl` host in the listener certificate, listener not reachable from the agent's cluster, or wrong BunkerWeb URL |
 | TLS error from the agent | the listener is behind something that terminates TLS: expose it with the Service only |
 

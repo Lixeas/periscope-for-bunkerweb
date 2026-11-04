@@ -67,13 +67,82 @@ def test_security_defaults():
     assert {m["name"]: m["mountPath"] for m in main(objs)["volumeMounts"]}["data"] == "/data"
 
 
-def test_enroll_init_container_is_idempotent():
-    cmd = " ".join(init(render(CHART, values()))["command"] + init(render(CHART, values())).get("args", []))
-    assert "periscope agent enroll" in cmd and "/data/agent/agent.crt" in cmd and "console.json" in cmd
-    assert cmd.index("test -f") < cmd.index("periscope agent enroll") and "||" in cmd
-    forced = init(render(CHART, values(enrollment={"force": True})))
-    fcmd = " ".join(forced["command"] + forced.get("args", []))
-    assert "periscope agent enroll" in fcmd and "test -f" not in fcmd and "||" not in fcmd
+def init_script(objs) -> str:
+    c = init(objs)
+    assert c["command"] == ["sh", "-c"] and len(c["args"]) == 1
+    return c["args"][0]
+
+
+FAKE_PERISCOPE = """#!/bin/sh
+# stands in for `periscope agent enroll BUNDLE --dir DIR`: logs the call, writes a complete identity
+[ "$1 $2" = "agent enroll" ] || exit 2
+echo "$3" >> "$ENROLL_LOG"
+[ -z "$ENROLL_FAIL" ] || exit 1
+mkdir -p "$5"
+for f in agent.key agent.crt ca.crt console.json; do echo "$3" > "$5/$f"; done
+"""
+
+
+@pytest.fixture
+def shell(tmp_path):
+    """Run the rendered init script against a temporary agent directory and a fake `periscope`."""
+    import os
+    import subprocess
+
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    fake = bindir / "periscope"
+    fake.write_text(FAKE_PERISCOPE)
+    fake.chmod(0o755)
+    agent_dir, log = tmp_path / "data" / "agent", tmp_path / "enroll.log"
+
+    def run(force: bool, bundle: str, fail: bool = False):
+        script = init_script(render(CHART, values(enrollment={"force": force}))).replace("/data/agent", str(agent_dir))
+        env = {**os.environ, "PATH": f"{bindir}:{os.environ['PATH']}", "PERISCOPE_ENROLLMENT_BUNDLE": bundle,
+               "ENROLL_LOG": str(log), "ENROLL_FAIL": "1" if fail else ""}
+        r = subprocess.run(["sh", "-c", script], env=env, check=False, capture_output=True, text=True)
+        calls = log.read_text().split() if log.exists() else []
+        return r.returncode, calls
+
+    run.dir = agent_dir
+    return run
+
+
+def test_enrollment_runs_once_then_restarts_are_no_ops(shell):
+    assert shell(False, "psc1.one") == (0, ["psc1.one"])
+    for _ in range(3):  # pod restarts, evictions, upgrades
+        assert shell(False, "psc1.one") == (0, ["psc1.one"])
+    assert (shell.dir / "agent.crt").exists()
+
+
+def test_force_with_the_same_bundle_does_not_enroll_again(shell):
+    shell(False, "psc1.one")
+    assert shell(True, "psc1.one") == (0, ["psc1.one"])  # force left on: still idempotent
+    assert shell(True, "psc1.one") == (0, ["psc1.one"])
+
+
+def test_force_with_a_new_bundle_enrolls_again_exactly_once(shell):
+    shell(False, "psc1.one")
+    assert shell(True, "psc1.two") == (0, ["psc1.one", "psc1.two"])
+    assert shell(True, "psc1.two") == (0, ["psc1.one", "psc1.two"])
+
+
+def test_a_new_bundle_without_force_never_replaces_a_working_identity(shell):
+    shell(False, "psc1.one")
+    assert shell(False, "psc1.two") == (0, ["psc1.one"])
+
+
+def test_an_incomplete_identity_is_enrolled_again(shell):
+    shell(False, "psc1.one")
+    (shell.dir / "console.json").unlink()
+    assert shell(False, "psc1.two") == (0, ["psc1.one", "psc1.two"])
+
+
+def test_a_failed_enrollment_fails_the_init_container_and_records_nothing(shell):
+    code, calls = shell(False, "psc1.bad", fail=True)
+    assert code != 0 and calls == ["psc1.bad"]
+    assert not (shell.dir / "bundle.sha256").exists()
+    assert shell(False, "psc1.bad") == (0, ["psc1.bad", "psc1.bad"])  # retried, not skipped
 
 
 def test_bundle_and_password_are_never_literal():
@@ -166,3 +235,8 @@ def test_scheduling_and_image_options_pass_through():
     assert p["nodeSelector"] == {"a": "b"} and p["imagePullSecrets"] == [{"name": "ghcr"}]
     assert main(objs)["image"].endswith("@sha256:" + "b" * 64) and init(objs)["image"].endswith("@sha256:" + "b" * 64)
     assert one(objs, "Deployment")["spec"]["template"]["metadata"]["annotations"]["x"] == "y"
+
+
+def test_the_volume_survives_helm_uninstall():
+    pvc = one(render(CHART, values()), "PersistentVolumeClaim")
+    assert pvc["metadata"]["annotations"]["helm.sh/resource-policy"] == "keep"

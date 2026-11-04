@@ -260,3 +260,8 @@ def test_agent_listener_requires_a_valid_public_url():
         v = merge(base, {"agentListener": {"publicUrl": bad}})
         with pytest.raises(HelmError, match="publicUrl"):
             render(CHART, v)
+
+
+def test_the_volume_survives_helm_uninstall():
+    pvc = one(render(CHART, values()), "PersistentVolumeClaim")
+    assert pvc["metadata"]["annotations"]["helm.sh/resource-policy"] == "keep"

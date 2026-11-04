@@ -31,6 +31,10 @@ def init_engine(url: str | None = None):
             kw["poolclass"] = StaticPool
     else:
         kw["pool_pre_ping"] = True  # the console outlives a restart of the database server
+        if url.startswith("postgresql"):
+            # a blackholed database must not hold worker threads for the OS TCP timeout (about 2 minutes);
+            # readiness probes and the collector share the thread pool
+            kw["connect_args"] = {"connect_timeout": 5}
     mem = url in ("sqlite://", "sqlite:///:memory:")
     if url.startswith("sqlite") and not mem:
         _ensure_sqlite_dir(url)

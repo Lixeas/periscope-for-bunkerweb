@@ -19,7 +19,7 @@ enrollment:
   bundle: ""                 # stored in a Secret created by the chart
   existingSecret: ""         # or a Secret you manage
   existingSecretKey: bundle
-  force: false               # true = enroll again even if an identity exists (revoked / expired agent)
+  force: false               # true = enroll again over an existing identity, once per bundle (revoked / expired agent)
 
 bunkerweb:
   url: ""                    # required: the BunkerWeb API of the local instance, root prefix included

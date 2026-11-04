@@ -139,6 +139,12 @@ jobs:
           else
             echo "new=true" >> "$GITHUB_OUTPUT"
           fi
+      - name: Charts package cleanly (before anything is tagged)
+        if: steps.v.outputs.new == 'true'
+        run: |
+          dev/k8s-tools.sh
+          export PATH="$PWD/.tools/bin:$PATH"
+          for chart in periscope periscope-agent; do helm package "deploy/helm/${chart}" -d "${RUNNER_TEMP}/charts-check"; done
       - name: Tag and GitHub release
         if: steps.v.outputs.new == 'true'
         env:
@@ -165,19 +171,29 @@ jobs:
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             -t "${image}:${VERSION}" -t "${image}:${minor}" -t "${image}:latest" .
           docker push --all-tags "${image}"
+      # Not tied to "new": a re-run after a failed push publishes the missing charts. Only for the commit the
+      # version tag points at, and never a version that is already in the registry.
       - name: Helm charts (OCI)
-        if: steps.v.outputs.new == 'true'
         env:
           VERSION: ${{ steps.v.outputs.version }}
           REPO: ${{ github.repository }}
           TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
         run: |
+          if ! git ls-remote --tags origin "refs/tags/v${VERSION}" "refs/tags/v${VERSION}^{}" | cut -f1 | grep -qx "$GITHUB_SHA"; then
+            echo "v${VERSION} was not released from this commit: charts not published"
+            exit 0
+          fi
           dev/k8s-tools.sh
           export PATH="$PWD/.tools/bin:$PATH"
           owner="${REPO%%/*}"
           echo "$TOKEN" | helm registry login ghcr.io -u "$ACTOR" --password-stdin
           for chart in periscope periscope-agent; do
+            ref="oci://ghcr.io/${owner,,}/charts/${chart}"
+            if helm pull "$ref" --version "$VERSION" -d "${RUNNER_TEMP}/pulled" >/dev/null 2>&1; then
+              echo "${chart} ${VERSION} is already published"
+              continue
+            fi
             helm package "deploy/helm/${chart}" -d "${RUNNER_TEMP}/charts"
             helm push "${RUNNER_TEMP}/charts/${chart}-${VERSION}.tgz" "oci://ghcr.io/${owner,,}/charts"
           done

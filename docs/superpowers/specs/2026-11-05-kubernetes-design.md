@@ -182,8 +182,9 @@ README links to it. `ROADMAP.md`, `CHANGELOG.md` updated.
 - **Agent listener address.** `agentListener.publicUrl` is required when `agentListener.enabled=true`.
   The guide recommends reserving a DNS name (or static IP) first. A two-step install also works
   (install, read the load balancer address, `helm upgrade` with `publicUrl`): the config checksum
-  restarts the pod and the listener certificate is regenerated for the new host, as it is after any
-  address change; agents keep working because they pin the CA, not the server certificate.
+  restarts the pod and the listener certificate is regenerated for the new host. This is only safe before
+  agents are enrolled: each agent keeps the URL of its bundle and checks the host name, so after that the
+  name must stay (repoint DNS) or the agents must be enrolled again.
 - **Origins and RP ID.** When `config.origins` is empty and the Ingress is enabled, the chart derives
   `PERISCOPE_ORIGINS` from `ingress.hosts` (`https://` when `ingress.tls` is set, else `http://`) and
   `PERISCOPE_RP_ID` from the first host; explicit values win. Without an Ingress, `origins` and `rpId`

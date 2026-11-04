@@ -23,6 +23,10 @@ pf_pid=""
 
 k() { kubectl --context "$ctx" --namespace "$ns" "$@"; }
 
+stop_forward() {
+  if [ -n "$pf_pid" ]; then kill "$pf_pid" 2>/dev/null || true; wait "$pf_pid" 2>/dev/null || true; pf_pid=""; fi
+}
+
 diagnose() {
   echo "=== smoke test FAILED; cluster state ===" >&2
   k get pods,svc,pvc -o wide >&2 || true
@@ -57,10 +61,6 @@ fi
 kind load docker-image "$image" --name "$cluster"
 
 image_args=(--set "image.repository=$repo" --set "image.tag=$tag" --set image.pullPolicy=Never)
-
-stop_forward() {
-  if [ -n "$pf_pid" ]; then kill "$pf_pid" 2>/dev/null || true; wait "$pf_pid" 2>/dev/null || true; pf_pid=""; fi
-}
 
 forward() {
   stop_forward

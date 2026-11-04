@@ -28,6 +28,17 @@ def test_postgres_urls_use_the_psycopg_driver():
     assert Settings(secret_key="k", database_url="sqlite:///x.db").database_url == "sqlite:///x.db"
 
 
+def test_postgres_connections_time_out_instead_of_hanging(monkeypatch):
+    """A blackholed database must not pin worker threads for the OS TCP timeout (readiness probes included)."""
+    seen = []
+    real = mcdb.create_engine
+    monkeypatch.setattr(mcdb, "create_engine", lambda url, **kw: (seen.append(kw), real("sqlite://"))[1])
+    mcdb.init_engine("postgresql+psycopg://u:p@db.invalid/d")
+    assert seen[-1]["connect_args"]["connect_timeout"] == 5
+    mcdb.init_engine("sqlite://")
+    assert "connect_timeout" not in seen[-1].get("connect_args", {})
+
+
 def test_psycopg_is_installed_with_the_postgres_extra():
     pytest.importorskip("psycopg")
     create_engine("postgresql+psycopg://u:p@localhost/db")  # resolves the dialect and driver

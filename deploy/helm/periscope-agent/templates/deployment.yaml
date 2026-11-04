@@ -37,8 +37,8 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       initContainers:
         # Enrolls with the console while the volume holds no complete identity (agent.key, agent.crt,
-        # console.json: the last two are written at the very end of an enrollment). An ordinary restart
-        # never enrolls again; enrollment.force overwrites an existing identity.
+        # console.json). An ordinary restart never enrolls again. enrollment.force re-enrolls over an
+        # existing identity, once per bundle (the sha256 of the last bundle used is kept on the volume).
         - name: enroll
           image: {{ include "periscope-agent.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -46,11 +46,18 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           command: ["sh", "-c"]
           args:
-            {{- if .Values.enrollment.force }}
-            - 'periscope agent enroll "$PERISCOPE_ENROLLMENT_BUNDLE" --dir /data/agent'
-            {{- else }}
-            - 'test -f /data/agent/agent.crt -a -f /data/agent/agent.key -a -f /data/agent/console.json || periscope agent enroll "$PERISCOPE_ENROLLMENT_BUNDLE" --dir /data/agent'
-            {{- end }}
+            - |
+              d=/data/agent
+              h=$(printf %s "$PERISCOPE_ENROLLMENT_BUNDLE" | sha256sum | cut -d' ' -f1)
+              if [ -f $d/agent.crt ] && [ -f $d/agent.key ] && [ -f $d/console.json ]; then
+                {{- if .Values.enrollment.force }}
+                # force: enroll again, but only with a bundle that was not used yet (safe to leave on)
+                [ "$(cat $d/bundle.sha256 2>/dev/null)" = "$h" ] && exit 0
+                {{- else }}
+                exit 0
+                {{- end }}
+              fi
+              periscope agent enroll "$PERISCOPE_ENROLLMENT_BUNDLE" --dir $d && printf %s "$h" > $d/bundle.sha256
           env:
             - name: PERISCOPE_ENROLLMENT_BUNDLE
               valueFrom:
