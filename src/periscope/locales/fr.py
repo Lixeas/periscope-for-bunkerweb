@@ -412,4 +412,16 @@ CATALOG: dict[str, str] = {
     "Collapse all": "Tout replier",
     "IP": "IP",
     "Plugin": "Plugin",
+    # alerts: configuration validation
+    "Invalid SMTP host": "Hôte SMTP invalide",
+    "Invalid SMTP port (1-65535)": "Port SMTP invalide (1-65535)",
+    "Invalid connection security (starttls, ssl or none)": "Sécurité de connexion invalide (starttls, ssl ou none)",
+    "Invalid sender address": "Adresse d'expéditeur invalide",
+    "Invalid SMTP username": "Nom d'utilisateur SMTP invalide",
+    "Invalid e-mail address: {address}": "Adresse e-mail invalide : {address}",
+    "At least one recipient is required": "Au moins un destinataire est requis",
+    "At most {max} recipients": "{max} destinataires au maximum",
+    "The webhook URL must start with http:// or https:// and contain a host": "L'URL du webhook doit commencer par http:// ou https:// et contenir un hôte",
+    "Choose at least one event": "Choisissez au moins un événement",
+    "Unknown event": "Événement inconnu",
 }
