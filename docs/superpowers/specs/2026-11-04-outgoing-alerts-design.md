@@ -137,8 +137,8 @@ console restart during retries loses that message (acceptable ceiling, documente
 ## Calls made by the designer (to check; from the builder review)
 
 - **Two entry points, two kinds of state.** `evaluate_status()` runs after `collect_all()` (instance
-  status, reminders, version) and `evaluate_certs()` after `probe_all()` (certificates and their
-  reminders). Each kind has its own confirmation counter, advanced only by its own loop. Grouping is per
+  status, reminders, version) and `evaluate_certs()` after `probe_all()` (certificates; no reminders
+  for certificates, only instance status has them). Each kind has its own confirmation counter, advanced only by its own loop. Grouping is per
   run, so one incident can produce one mail from each loop (status, then certificates); accepted.
 - **First sight = silent baseline.** When a subject has no `alert_state` row (first deploy, new
   instance, new domain), the row is created with the *current* observed status as already notified, so
