@@ -412,6 +412,11 @@ EVENT_LABELS = {
     "user_role_changed": N_("User role changed"),
     "user_2fa_reset": N_("User second factor reset"),
     "user_password_reset": N_("User password reset"),
+    "alert_channel_created": N_("Alert created"),
+    "alert_channel_edited": N_("Alert edited"),
+    "alert_channel_deleted": N_("Alert deleted"),
+    "alert_smtp_updated": N_("SMTP server updated"),
+    "alert_test_sent": N_("Alert test sent"),
 }
 
 
