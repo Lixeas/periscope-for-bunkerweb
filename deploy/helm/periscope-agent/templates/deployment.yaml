@@ -1,0 +1,148 @@
+{{- include "periscope-agent.validate" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "periscope-agent.fullname" . }}
+  labels:
+    {{- include "periscope-agent.labels" . | nindent 4 }}
+spec:
+  # One replica only: two agents with the same identity would report the same instance twice.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "periscope-agent.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "periscope-agent.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "periscope-agent.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        # Enrolls with the console while the volume holds no complete identity (agent.key, agent.crt,
+        # console.json: the last two are written at the very end of an enrollment). An ordinary restart
+        # never enrolls again; enrollment.force overwrites an existing identity.
+        - name: enroll
+          image: {{ include "periscope-agent.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          command: ["sh", "-c"]
+          args:
+            {{- if .Values.enrollment.force }}
+            - 'periscope agent enroll "$PERISCOPE_ENROLLMENT_BUNDLE" --dir /data/agent'
+            {{- else }}
+            - 'test -f /data/agent/agent.crt -a -f /data/agent/agent.key -a -f /data/agent/console.json || periscope agent enroll "$PERISCOPE_ENROLLMENT_BUNDLE" --dir /data/agent'
+            {{- end }}
+          env:
+            - name: PERISCOPE_ENROLLMENT_BUNDLE
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.enrollment.existingSecret }}
+                  name: {{ .Values.enrollment.existingSecret | quote }}
+                  key: {{ .Values.enrollment.existingSecretKey | quote }}
+                  {{- else }}
+                  name: {{ include "periscope-agent.fullname" . }}
+                  key: bundle
+                  {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: agent
+          image: {{ include "periscope-agent.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          command: ["periscope", "agent", "run"]
+          env:
+            - name: PERISCOPE_AGENT_DIR
+              value: /data/agent
+            - name: PERISCOPE_AGENT_BW_URL
+              value: {{ .Values.bunkerweb.url | quote }}
+            - name: PERISCOPE_AGENT_BW_USERNAME
+              value: {{ .Values.bunkerweb.username | quote }}
+            - name: PERISCOPE_AGENT_BW_PASSWORD_FILE
+              value: /run/secrets/bw/password
+            - name: PERISCOPE_AGENT_BW_VERIFY_TLS
+              value: {{ .Values.bunkerweb.verifyTls | toString | quote }}
+            {{- with .Values.bunkerweb.probeHost }}
+            - name: PERISCOPE_AGENT_PROBE_HOST
+              value: {{ . | quote }}
+            {{- end }}
+            - name: PERISCOPE_AGENT_TLS_PORT
+              value: {{ .Values.bunkerweb.tlsPort | toString | quote }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          # Healthy once the console accepted a recent report: `periscope agent health`. A console outage
+          # therefore restarts the pod, which is harmless (the identity is on the volume).
+          startupProbe:
+            exec:
+              command: ["periscope", "agent", "health"]
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 18
+          livenessProbe:
+            exec:
+              command: ["periscope", "agent", "health"]
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+            - name: bw-password
+              mountPath: /run/secrets/bw
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ default (include "periscope-agent.fullname" .) .Values.persistence.existingClaim }}
+        - name: tmp
+          emptyDir: {}
+        - name: bw-password
+          secret:
+            secretName: {{ default (include "periscope-agent.fullname" .) .Values.bunkerweb.existingSecret | quote }}
+            defaultMode: 0400
+            items:
+              - key: {{ if .Values.bunkerweb.existingSecret }}{{ .Values.bunkerweb.existingSecretKey | quote }}{{ else }}password{{ end }}
+                path: password
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
