@@ -34,10 +34,9 @@ def test_state_unique_per_subject(fresh_db):
         s.add(inst)
         s.flush()
         s.add(AlertState(kind="cert", instance_id=inst.id, subject="a.example", notified="ok"))
-    with pytest.raises(IntegrityError):
-        with session_scope() as s:
-            iid = s.query(Instance.id).scalar()
-            s.add(AlertState(kind="cert", instance_id=iid, subject="a.example", notified="ok"))
+    with pytest.raises(IntegrityError), session_scope() as s:
+        iid = s.query(Instance.id).scalar()
+        s.add(AlertState(kind="cert", instance_id=iid, subject="a.example", notified="ok"))
 
 
 def test_instance_delete_cascades_state_and_deleting_channel_keeps_log(fresh_db):
