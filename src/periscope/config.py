@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +29,15 @@ class Settings(BaseSettings):
     agent_listen_port: int = 8443
     agent_enroll_ttl: int = 24 * 3600  # validity of an enrollment token (s)
     agent_max_report_bytes: int = 8 * 1024 * 1024
+
+    @field_validator("database_url")
+    @classmethod
+    def _postgres_driver(cls, v: str) -> str:
+        """`postgresql://` (or `postgres://`) would make SQLAlchemy pick psycopg2: we ship psycopg 3."""
+        for prefix in ("postgresql://", "postgres://"):
+            if v.startswith(prefix):
+                return "postgresql+psycopg://" + v.removeprefix(prefix)
+        return v
 
 
 @lru_cache

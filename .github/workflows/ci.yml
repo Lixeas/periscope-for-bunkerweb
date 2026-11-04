@@ -19,11 +19,34 @@ jobs:
       - run: ruff check src tests dev
       - run: python -m pytest -q
 
+  # Migrations and ORM against a real PostgreSQL (tests/test_postgres.py is skipped without the variable).
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: periscope
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PERISCOPE_TEST_POSTGRES_URL: postgresql://postgres:periscope@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,postgres]"
+      - run: python -m pytest -q tests/test_postgres.py -rs
+
   docker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - run: docker build -t periscope:ci .
+      - name: PostgreSQL driver is in the image
+        run: docker run --rm periscope:ci python -c "import psycopg"
       - name: Start the container and wait for it to answer
         run: |
           docker run -d --name periscope \
@@ -66,7 +89,7 @@ jobs:
   # CHANGELOG.md) and the container image ghcr.io/<owner>/<repo>:X.Y.Z.
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, docker]
+    needs: [test, postgres, docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write

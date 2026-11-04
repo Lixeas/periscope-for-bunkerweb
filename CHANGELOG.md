@@ -10,6 +10,9 @@ the new version.
 ## [Unreleased]
 
 ### Added
+- PostgreSQL support in the image: `psycopg` is installed (optional extra `postgres` outside Docker),
+  `postgresql://` URLs are accepted as is, dead connections are detected (`pool_pre_ping`). CI runs
+  the migrations and an ORM round trip against PostgreSQL 16.
 - `periscope agent health`: exit code telling whether the console accepted a recent report; used as
   the healthcheck of `docker-compose.agent.yml` (and usable as a Kubernetes liveness probe).
 - `GET /healthz` on the console: unauthenticated, returns `ok` and no data (liveness / readiness

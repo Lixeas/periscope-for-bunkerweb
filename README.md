@@ -117,7 +117,7 @@ All settings are environment variables prefixed with `PERISCOPE_` (read from the
 
 The agent itself is configured with `PERISCOPE_AGENT_DIR` and `PERISCOPE_AGENT_BW_*` variables: see [docs/agent.md](docs/agent.md#agent-configuration).
 
-**Larger fleets.** Collection runs instances in parallel (bounded by `PERISCOPE_MAX_PARALLEL`) and database writes happen outside the event loop. SQLite is fine for a few dozen instances; beyond that, or for heavy use, point `PERISCOPE_DATABASE_URL` to PostgreSQL (install the `psycopg` driver in the image).
+**Larger fleets.** Collection runs instances in parallel (bounded by `PERISCOPE_MAX_PARALLEL`) and database writes happen outside the event loop. SQLite is fine for a few dozen instances; beyond that, or for heavy use, point `PERISCOPE_DATABASE_URL` to PostgreSQL: the image includes the `psycopg` driver, e.g. `postgresql://periscope:password@db:5432/periscope` (an URL-encoded password such as `%40` works). The database must exist and the user must own it; the schema is created at startup. Outside Docker: `pip install ".[postgres]"`. Moving existing SQLite data is not supported: start with an empty database.
 
 ## Security
 
