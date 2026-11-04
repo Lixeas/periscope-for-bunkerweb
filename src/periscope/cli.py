@@ -10,7 +10,7 @@ from periscope.db import migrate, session_scope
 
 
 def _agent(args) -> int:
-    from periscope.agent import Agent, AgentError, AgentSettings, enroll
+    from periscope.agent import Agent, AgentError, AgentSettings, enroll, healthy
 
     cfg = AgentSettings()
     directory = Path(args.dir) if args.dir else cfg.dir
@@ -22,6 +22,8 @@ def _agent(args) -> int:
             name = asyncio.run(enroll(bundle, directory))
             print(f"Agent enrolled for instance {name!r}. Start it with: periscope agent run")
             return 0
+        if args.agent_cmd == "health":  # exit code for Docker / Kubernetes probes
+            return 0 if healthy(directory) else 1
         cfg.dir = directory
         asyncio.run(Agent(cfg).run_forever())
     except AgentError as e:
@@ -45,6 +47,8 @@ def main(argv=None) -> int:
     e.add_argument("--dir", help="agent directory (default: PERISCOPE_AGENT_DIR)")
     r = asub.add_parser("run", help="collect the local BunkerWeb instance and report to the console")
     r.add_argument("--dir", help="agent directory (default: PERISCOPE_AGENT_DIR)")
+    h = asub.add_parser("health", help="exit 0 if the console accepted a recent report (for probes)")
+    h.add_argument("--dir", help="agent directory (default: PERISCOPE_AGENT_DIR)")
     args = p.parse_args(argv)
 
     if args.cmd == "agent":

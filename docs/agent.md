@@ -94,6 +94,12 @@ The collection and probe intervals are set by the console (`PERISCOPE_POLL_INTER
 - **Backups.** The CA lives in the database, encrypted with `PERISCOPE_SECRET_KEY`: back up both. If the CA is lost, every agent has to be enrolled again.
 - **Audit.** Token creation, enrollment (successful or refused), renewal and revocation are recorded in the audit log.
 
+## Health check
+
+`periscope agent health` exits 0 if the console accepted a report within 3 poll intervals (+ 30 s), 1 otherwise (no report yet, console unreachable or refusing the agent). It reads `health.json` in `PERISCOPE_AGENT_DIR`, written after each accepted report, and needs no other variable. `docker-compose.agent.yml` uses it as the container healthcheck. For a Kubernetes liveness probe: `exec: command: ["periscope", "agent", "health"]` with a generous `initialDelaySeconds` (about 90). Note that a console outage makes the probe fail, hence restarts the pod.
+
+The console answers `GET /healthz` (`ok`, no authentication, no data) for liveness / readiness probes.
+
 ## Troubleshooting
 
 | Symptom | Cause |

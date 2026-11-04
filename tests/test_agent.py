@@ -393,6 +393,7 @@ async def test_end_to_end_mutual_tls(listener, tmp_path):
     await a.cycle()
     await a.console.aclose()
     assert probed == [("10.1.2.3", 443, "a.example")]
+    assert agent_mod.healthy(tmp_path)  # a report was accepted
     with session_scope() as s:
         inst = s.get(Instance, iid)
         assert (inst.status, inst.version, inst.agent_ip) == ("ok", "1.6.0", "127.0.0.1")
@@ -466,3 +467,15 @@ def test_agent_files_private(tmp_path):
     (d / "agent.key.tmp").chmod(0o666)
     agent_mod._write(d / "agent.key", b"secret", private=True)
     assert oct((d / "agent.key").stat().st_mode & 0o777) == "0o600" and (d / "agent.key").read_bytes() == b"secret"
+
+
+def test_health_requires_a_recent_accepted_report(tmp_path):
+    from periscope import cli
+    assert not agent_mod.healthy(tmp_path) and cli.main(["agent", "health", "--dir", str(tmp_path)]) == 1
+    agent_mod.write_health(tmp_path, 30)
+    assert agent_mod.healthy(tmp_path) and cli.main(["agent", "health", "--dir", str(tmp_path)]) == 0
+    now = __import__("time").time()
+    assert agent_mod.healthy(tmp_path, now + 3 * 30 + 29)
+    assert not agent_mod.healthy(tmp_path, now + 3 * 30 + 31)
+    (tmp_path / "health.json").write_text("garbage")
+    assert not agent_mod.healthy(tmp_path)

@@ -46,3 +46,8 @@ def test_login_page_shows_name(client):
     r = client.get("/login")
     assert r.status_code == 200
     assert "Periscope for BunkerWeb" in r.text
+
+
+def test_healthz_is_public_and_empty(client):
+    r = client.get("/healthz")
+    assert r.status_code == 200 and r.text == "ok"

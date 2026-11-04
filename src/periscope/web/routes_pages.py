@@ -1,7 +1,7 @@
 import hmac
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 
 from periscope import i18n
 from periscope.config import get_settings
@@ -16,6 +16,12 @@ router = APIRouter()
 @router.get("/")
 async def index():
     return RedirectResponse("/dashboard", 303)
+
+
+@router.get("/healthz")
+async def healthz():
+    """Liveness/readiness probe: unauthenticated, touches nothing, returns no data."""
+    return PlainTextResponse("ok")
 
 
 def _csrf_ok(sent, tokens: list[str]) -> bool:

@@ -9,6 +9,12 @@ the new version.
 
 ## [Unreleased]
 
+### Added
+- `periscope agent health`: exit code telling whether the console accepted a recent report; used as
+  the healthcheck of `docker-compose.agent.yml` (and usable as a Kubernetes liveness probe).
+- `GET /healthz` on the console: unauthenticated, returns `ok` and no data (liveness / readiness
+  probes). The image's healthcheck now uses it instead of `/login`.
+
 ### Changed
 - `docker-compose.yml` runs the released image `ghcr.io/lixeas/periscope-for-bunkerweb` (pinned with
   `PERISCOPE_VERSION` in `.env`) by default; building from source is still available with

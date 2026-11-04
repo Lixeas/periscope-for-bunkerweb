@@ -13,7 +13,7 @@ Goal 5 (agent CA rotation) moved to v0.4.0.
 
 | # | Goal | Status | PR / notes |
 |---|---|---|---|
-| 3 | Agent healthcheck (+ `/healthz`) | todo | `/healthz` is also needed by goal 2 |
+| 3 | Agent healthcheck (+ `/healthz`) | in progress | Branch `v0.3.0`. `/healthz` is also needed by goal 2 |
 | 4 | Agent enrollment rate limit behind a proxy | todo | Decision: documentation only, no PROXY protocol |
 | 6 | PostgreSQL driver in the image | todo | Needed by goal 2 |
 | 1 | Outgoing alerts | todo | |
