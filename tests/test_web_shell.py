@@ -51,3 +51,29 @@ def test_login_page_shows_name(client):
 def test_healthz_is_public_and_empty(client):
     r = client.get("/healthz")
     assert r.status_code == 200 and r.text == "ok"
+
+
+class _DownEngine:
+    def connect(self):
+        from sqlalchemy.exc import OperationalError
+        raise OperationalError("SELECT 1", {}, Exception("password=hunter2 host=db.internal unreachable"))
+
+
+def test_readyz_ok_when_database_answers(client):
+    r = client.get("/readyz")
+    assert r.status_code == 200 and r.text == "ok"
+
+
+def test_readyz_503_when_database_is_down(client, monkeypatch):
+    from periscope import db as mcdb
+    monkeypatch.setattr(mcdb, "engine", lambda: _DownEngine())
+    r = client.get("/readyz")
+    assert r.status_code == 503 and r.text == "unavailable"
+    assert "hunter2" not in r.text and "Traceback" not in r.text
+
+
+def test_healthz_stays_up_when_database_is_down(client, monkeypatch):
+    from periscope import db as mcdb
+    monkeypatch.setattr(mcdb, "engine", lambda: _DownEngine())
+    r = client.get("/healthz")
+    assert r.status_code == 200 and r.text == "ok"

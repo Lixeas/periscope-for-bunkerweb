@@ -1,8 +1,11 @@
+import asyncio
 import hmac
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
+from periscope import db as database
 from periscope import i18n
 from periscope.config import get_settings
 from periscope.db import get_db
@@ -11,6 +14,7 @@ from periscope.web.deps import session_row
 from periscope.web.routes_auth import LOGIN_CSRF
 
 router = APIRouter()
+log = logging.getLogger("periscope.web")
 
 
 @router.get("/")
@@ -20,8 +24,26 @@ async def index():
 
 @router.get("/healthz")
 async def healthz():
-    """Liveness/readiness probe: unauthenticated, touches nothing, returns no data."""
+    """Liveness probe: unauthenticated, touches nothing, returns no data."""
     return PlainTextResponse("ok")
+
+
+def _database_answers() -> bool:
+    try:
+        with database.engine().connect() as conn:
+            conn.exec_driver_sql("SELECT 1")
+        return True
+    except Exception as e:  # noqa: BLE001  any failure means "not ready"; class only, never the message (URL, password)
+        log.warning("readiness check failed: %s", type(e).__name__)
+        return False
+
+
+@router.get("/readyz")
+async def readyz():
+    """Readiness probe: 200 when the database answers, 503 otherwise. Unauthenticated, no data."""
+    if await asyncio.to_thread(_database_answers):
+        return PlainTextResponse("ok")
+    return PlainTextResponse("unavailable", status_code=503)
 
 
 def _csrf_ok(sent, tokens: list[str]) -> bool:
