@@ -503,4 +503,14 @@ CATALOG: dict[str, str] = {
     "Alert deleted": "Alerte supprimée",
     "SMTP server updated": "Serveur SMTP modifié",
     "Alert test sent": "Test d'alerte envoyé",
+    # alerts: silence
+    "Alert silence": "Silence des alertes",
+    "Alerts are silenced until {date}.": "Les alertes sont en silence jusqu'au {date}.",
+    "Alerts are active. Silence them during a maintenance.": "Les alertes sont actives. Mettez-les en silence pendant une maintenance.",
+    "Silence for 1 h": "Silence pendant 1 h",
+    "Silence for 4 h": "Silence pendant 4 h",
+    "Silence for 24 h": "Silence pendant 24 h",
+    "Resume alerts": "Réactiver les alertes",
+    "Instance alerts silenced": "Alertes d'instance mises en silence",
+    "Instance alerts resumed": "Alertes d'instance réactivées",
 }

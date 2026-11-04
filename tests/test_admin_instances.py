@@ -306,3 +306,66 @@ def test_agent_routes_ignore_direct_instances(client, admin, agents_on):
         assert post(client, csrf, f"/admin/instances/{iid}/{action}").headers["location"] == "/admin/instances"
     with session_scope() as s:
         assert s.get(Instance, iid).agent_enroll_hash == ""
+
+
+# --- alert silence -------------------------------------------------------------------------------
+
+def make_instance(name="bw1") -> int:
+    with session_scope() as s:
+        inst = Instance(name=name, base_url="http://h:8888")
+        s.add(inst)
+        s.flush()
+        return inst.id
+
+
+def test_silence_sets_and_clears(client, admin):
+    from datetime import timedelta
+
+    from periscope.clock import utcnow
+    csrf, *_ = admin
+    iid = make_instance()
+    r = post(client, csrf, f"/admin/instances/{iid}/silence", hours="4")
+    assert r.status_code == 303 and r.headers["location"] == f"/admin/instances/{iid}"
+    with session_scope() as s:
+        until = s.get(Instance, iid).silenced_until
+    assert timedelta(hours=3, minutes=59) < until - utcnow() <= timedelta(hours=4)
+    post(client, csrf, f"/admin/instances/{iid}/silence", hours="0")
+    with session_scope() as s:
+        assert s.get(Instance, iid).silenced_until is None
+        events = [(e.event, e.detail) for e in s.query(AuditLog)]
+    assert ("instance_silenced", "bw1") in events and ("instance_unsilenced", "bw1") in events
+
+
+def test_silence_rejects_other_values_and_unknown_instance(client, admin):
+    csrf, *_ = admin
+    iid = make_instance()
+    for bad in ("999", "-1", "abc", ""):
+        r = post(client, csrf, f"/admin/instances/{iid}/silence", hours=bad)
+        assert r.status_code in (303, 400, 422)
+        with session_scope() as s:
+            assert s.get(Instance, iid).silenced_until is None
+    r = post(client, csrf, "/admin/instances/999/silence", hours="1")
+    assert r.status_code == 303 and r.headers["location"] == "/admin/instances"
+
+
+def test_silence_requires_csrf_and_admin(client, admin):
+    iid = make_instance()
+    r = client.post(f"/admin/instances/{iid}/silence", data={"hours": "1"}, follow_redirects=False)
+    assert r.status_code == 403  # logged in, no CSRF token
+    with session_scope() as s:
+        assert s.get(Instance, iid).silenced_until is None
+    reader = make_client()
+    rcsrf = login_as(reader, "bob", role="reader")
+    r = reader.post(f"/admin/instances/{iid}/silence", data={"hours": "1", "csrf": rcsrf}, follow_redirects=False)
+    assert r.status_code == 403
+    with session_scope() as s:
+        assert s.get(Instance, iid).silenced_until is None
+
+
+def test_edit_page_shows_active_silence(client, admin):
+    csrf, *_ = admin
+    iid = make_instance()
+    page = client.get(f"/admin/instances/{iid}").text
+    assert f"/admin/instances/{iid}/silence" in page and 'name="hours"' in page
+    post(client, csrf, f"/admin/instances/{iid}/silence", hours="24")
+    assert "silenced" in client.get(f"/admin/instances/{iid}").text.lower()
