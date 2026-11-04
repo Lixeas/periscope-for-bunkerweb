@@ -16,6 +16,8 @@ the new version.
   probes). The image's healthcheck now uses it instead of `/login`.
 
 ### Changed
+- Documented the enrollment rate limit behind a TCP proxy or load balancer (`docs/agent.md`): the quota
+  is per IP, so agents behind one proxy share it.
 - `docker-compose.yml` runs the released image `ghcr.io/lixeas/periscope-for-bunkerweb` (pinned with
   `PERISCOPE_VERSION` in `.env`) by default; building from source is still available with
   `docker-compose.build.yml`. The README's getting started and upgrade steps cover both.
