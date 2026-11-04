@@ -32,7 +32,7 @@
     <div class="form-check"><input class="form-check-input" type="checkbox" id="ev_{{ ev }}" name="events" value="{{ ev }}"{% if ev in form.events %} checked{% endif %}>
       <label class="form-check-label" for="ev_{{ ev }}">{{ labels[ev] }}</label></div>
     {% endfor %}
-    <div class="form-text">{{ _("A resolved notification (and a reminder every 24 h for instances) follows the event it relates to.") }}</div>
+    <div class="form-text">{{ _("A back-to-normal notification (and a reminder every 24 h for instances) goes with the down and degraded events.") }}</div>
   </fieldset>
   <div class="mb-3"><label class="form-label" for="lang">{{ _("Language of the messages") }}</label>
     <select class="form-select" id="lang" name="lang">

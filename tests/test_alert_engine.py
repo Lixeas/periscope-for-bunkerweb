@@ -49,6 +49,16 @@ def test_step_needs_two_consecutive_observations():
     assert (s.notified, s.pending, s.pending_count) == ("down", "", 0)
 
 
+def test_alternating_problem_states_are_still_notified():
+    s = st()
+    results = [eng.step(s, o, at(30 * i)) for i, o in enumerate(["down", "degraded", "down", "degraded"])]
+    assert results == [None, ("change", "ok"), None, None]  # latest observation wins, then it is stable
+    assert s.notified == "degraded"
+    c = st()
+    zones = [eng.step(c, o, at(30 * i)) for i, o in enumerate(["orange", "none"])]
+    assert zones == [None, ("change", "ok")]
+
+
 def test_flapping_never_notifies():
     s = st()
     results = [eng.step(s, o, at(30 * i)) for i, o in enumerate(["down", "ok", "down", "ok", "down"])]
@@ -319,6 +329,7 @@ async def test_run_status_dispatches_what_evaluate_returns(fresh_db, monkeypatch
     set_status(iid, "down")
     await eng.run_status()
     await eng.run_status()
+    await eng.drain()
     assert [[n.type for n in batch] for batch in sent if batch] == [["instance_down"]]
 
 
@@ -350,3 +361,27 @@ async def test_collect_all_and_probe_all_call_their_own_alert_run(fresh_db, monk
     assert calls == ["status"]
     await collector.probe_all()
     assert calls == ["status", "certs"]
+
+
+async def test_slow_delivery_does_not_block_the_collector_loop(fresh_db, monkeypatch):
+    import asyncio
+
+    from periscope import alert_send
+    release, started, finished = asyncio.Event(), asyncio.Event(), []
+
+    async def slow_dispatch(notifications, now=None):
+        started.set()
+        await release.wait()
+        finished.append(notifications)
+
+    monkeypatch.setattr(alert_send, "dispatch", slow_dispatch)
+    iid = make()
+    await eng.run_status()
+    set_status(iid, "down")
+    await eng.run_status()
+    await asyncio.wait_for(eng.run_status(), 1)  # confirms the change; must return while delivery is pending
+    await asyncio.wait_for(started.wait(), 1)
+    assert finished == []
+    release.set()
+    await eng.drain()
+    assert len(finished) == 1

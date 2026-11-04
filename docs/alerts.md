@@ -10,7 +10,7 @@ administrator on the **Alerts** page (sidebar, right below **Instances**).
 |---|---|---|
 | Instance `down` | the status is `down` on 2 consecutive cycles (about 1 minute). An agent that went silent is already `down`. | `down` |
 | Instance `degraded` | the status is `degraded` on 2 consecutive cycles (partial failure, an offline nginx node…). | `degraded` |
-| Back to normal | the instance is `ok` again (2 cycles). Follows the switch of the problem it resolves. | `down` / `degraded` |
+| Back to normal | the instance is `ok` again (2 cycles). Sent to every alert that has `down` or `degraded` on, since the instance may have gone down, then degraded, before recovering. | `down` / `degraded` |
 | Reminder | the instance is still `degraded` / `down` 24 h after the last message. | `down` / `degraded` |
 | Certificate | a domain enters the orange zone (< 21 days), the red zone (< 7 days) or expires; the TLS probe fails; the certificate is valid again. One message per change, no reminder. | `certificate` |
 | Version | BunkerWeb reports a different version (informational). | `version` |
@@ -115,6 +115,7 @@ generic JSON (there is no vendor-specific formatting).
   token) are never displayed again once saved: the list shows the host only, and an empty field on edit
   keeps the stored value. The first two are encrypted with `PERISCOPE_SECRET_KEY`.
 - The webhook URL is chosen by an administrator and may point to an internal host.
+- Delivery runs in the background and the alerts of one evaluation are sent concurrently: a dead webhook or a slow SMTP server never delays the next collection.
 - **No persistent queue.** A message is retried in memory; if the console restarts during the retries,
   that message is lost. A failed delivery never blocks the collector and appears in the send log.
 - A channel can be created before the SMTP server is configured: its e-mails are logged as failed

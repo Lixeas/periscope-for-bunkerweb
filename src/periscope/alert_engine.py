@@ -45,7 +45,9 @@ def step(st: AlertState, observed: str, now: datetime) -> tuple[str, str] | None
             st.notified_at = now
             return "reminder", observed
         return None
-    st.pending_count = st.pending_count + 1 if st.pending == observed else 1
+    # two different problem states in a row (down, degraded, down...) still count as "not ok": the latest wins
+    same = st.pending == observed or (st.pending not in ("", "ok") and observed != "ok")
+    st.pending_count = st.pending_count + 1 if same else 1
     st.pending = observed
     if st.pending_count < CONFIRM:
         return None
@@ -138,15 +140,27 @@ def evaluate_certs(now: datetime | None = None) -> list[Notification]:
     return out
 
 
+_background: set[asyncio.Task] = set()  # delivery tasks in flight (a reference keeps them alive)
+
+
+async def drain() -> None:
+    """Wait for the deliveries in flight (tests, shutdown)."""
+    while _background:
+        await asyncio.gather(*list(_background), return_exceptions=True)
+
+
 async def _run(evaluate: Callable[[], list[Notification]]) -> None:
-    """Evaluate (DB work in a thread), then hand over to the dispatcher. Never raises: alerting must
-    not be able to break the collector."""
+    """Evaluate (DB work in a thread), then deliver in the background: a dead webhook or a slow SMTP
+    server (3 attempts, timeouts) must not delay the next collection. Never raises: alerting must not
+    be able to break the collector. State already advanced, so delivery order does not matter."""
     try:
         notifications = await asyncio.to_thread(evaluate)
         if notifications:
             from periscope import alert_send  # alert_send imports this module
 
-            await alert_send.dispatch(notifications)
+            task = asyncio.create_task(alert_send.dispatch(notifications))
+            _background.add(task)
+            task.add_done_callback(_background.discard)
     except Exception:
         log.exception("alert evaluation failed")
 

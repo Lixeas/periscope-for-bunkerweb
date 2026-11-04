@@ -32,7 +32,10 @@ def matches(channel: AlertChannel, n: Notification) -> bool:
         return False
     if n.event == "test":
         return True
-    if not channel.has_event(n.event):
+    if n.type == "instance_resolved":  # down -> degraded -> ok: whoever heard of a problem hears the recovery
+        if not (channel.has_event("down") or channel.has_event("degraded")):
+            return False
+    elif not channel.has_event(n.event):
         return False
     wanted = {t.name for t in channel.tags}
     return not wanted or bool(wanted & set(n.tags))
@@ -196,14 +199,13 @@ class Job:
     lang: str
     recipients: list[str]
     url: str
-    secret: str
+    secret_enc: str  # decrypted in _deliver, so a bad token is a logged failure of this channel only
     batch: list[Notification]
 
 
 def _job(ch: AlertChannel, batch: list[Notification]) -> Job:
-    secret = decrypt(ch.webhook_secret_enc) if ch.webhook_secret_enc else ""
     recipients = [r.strip() for r in ch.recipients.splitlines() if r.strip()]
-    return Job(ch.id, ch.name, ch.kind, ch.lang, recipients, ch.webhook_url, secret, batch)
+    return Job(ch.id, ch.name, ch.kind, ch.lang, recipients, ch.webhook_url, ch.webhook_secret_enc, batch)
 
 
 def _plan(notifications: list[Notification]) -> list[Job]:
@@ -226,9 +228,10 @@ async def _deliver(job: Job, now: datetime) -> tuple[bool, str]:
     try:
         if job.kind == "webhook":
             payload = render_webhook(job.lang, job.batch, now)
+            secret = decrypt(job.secret_enc) if job.secret_enc else ""
 
             async def call():
-                await send_webhook(job.url, job.secret, payload)
+                await send_webhook(job.url, secret, payload)
         else:
             smtp = await asyncio.to_thread(_smtp)
             if smtp is None:
@@ -275,10 +278,8 @@ async def dispatch(notifications: list[Notification], now: datetime | None = Non
     now = now or utcnow()
     try:
         jobs = await asyncio.to_thread(_plan, notifications)
-        results = []
-        for job in jobs:
-            ok, error = await _deliver(job, now)
-            results.append((job, ok, error))
+        outcomes = await asyncio.gather(*(_deliver(job, now) for job in jobs))  # one dead channel delays no other
+        results = [(job, ok, error) for job, (ok, error) in zip(jobs, outcomes, strict=True)]
         if results:
             await asyncio.to_thread(_write_log, results, now)
     except Exception:

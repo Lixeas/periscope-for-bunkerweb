@@ -484,7 +484,7 @@ CATALOG: dict[str, str] = {
     "Instance down": "Instance hors service",
     "Certificates (expiry, TLS probe failure)": "Certificats (expiration, échec de la sonde TLS)",
     "BunkerWeb version change": "Changement de version de BunkerWeb",
-    "A resolved notification (and a reminder every 24 h for instances) follows the event it relates to.": "Une notification de retour à la normale (et un rappel toutes les 24 h pour les instances) suit l'événement concerné.",
+    "A back-to-normal notification (and a reminder every 24 h for instances) goes with the down and degraded events.": "Une notification de retour à la normale (et un rappel toutes les 24 h pour les instances) accompagne les événements hors service et dégradé.",
     "Language of the messages": "Langue des messages",
     "Alert enabled": "Alerte activée",
     "Alert created.": "Alerte créée.",

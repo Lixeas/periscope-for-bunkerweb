@@ -42,6 +42,10 @@ def test_matches_by_tag_and_event():
     assert send.matches(channel(events="certificate"), note("cert_red", "certificate"))
     assert not send.matches(channel(events="down"), note("instance_degraded", "degraded"))
     assert send.matches(channel(events="down"), note("instance_resolved", "down"))  # follows what it resolves
+    # a recovery reaches every channel that may have been told about the problem (down -> degraded -> ok)
+    assert send.matches(channel(events="down"), note("instance_resolved", "degraded"))
+    assert send.matches(channel(events="degraded"), note("instance_resolved", "down"))
+    assert not send.matches(channel(events="certificate,version"), note("instance_resolved", "down"))
     assert not send.matches(channel(events="down,certificate"), note("instance_version_changed", "version"))
     assert send.matches(channel(events="version"), note("instance_version_changed", "version"))
     assert not send.matches(channel(enabled=False), note())
@@ -161,11 +165,12 @@ async def test_dispatch_groups_one_message_per_channel(fresh_db, fast, monkeypat
     batch = [note(instance="bw1"), note("instance_degraded", "degraded", "bw2"),
              note("cert_red", "certificate", "bw3", domain="a.example", days_left=1, not_after=NOW)]
     await send.dispatch(batch, NOW)
-    assert [c[0] for c in calls] == ["email", "webhook"]
-    body = calls[0][3]
+    by_kind = {c[0]: c for c in calls}  # channels are delivered concurrently: no order between them
+    assert sorted(by_kind) == ["email", "webhook"] and len(calls) == 2
+    body = by_kind["email"][3]
     assert all(n in body for n in ("bw1", "bw2", "bw3"))
-    assert calls[0][1] == ["ops@example.com", "b@example.com"]
-    assert len(json.loads(calls[1][3])["events"]) == 3 and calls[1][2] == "k"
+    assert by_kind["email"][1] == ["ops@example.com", "b@example.com"]
+    assert len(json.loads(by_kind["webhook"][3])["events"]) == 3 and by_kind["webhook"][2] == "k"
     assert [(n, ok) for n, ok, *_ in logs()] == [("MSP", True), ("hook", True)]
     assert logs()[0][3] == "instance_down,instance_degraded,cert_red" and logs()[0][4] == "bw1,bw2,bw3"
 
@@ -394,3 +399,36 @@ async def test_send_smtp_test(fresh_db, monkeypatch):
     assert await send.send_smtp_test("ops@example.com") == (True, "")
     assert calls[0][:2] == ("email", ["ops@example.com"])
     assert logs()[-1][:2] == ("SMTP test", True)
+
+
+async def test_one_undecryptable_secret_does_not_break_the_other_channels(fresh_db, fast, monkeypatch):
+    with session_scope() as s:
+        s.add(AlertChannel(name="broken", kind="webhook", webhook_url="https://h.example/x",
+                           webhook_secret_enc="not-a-fernet-token"))
+    add_channel("good", kind="webhook", secret="k")
+    calls = record(monkeypatch)
+    await send.dispatch([note()], NOW)
+    assert [c[2] for c in calls] == ["k"]  # only the good one was sent
+    by_name = {n: (ok, err) for n, ok, err, *_ in logs()}
+    assert by_name["good"] == (True, "")
+    assert by_name["broken"][0] is False and by_name["broken"][1]
+    with session_scope() as s:
+        bad = s.query(AlertChannel).filter_by(name="broken").one().id
+    ok, err = await send.send_test(bad)
+    assert ok is False and err
+
+
+async def test_channels_are_delivered_concurrently(fresh_db, fast, monkeypatch):
+    import asyncio
+    import time
+    add_channel("h1", kind="webhook")
+    add_channel("h2", kind="webhook")
+
+    async def slow(url, secret, body, transport=None):
+        await asyncio.sleep(0.3)
+
+    monkeypatch.setattr(send, "send_webhook", slow)
+    t0 = time.monotonic()
+    await send.dispatch([note()], NOW)
+    assert time.monotonic() - t0 < 0.5
+    assert [ok for _, ok, *_ in logs()] == [True, True]
