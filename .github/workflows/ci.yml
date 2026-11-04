@@ -40,6 +40,20 @@ jobs:
       - run: pip install -e ".[dev,postgres]"
       - run: python -m pytest -q tests/test_postgres.py -rs
 
+  # Helm charts (deploy/helm): rendered with several values sets, schema-checked with kubeconform,
+  # lint --strict, packaged. The pinned tools come from dev/k8s-tools.sh (checksum-verified downloads).
+  charts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: dev/k8s-tools.sh
+      - run: echo "$PWD/.tools/bin" >> "$GITHUB_PATH"
+      - run: python -m pytest -q tests/test_helm_console.py tests/test_helm_agent.py tests/test_helm_charts.py tests/test_release.py
+
   docker:
     runs-on: ubuntu-latest
     steps:
@@ -89,7 +103,7 @@ jobs:
   # CHANGELOG.md) and the container image ghcr.io/<owner>/<repo>:X.Y.Z.
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, postgres, docker]
+    needs: [test, postgres, charts, docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write
