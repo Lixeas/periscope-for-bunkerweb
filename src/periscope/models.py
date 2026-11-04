@@ -99,6 +99,7 @@ class Instance(Base):
     agent_enroll_expires: Mapped[datetime | None] = mapped_column(default=None)
     agent_ip: Mapped[str] = mapped_column(String(64), default="", server_default="")
     agent_version: Mapped[str] = mapped_column(String(32), default="", server_default="")
+    silenced_until: Mapped[datetime | None] = mapped_column(default=None)  # alerts muted until then (UTC)
     snapshots: Mapped[list["Snapshot"]] = relationship(cascade="all, delete-orphan")
     probes: Mapped[list["CertProbe"]] = relationship(cascade="all, delete-orphan")
     tags: Mapped[list[Tag]] = relationship(secondary=instance_tags, order_by=Tag.name, lazy="selectin")
@@ -151,3 +152,57 @@ class Setting(Base):
     __tablename__ = "settings"
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[str] = mapped_column(Text, default="")
+
+
+alert_channel_tags = Table(
+    "alert_channel_tags", Base.metadata,
+    Column("channel_id", ForeignKey("alert_channels.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
+class AlertChannel(Base):
+    """One alert destination: a list of e-mail recipients or a webhook, filtered by tags and events."""
+    __tablename__ = "alert_channels"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True)
+    kind: Mapped[str] = mapped_column(String(8))  # email | webhook
+    enabled: Mapped[bool] = mapped_column(default=True)
+    lang: Mapped[str] = mapped_column(String(5), default="en", server_default="en")
+    events: Mapped[str] = mapped_column(String(64), default="down,degraded,certificate",
+                                        server_default="down,degraded,certificate")  # down|degraded|certificate|version
+    recipients: Mapped[str] = mapped_column(Text, default="", server_default="")  # email: one address per line
+    webhook_url: Mapped[str] = mapped_column(String(512), default="", server_default="")
+    webhook_secret_enc: Mapped[str] = mapped_column(String(512), default="", server_default="")  # Fernet
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    tags: Mapped[list[Tag]] = relationship(secondary=alert_channel_tags, order_by=Tag.name, lazy="selectin")
+
+    def has_event(self, name: str) -> bool:
+        return name in self.events.split(",")
+
+
+class AlertState(Base):
+    """What was last notified for one subject, and the pending change waiting for confirmation."""
+    __tablename__ = "alert_state"
+    __table_args__ = (UniqueConstraint("kind", "instance_id", "subject"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(8))  # status | cert | version
+    instance_id: Mapped[int] = mapped_column(ForeignKey("instances.id", ondelete="CASCADE"))
+    subject: Mapped[str] = mapped_column(String(255), default="")  # domain for certificates
+    notified: Mapped[str] = mapped_column(String(64), default="")  # status / cert zone / version last notified
+    pending: Mapped[str] = mapped_column(String(64), default="")
+    pending_count: Mapped[int] = mapped_column(default=0)
+    notified_at: Mapped[datetime | None] = mapped_column(default=None)
+
+
+class AlertLog(Base):
+    """Send log: one row per channel and message (kept after the channel is deleted)."""
+    __tablename__ = "alert_log"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(default=utcnow)
+    channel_id: Mapped[int | None] = mapped_column(ForeignKey("alert_channels.id", ondelete="SET NULL"), default=None)
+    channel_name: Mapped[str] = mapped_column(String(64), default="")
+    events: Mapped[str] = mapped_column(String(255), default="")
+    instances: Mapped[str] = mapped_column(String(255), default="")
+    ok: Mapped[bool] = mapped_column(default=False)
+    error: Mapped[str] = mapped_column(String(512), default="")
