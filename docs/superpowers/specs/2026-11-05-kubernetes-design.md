@@ -159,6 +159,39 @@ README links to it. `ROADMAP.md`, `CHANGELOG.md` updated.
   generic guidance and cloud annotations are left to `service.annotations`.
 - `*` as default trusted proxy (above) is a convenience default with a documented cost.
 
+## Facts checked in the repository (from the builder review)
+
+- The image already runs as uid 10001 with a read-only root filesystem in Compose (`read_only`, tmpfs
+  `/tmp`, `cap_drop: ALL`); writable paths are `/data` and `/tmp` only. SQLite files and WAL live in `/data`.
+- `FORWARDED_ALLOW_IPS` is read by uvicorn itself (the image `CMD` uses `--proxy-headers`); the app has no
+  setting of its own. Compose maps `PERISCOPE_TRUSTED_PROXY` to it; the chart does the same from
+  `config.trustedProxies`.
+- `PERISCOPE_AGENT_BW_PASSWORD_FILE`, `periscope agent health` and `PERISCOPE_DATABASE_URL` (PostgreSQL
+  with the psycopg driver in the image) all exist already (goals 3 and 6 are done on this branch).
+- `periscope agent enroll` writes `agent.key`, `agent.crt`, `ca.crt` and `console.json` under
+  `PERISCOPE_AGENT_DIR` (default `./data/agent`; the chart sets `/data/agent`). `agent.crt` is the marker
+  the init container tests. Nothing else is written; the agent also gets an `emptyDir` on `/tmp`.
+- Beyond `/readyz`, the only code allowed is small: the version sync in `dev/release.py` and tests.
+
+## Calls made by the designer (to check)
+
+- **Expired or revoked agent certificate.** The init container enrolls when `agent.crt` is missing **or**
+  when `enrollment.force=true` (one-off, overwrites the files). Recovery is documented: create a new
+  bundle in the console, `helm upgrade` with the new bundle and `enrollment.force=true`, then set it back
+  to false. Without that the pod restarts in a loop, which is visible and explained in the guide.
+- **Agent listener address.** `agentListener.publicUrl` is required when `agentListener.enabled=true`.
+  The guide recommends reserving a DNS name (or static IP) first. A two-step install also works
+  (install, read the load balancer address, `helm upgrade` with `publicUrl`): the config checksum
+  restarts the pod and the listener certificate is regenerated for the new host, as it is after any
+  address change; agents keep working because they pin the CA, not the server certificate.
+- **Origins and RP ID.** When `config.origins` is empty and the Ingress is enabled, the chart derives
+  `PERISCOPE_ORIGINS` from `ingress.hosts` (`https://` when `ingress.tls` is set, else `http://`) and
+  `PERISCOPE_RP_ID` from the first host; explicit values win. Without an Ingress, `origins` and `rpId`
+  are required (except when `cookieSecure=false`, for trials such as the kind job).
+- **Unreleased builds.** The kind job overrides `image.repository`, `image.tag` and `pullPolicy` with
+  `--set`. The chart job also runs `helm package` on pull requests (no publish); only the `release` job
+  pushes charts, after the image, when the version tag is new.
+
 ## Left to the builder
 
 Template helper names and file layout, exact probe timings and resource numbers, the `values.schema.json`
