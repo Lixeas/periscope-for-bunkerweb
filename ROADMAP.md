@@ -17,7 +17,7 @@ Goal 5 (agent CA rotation) moved to v0.4.0.
 | 4 | Agent enrollment rate limit behind a proxy | in progress | Decision: documentation only, no PROXY protocol |
 | 6 | PostgreSQL driver in the image | in progress | Needed by goal 2 |
 | 1 | Outgoing alerts | in progress | Design: `docs/superpowers/specs/2026-11-04-outgoing-alerts-design.md`; docs: `docs/alerts.md`. Implemented on branch `v0.3.0`, PR to come |
-| 2 | Kubernetes compatibility | todo | Last: depends on goals 3 and 6 |
+| 2 | Kubernetes compatibility | in progress | Design: `docs/superpowers/specs/2026-11-05-kubernetes-design.md`; guide: `docs/kubernetes.md`. Implemented on branch `v0.3.0`, PR to come |
 
 ### 1. Outgoing alerts
 

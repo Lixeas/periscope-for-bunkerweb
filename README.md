@@ -20,6 +20,7 @@
 - **Active bans** merged across instances, searchable by IP, with a flag for IPs banned on only some instances.
 - **Jobs and plugins**: job schedule and last result, and an instance × plugin matrix highlighting missing plugins and version drift.
 - **Certificates** actually served, checked by a direct TLS probe (red under 7 days or expired, orange under 21 days).
+- **Kubernetes** charts for the console and the agent (Helm), secure by default and tested on a real cluster in CI: [docs/kubernetes.md](docs/kubernetes.md).
 - **Alerts** by e-mail or webhook when an instance is degraded or down, a certificate is about to expire or BunkerWeb is upgraded; routed per customer with tags, with a silence for maintenances. See [docs/alerts.md](docs/alerts.md).
 - **Strong authentication**: argon2id passwords plus a **mandatory** second factor (TOTP or WebAuthn passkey), backup codes, progressive lockout, CSRF protection, strict CSP and an audit log. Roles: `admin` and `reader`.
 - **Two ways to reach an instance**: **direct** (Periscope polls the BunkerWeb API on its network) or through a **Periscope agent** installed next to the instance, which pushes its reports over **mutual TLS** (outbound connections only, credentials kept on the customer side). See [docs/agent.md](docs/agent.md).

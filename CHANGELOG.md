@@ -10,6 +10,13 @@ the new version.
 ## [Unreleased]
 
 ### Added
+- Kubernetes support: Helm charts `periscope` (console) and `periscope-agent` in `deploy/helm`. Non-root,
+  read-only filesystem, probes, one enforced console replica, secrets by reference, optional Ingress,
+  separate Service for the mutual-TLS agent listener, SQLite volume or external PostgreSQL, and an agent
+  that enrolls itself from a bundle Secret. CI lints and schema-checks them and runs the console on a
+  kind cluster; at release they are published to `oci://ghcr.io/<owner>/charts`. See `docs/kubernetes.md`.
+- `GET /readyz`: readiness probe that checks the database (503 when it is unreachable); `/healthz`
+  stays a pure liveness check.
 - Outgoing alerts: notify by e-mail (SMTP) or JSON webhook (optional HMAC signature) when an instance
   turns `degraded` / `down`, when a certificate enters the orange / red / expired zone or its TLS probe
   fails, and when BunkerWeb changes version. One message per confirmed change (2 cycles), "back to
