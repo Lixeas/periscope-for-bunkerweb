@@ -134,6 +134,32 @@ console restart during retries loses that message (acceptable ceiling, documente
   instance silenced / unsilenced.
 - Messages sent to recipients use the channel's language, not the reader's.
 
+## Calls made by the designer (to check; from the builder review)
+
+- **Two entry points, two kinds of state.** `evaluate_status()` runs after `collect_all()` (instance
+  status, reminders, version) and `evaluate_certs()` after `probe_all()` (certificates and their
+  reminders). Each kind has its own confirmation counter, advanced only by its own loop. Grouping is per
+  run, so one incident can produce one mail from each loop (status, then certificates); accepted.
+- **First sight = silent baseline.** When a subject has no `alert_state` row (first deploy, new
+  instance, new domain), the row is created with the *current* observed status as already notified, so
+  deploying 0.3.0 on a fleet with existing problems sends nothing at once; their reminder clock starts
+  then. A new instance that later goes down is a normal change. Pending counters are stored in the
+  database (they survive a restart).
+- **Certificate state cleanup.** State is keyed by (instance, domain). A domain with no probe row any
+  more (service removed or renamed) has its state dropped silently, without a "resolved". A renamed
+  domain is a new subject (silent baseline).
+- **Version.** Last known version is kept in the version `alert_state` row, not in `Instance.version`.
+  A `None` version (any failure, or the hourly refresh not due) is ignored; only a non-empty version that
+  differs from the last known one is a change.
+- **Disabled / re-enabled.** Disabling an instance deletes its alert state (a fresh silent baseline on
+  re-enable); a disabled instance is never evaluated. Deleting an instance removes its state.
+- **Silence and "resolved".** A silenced instance is skipped and its state does not advance. If a
+  problem was already notified before the silence and the instance is `ok` when the silence ends, the
+  normal path then sends "resolved". A problem that began and ended during the silence sends nothing.
+- **Tags at send time.** Routing uses the instance's current tags, including for "resolved".
+- **SMTP not configured.** E-mail channels can be created; sending is skipped and logged as a failure
+  ("SMTP not configured"); the test button reports the same.
+
 ## Left to the builder
 
 Table and column names, exact layout and CSS of the page, templates of the messages, retry mechanics,
