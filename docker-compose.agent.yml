@@ -3,10 +3,10 @@
 # and to the console's agent listener. Nothing is published.
 #
 # Uses the released image (no checkout or build needed: this file is enough). Pin
-# PERISCOPE_VERSION to the version of your console (e.g. 0.2.1, or 0.2 to follow its patches).
+# PERISCOPE_VERSION to the version of your console (e.g. 0.3.0, or 0.3 to follow its patches).
 #
 #   echo 'ReadOnlyApiUserPassword' > bw_api_password.txt && chmod 600 bw_api_password.txt
-#   export BW_API_URL=http://10.0.0.5:8888 PERISCOPE_VERSION=0.2.1
+#   export BW_API_URL=http://10.0.0.5:8888 PERISCOPE_VERSION=0.3.0
 #   docker compose -f docker-compose.agent.yml run --rm periscope-agent periscope agent enroll 'psc1....'
 #   docker compose -f docker-compose.agent.yml up -d
 services:

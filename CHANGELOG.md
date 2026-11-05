@@ -9,6 +9,8 @@ the new version.
 
 ## [Unreleased]
 
+## [0.3.0]
+
 ### Added
 - Kubernetes support: Helm charts `periscope` (console) and `periscope-agent` in `deploy/helm`. Non-root,
   read-only filesystem, probes, one enforced console replica, secrets by reference, optional Ingress,
