@@ -6,10 +6,10 @@ update it in the pull request that moves a goal (status, link to the PR, decisio
 Statuses: `todo`, `in progress`, `done`, `dropped`. Released changes are described in
 [CHANGELOG.md](CHANGELOG.md); how versions are released: [docs/releasing.md](docs/releasing.md).
 
-## v0.3.0
+## v0.3.0 (released)
 
 Goals are listed in the order they will be done (numbers are stable identifiers, not the order).
-Goal 5 (agent CA rotation) moved to v0.4.0.
+Goal 5 (agent CA rotation) moved to v0.4.0 (see below).
 
 | # | Goal | Status | PR / notes |
 |---|---|---|---|
@@ -62,7 +62,7 @@ Decision for v0.3.0: document the behaviour and workarounds in `docs/agent.md` o
 (header read before the TLS handshake, trusted proxy IPs only) and a limit keyed by token (needs a
 global cap too) are left for later if a real use case appears.
 
-### 5. Agent CA rotation (moved to v0.4.0)
+### 5. Agent CA rotation (v0.4.0)
 
 No tooling to replace the agents' CA (e.g. after a leak of `PERISCOPE_SECRET_KEY` with the
 database). Add a rotation that keeps the old CA trusted during a transition period and lets agents
@@ -72,3 +72,9 @@ fetch the new one over their existing mutual TLS session.
 
 `PERISCOPE_DATABASE_URL` accepts PostgreSQL, but the image has no driver. Add `psycopg` (optional
 extra installed in the image), test the migrations against PostgreSQL in CI, document it.
+
+## v0.4.0
+
+| # | Goal | Status | PR / notes |
+|---|---|---|---|
+| 5 | Agent CA rotation | todo | Details in section 5 above |

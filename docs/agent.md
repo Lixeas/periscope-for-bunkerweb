@@ -70,15 +70,15 @@ The agent listener is a separate HTTPS server (its own FastAPI app, no cookies, 
 3. On a machine in the customer's network that can reach the BunkerWeb API (and the TLS port of its services), deploy the agent. With Docker, only `docker-compose.agent.yml` is needed: it uses the released image `ghcr.io/lixeas/periscope-for-bunkerweb`, no checkout or build.
 
    ```bash
-   curl -fsSLO https://raw.githubusercontent.com/Lixeas/periscope-for-bunkerweb/v0.2.1/docker-compose.agent.yml
+   curl -fsSLO https://raw.githubusercontent.com/Lixeas/periscope-for-bunkerweb/v0.3.0/docker-compose.agent.yml
    echo 'TheReadOnlyApiUserPassword' > bw_api_password.txt && chmod 600 bw_api_password.txt
    export BW_API_URL=http://10.0.0.5:8888   # the local BunkerWeb API (root path included)
-   export PERISCOPE_VERSION=0.2.1           # the version of your console
+   export PERISCOPE_VERSION=0.3.0           # the version of your console
    docker compose -f docker-compose.agent.yml run --rm periscope-agent periscope agent enroll 'psc1.…'
    docker compose -f docker-compose.agent.yml up -d
    ```
 
-   Keep the agents on the same version as the console (`PERISCOPE_VERSION=0.2` follows the patch releases of 0.2). To upgrade: change `PERISCOPE_VERSION`, then `docker compose -f docker-compose.agent.yml pull && docker compose -f docker-compose.agent.yml up -d`; the enrollment (volume `agent-data`) is kept. If the container package is private, run `docker login ghcr.io` first with a token allowed to read packages.
+   Keep the agents on the same version as the console (`PERISCOPE_VERSION=0.3` follows the patch releases of 0.3). To upgrade: change `PERISCOPE_VERSION`, then `docker compose -f docker-compose.agent.yml pull && docker compose -f docker-compose.agent.yml up -d`; the enrollment (volume `agent-data`) is kept. If the container package is private, run `docker login ghcr.io` first with a token allowed to read packages.
 
    Without Docker: `pip install .` from a checkout, set the variables below, then `periscope agent enroll 'psc1.…'` and `periscope agent run` (as a systemd service, for example).
 4. The instance turns `ok` on the dashboard after the first report (about 30 s).

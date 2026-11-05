@@ -1,5 +1,5 @@
 # Periscope console. By default it runs the released image (recommended); pin PERISCOPE_VERSION
-# in .env (e.g. 0.2.1). To build from a checkout instead, add docker-compose.build.yml:
+# in .env (e.g. 0.3.0). To build from a checkout instead, add docker-compose.build.yml:
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 services:
   periscope:

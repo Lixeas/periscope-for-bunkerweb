@@ -96,7 +96,7 @@ All settings are environment variables prefixed with `PERISCOPE_` (read from the
 
 | Variable | Default | Description |
 |---|---|---|
-| `PERISCOPE_VERSION` | `latest` | Released image run by docker compose (pin it, e.g. `0.2.1`); not used with `docker-compose.build.yml` |
+| `PERISCOPE_VERSION` | `latest` | Released image run by docker compose (pin it, e.g. `0.3.0`); not used with `docker-compose.build.yml` |
 | `PERISCOPE_SECRET_KEY` | *(required)* | Fernet key used to encrypt BunkerWeb credentials |
 | `PERISCOPE_DATABASE_URL` | `sqlite:///./data/periscope.db` | SQLAlchemy URL (the Docker image uses `/data/periscope.db`) |
 | `PERISCOPE_ORIGINS` | `["http://localhost:8000"]` | Allowed browser origins (JSON list) |
