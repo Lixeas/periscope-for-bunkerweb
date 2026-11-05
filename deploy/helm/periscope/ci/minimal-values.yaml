@@ -1,0 +1,7 @@
+# Smallest working install (SQLite on a volume); used by the chart tests, lint and the kind smoke test.
+secretKey:
+  value: "8gg3eCd53d5BrVvT0asTJXyz_DbNKhkMymfAUFy8zYk="
+config:
+  origins: ["http://localhost:8000"]
+  rpId: localhost
+  cookieSecure: false

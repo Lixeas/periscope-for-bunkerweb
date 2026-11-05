@@ -20,6 +20,8 @@
 - **Active bans** merged across instances, searchable by IP, with a flag for IPs banned on only some instances.
 - **Jobs and plugins**: job schedule and last result, and an instance × plugin matrix highlighting missing plugins and version drift.
 - **Certificates** actually served, checked by a direct TLS probe (red under 7 days or expired, orange under 21 days).
+- **Kubernetes** charts for the console and the agent (Helm), secure by default and tested on a real cluster in CI: [docs/kubernetes.md](docs/kubernetes.md).
+- **Alerts** by e-mail or webhook when an instance is degraded or down, a certificate is about to expire or BunkerWeb is upgraded; routed per customer with tags, with a silence for maintenances. See [docs/alerts.md](docs/alerts.md).
 - **Strong authentication**: argon2id passwords plus a **mandatory** second factor (TOTP or WebAuthn passkey), backup codes, progressive lockout, CSRF protection, strict CSP and an audit log. Roles: `admin` and `reader`.
 - **Two ways to reach an instance**: **direct** (Periscope polls the BunkerWeb API on its network) or through a **Periscope agent** installed next to the instance, which pushes its reports over **mutual TLS** (outbound connections only, credentials kept on the customer side). See [docs/agent.md](docs/agent.md).
 - **Tags** (for example one per customer): every view can be scoped to a tag, and cross-instance differences are then computed within that tag.
@@ -117,7 +119,7 @@ All settings are environment variables prefixed with `PERISCOPE_` (read from the
 
 The agent itself is configured with `PERISCOPE_AGENT_DIR` and `PERISCOPE_AGENT_BW_*` variables: see [docs/agent.md](docs/agent.md#agent-configuration).
 
-**Larger fleets.** Collection runs instances in parallel (bounded by `PERISCOPE_MAX_PARALLEL`) and database writes happen outside the event loop. SQLite is fine for a few dozen instances; beyond that, or for heavy use, point `PERISCOPE_DATABASE_URL` to PostgreSQL (install the `psycopg` driver in the image).
+**Larger fleets.** Collection runs instances in parallel (bounded by `PERISCOPE_MAX_PARALLEL`) and database writes happen outside the event loop. SQLite is fine for a few dozen instances; beyond that, or for heavy use, point `PERISCOPE_DATABASE_URL` to PostgreSQL: the image includes the `psycopg` driver, e.g. `postgresql://periscope:password@db:5432/periscope` (an URL-encoded password such as `%40` works). The database must exist and the user must own it; the schema is created at startup. Outside Docker: `pip install ".[postgres]"`. Moving existing SQLite data is not supported: start with an empty database.
 
 ## Security
 

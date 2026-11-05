@@ -1,0 +1,26 @@
+{{- if .Values.agentListener.enabled }}
+# Mutual-TLS agent listener. Reach it through this Service (or a TCP / TLS-passthrough route), never through
+# an Ingress that terminates TLS: the listener must see the agents' client certificates.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "periscope.fullname" . }}-agents
+  labels:
+    {{- include "periscope.labels" . | nindent 4 }}
+  {{- with .Values.agentListener.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.agentListener.service.type }}
+  {{- if and (eq .Values.agentListener.service.type "LoadBalancer") .Values.agentListener.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.agentListener.service.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
+  ports:
+    - name: agents
+      port: {{ .Values.agentListener.service.port }}
+      targetPort: agents
+  selector:
+    {{- include "periscope.selectorLabels" . | nindent 4 }}
+{{- end }}

@@ -29,6 +29,12 @@ def init_engine(url: str | None = None):
         kw["connect_args"] = {"check_same_thread": False}
         if url in ("sqlite://", "sqlite:///:memory:"):
             kw["poolclass"] = StaticPool
+    else:
+        kw["pool_pre_ping"] = True  # the console outlives a restart of the database server
+        if url.startswith("postgresql"):
+            # a blackholed database must not hold worker threads for the OS TCP timeout (about 2 minutes);
+            # readiness probes and the collector share the thread pool
+            kw["connect_args"] = {"connect_timeout": 5}
     mem = url in ("sqlite://", "sqlite:///:memory:")
     if url.startswith("sqlite") and not mem:
         _ensure_sqlite_dir(url)
@@ -77,5 +83,6 @@ def migrate() -> None:
     _ensure_sqlite_dir(get_settings().database_url)
     cfg = Config()
     cfg.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
-    cfg.set_main_option("sqlalchemy.url", get_settings().database_url)
+    # "%" is interpolation syntax in alembic's config: an URL-encoded password ("%40") needs "%%"
+    cfg.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
     command.upgrade(cfg, "head")

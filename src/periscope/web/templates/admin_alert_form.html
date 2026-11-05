@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{% if ch %}{{ _("Edit {name}", name=ch.name) }}{% elif kind == 'email' %}{{ _("New e-mail alert") }}{% else %}{{ _("New webhook alert") }}{% endif %}{% endblock %}
+{% block content %}
+<h1 class="page-title">{% if ch %}{{ _("Edit “{name}”", name=ch.name) }}{% elif kind == 'email' %}{{ _("New e-mail alert") }}{% else %}{{ _("New webhook alert") }}{% endif %}</h1>
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+<form method="post" action="{% if ch %}/admin/alerts/{{ ch.id }}{% else %}/admin/alerts{% endif %}" class="col-lg-6">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="kind" value="{{ kind }}">
+  <div class="mb-3"><label class="form-label" for="name">{{ _("Name") }}</label>
+    <input class="form-control" id="name" name="name" value="{{ form.name }}" required maxlength="64"></div>
+  {% if kind == 'email' %}
+  <div class="mb-3"><label class="form-label" for="recipients">{{ _("Recipients") }}</label>
+    <textarea class="form-control" id="recipients" name="recipients" rows="4" required placeholder="ops@example.com">{{ form.recipients }}</textarea>
+    <div class="form-text">{{ _("One address per line (commas and semicolons also work), 20 at most.") }}</div></div>
+  {% else %}
+  <div class="mb-3"><label class="form-label" for="webhook_url">{{ _("Webhook URL") }}</label>
+    <input class="form-control" id="webhook_url" name="webhook_url" value="" autocomplete="off"{% if not ch %} required{% endif %}
+           placeholder="{% if ch %}{{ _('(unchanged)') }}{% else %}https://hooks.example.com/...{% endif %}">
+    <div class="form-text">{{ _("Periscope sends a JSON POST here (see docs/alerts.md for the format). Such URLs often hold a token: it is never displayed again; leave empty to keep the current one.") }}</div></div>
+  <div class="mb-3"><label class="form-label" for="webhook_secret">{{ _("Signing secret (optional)") }}</label>
+    <input class="form-control" id="webhook_secret" name="webhook_secret" type="password" autocomplete="new-password"
+           placeholder="{% if has_secret %}{{ _('(unchanged)') }}{% endif %}">
+    <div class="form-text">{{ _("When set, each request carries an X-Periscope-Signature header (HMAC-SHA256 of the body). Encrypted in the database, never displayed again; leave empty to keep the current one.") }}</div></div>
+  {% endif %}
+  <div class="mb-3"><label class="form-label" for="tags">{{ _("Tags") }}</label>
+    <input class="form-control" id="tags" name="tags" value="{{ form.tags }}" placeholder="{{ _('e.g. customer-a, production') }}">
+    <div class="form-text">{{ _("Only instances carrying one of these tags are reported. Empty = all instances.") }}</div></div>
+  <fieldset class="mb-3">
+    <legend class="fs-6">{{ _("Events") }}</legend>
+    {% set labels = {'down': _("Instance down"), 'degraded': _("Instance degraded"), 'certificate': _("Certificates (expiry, TLS probe failure)"), 'version': _("BunkerWeb version change")} %}
+    {% for ev in events %}
+    <div class="form-check"><input class="form-check-input" type="checkbox" id="ev_{{ ev }}" name="events" value="{{ ev }}"{% if ev in form.events %} checked{% endif %}>
+      <label class="form-check-label" for="ev_{{ ev }}">{{ labels[ev] }}</label></div>
+    {% endfor %}
+    <div class="form-text">{{ _("A back-to-normal notification (and a reminder every 24 h for instances) goes with the down and degraded events.") }}</div>
+  </fieldset>
+  <div class="mb-3"><label class="form-label" for="lang">{{ _("Language of the messages") }}</label>
+    <select class="form-select" id="lang" name="lang">
+      {% for code, label in LANGUAGES %}<option value="{{ code }}"{% if code == form.lang %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select></div>
+  <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="enabled" name="enabled"{% if form.enabled %} checked{% endif %}>
+    <label class="form-check-label" for="enabled">{{ _("Alert enabled") }}</label></div>
+  <button class="btn btn-primary">{{ _("Save") }}</button>
+  <a class="btn btn-link" href="/admin/alerts">{{ _("Cancel") }}</a>
+</form>
+{% endblock %}

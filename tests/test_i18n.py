@@ -8,7 +8,7 @@ from periscope import i18n
 from periscope.db import session_scope
 from periscope.locales.fr import CATALOG
 from periscope.models import Instance, User
-from periscope.web import routes_account, routes_admin
+from periscope.web import routes_account, routes_admin, routes_alerts
 from tests.helpers import csrf_of, login_as, make_client, make_user, post_login
 from tests.i18n_scan import py_msgids, template_msgids
 from tests.test_queries import seed
@@ -442,7 +442,7 @@ def test_catalog_values_are_non_empty_strings():
 
 def test_message_dicts_only_hold_catalog_msgids():
     for table in (routes_account.MESSAGES, routes_admin.MESSAGES, routes_admin.USER_MESSAGES,
-                  routes_admin.KIND_LABEL, routes_admin.EVENT_LABELS):
+                  routes_admin.KIND_LABEL, routes_admin.EVENT_LABELS, routes_alerts.MESSAGES):
         assert set(table.values()) <= set(CATALOG)
 
 
@@ -492,10 +492,12 @@ def test_english_pages_contain_no_accented_letters(logged, monkeypatch):
         agent_id = s.query(Instance).filter_by(name="remote").one().id
     paths = ["/login", "/dashboard", "/services", "/bans", "/jobs", "/certificates", "/account",
              "/admin/instances", "/admin/instances/1", f"/admin/instances/{agent_id}", "/admin/users",
-             "/admin/audit", "/dashboard?tag=acme"]
+             "/admin/audit", "/dashboard?tag=acme", "/admin/alerts", "/admin/alerts/new?kind=email",
+             "/admin/alerts/new?kind=webhook"]
     paths += [f"/account?m={c}" for c in routes_account.MESSAGES]
     paths += [f"/admin/users?m={c}" for c in routes_admin.USER_MESSAGES]
     paths += [f"/admin/instances?m={c}" for c in routes_admin.MESSAGES]
+    paths += [f"/admin/alerts?m={c}" for c in routes_alerts.MESSAGES]
     for path in paths:
         r = client.get(path)
         assert r.status_code == 200, path
@@ -509,6 +511,8 @@ def test_english_pages_contain_no_accented_letters(logged, monkeypatch):
         client.post("/admin/instances/1", data={"csrf": csrf, "name": "bw1", "base_url": "http://zz",
                                                 "tls_port": "443"}),
         client.post("/account/backup-codes", data={"csrf": csrf, "password": "correct horse battery"}),
+        client.post("/admin/alerts", data={"csrf": csrf, "kind": "email", "name": "x", "recipients": "nope"}),
+        client.post("/admin/alerts/smtp", data={"csrf": csrf, "port": "0"}),
     ]
     for r in pages:
         assert r.status_code in (200, 400)

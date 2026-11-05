@@ -257,6 +257,26 @@ def instance_agent_revoke(request: Request, inst_id: int, user: User = Depends(r
     return RedirectResponse("/admin/instances?m=revoked", 303)
 
 
+SILENCE_HOURS = (1, 4, 24)
+
+
+@router.post("/instances/{inst_id}/silence")
+def instance_silence(request: Request, inst_id: int, hours: str = Form(""), user: User = Depends(require_admin),
+                     db=Depends(get_db)):
+    """Mute the alerts of one instance for 1, 4 or 24 hours (maintenance); 0 clears the silence."""
+    inst = db.get(Instance, inst_id)
+    if inst is None:
+        return RedirectResponse("/admin/instances", 303)
+    if hours == "0":
+        inst.silenced_until = None
+        audit(db, "instance_unsilenced", user.username, detail=inst.name, ip=ip_of(request))
+    elif hours.isdigit() and int(hours) in SILENCE_HOURS:
+        inst.silenced_until = utcnow() + timedelta(hours=int(hours))
+        audit(db, "instance_silenced", user.username, detail=inst.name, ip=ip_of(request))
+    db.commit()
+    return RedirectResponse(f"/admin/instances/{inst.id}", 303)  # the stored id, not the request's path value
+
+
 @router.post("/instances/{inst_id}/delete")
 def instance_delete(request: Request, inst_id: int, user: User = Depends(require_admin), db=Depends(get_db)):
     inst = db.get(Instance, inst_id)
@@ -412,6 +432,13 @@ EVENT_LABELS = {
     "user_role_changed": N_("User role changed"),
     "user_2fa_reset": N_("User second factor reset"),
     "user_password_reset": N_("User password reset"),
+    "instance_silenced": N_("Instance alerts silenced"),
+    "instance_unsilenced": N_("Instance alerts resumed"),
+    "alert_channel_created": N_("Alert created"),
+    "alert_channel_edited": N_("Alert edited"),
+    "alert_channel_deleted": N_("Alert deleted"),
+    "alert_smtp_updated": N_("SMTP server updated"),
+    "alert_test_sent": N_("Alert test sent"),
 }
 
 

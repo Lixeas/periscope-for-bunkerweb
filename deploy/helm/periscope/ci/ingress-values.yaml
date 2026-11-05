@@ -1,0 +1,13 @@
+# Behind an Ingress with TLS: origins and RP ID are derived from the host.
+secretKey:
+  value: "8gg3eCd53d5BrVvT0asTJXyz_DbNKhkMymfAUFy8zYk="
+config:
+  cookieSecure: true
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: periscope.example.com
+  tls:
+    - secretName: periscope-tls
+      hosts: [periscope.example.com]

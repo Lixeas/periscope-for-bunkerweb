@@ -1,0 +1,76 @@
+# Periscope agent: runs next to a BunkerWeb instance (often in a customer's cluster), holds the API user's
+# credentials and reports to the console over mutual TLS. Outbound connections only: no Service.
+# One replica only (two agents with the same identity would report the same instance twice).
+
+image:
+  repository: ghcr.io/lixeas/periscope-for-bunkerweb
+  tag: ""            # default: the chart's appVersion (keep it equal to the console's version)
+  digest: ""         # sha256:... ; wins over the tag
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Enrollment bundle ("psc1...") shown once by the console when you create the agent instance. The init
+# container enrolls only while the volume holds no complete identity (key, certificate, console address).
+# Keep the bundle available: restarts skip enrollment, but a lost volume needs a fresh bundle.
+enrollment:
+  bundle: ""                 # stored in a Secret created by the chart
+  existingSecret: ""         # or a Secret you manage
+  existingSecretKey: bundle
+  force: false               # true = enroll again over an existing identity, once per bundle (revoked / expired agent)
+
+bunkerweb:
+  url: ""                    # required: the BunkerWeb API of the local instance, root prefix included
+  username: periscope        # the restricted, read-only API user
+  password: ""               # stored in a Secret created by the chart, mounted as a file
+  existingSecret: ""
+  existingSecretKey: password
+  verifyTls: true
+  probeHost: ""              # TLS probe address of the services; empty = host of the API URL
+  tlsPort: 443
+
+persistence:                 # the agent's key, certificates and console address
+  size: 100Mi
+  storageClass: ""
+  accessModes: [ReadWriteOnce]
+  existingClaim: ""
+
+extraEnv: []
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 96Mi
+  limits:
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}
+podLabels: {}
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+terminationGracePeriodSeconds: 30

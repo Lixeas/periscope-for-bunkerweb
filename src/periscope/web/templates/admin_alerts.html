@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "_macros.html" import chip with context %}
+{% block title %}{{ _("Alerts") }}{% endblock %}
+{% block content %}
+<div class="head-row">
+  <h1 class="page-title">{{ _("Alerts") }}</h1>
+  <div>
+    <a class="btn btn-primary" href="/admin/alerts/new?kind=email">{{ _("New e-mail alert") }}</a>
+    <a class="btn btn-primary" href="/admin/alerts/new?kind=webhook">{{ _("New webhook alert") }}</a>
+  </div>
+</div>
+{% if notice %}<div class="alert alert-info" role="status">{{ notice }}</div>{% endif %}
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+
+<div class="table-responsive mb-5">
+<table class="table table-stack align-middle">
+  <thead><tr><th>{{ _("Name") }}</th><th>{{ _("Type") }}</th><th>{{ _("Destination") }}</th><th>{{ _("Tags") }}</th><th>{{ _("Events") }}</th><th>{{ _("Language") }}</th><th>{{ _("Last result") }}</th><th><span class="visually-hidden">{{ _("Actions") }}</span></th></tr></thead>
+  <tbody>
+  {% for c in channels %}
+  <tr>
+    <td data-label="{{ _('Name') }}">{{ c.name }}{% if not c.enabled %} {{ chip('off', _("Disabled")) }}{% endif %}</td>
+    <td data-label="{{ _('Type') }}">{% if c.kind == 'email' %}{{ _("E-mail") }}{% else %}{{ _("Webhook") }}{% endif %}</td>
+    <td data-label="{{ _('Destination') }}">{{ display(c) }}</td>
+    <td data-label="{{ _('Tags') }}">{% if c.tags %}<div class="tag-list">{% for t in c.tags %}<span class="tag">{{ t.name }}</span>{% endfor %}</div>{% else %}<span class="text-secondary">{{ _("all instances") }}</span>{% endif %}</td>
+    <td data-label="{{ _('Events') }}">{{ c.events.replace(',', ', ') }}</td>
+    <td data-label="{{ _('Language') }}">{{ c.lang }}</td>
+    <td data-label="{{ _('Last result') }}">{% set r = last.get(c.id) %}{% if r %}{% if r.ok %}{{ chip('ok', _("Sent")) }}{% else %}{{ chip('crit', _("Failed")) }}<div class="small text-danger">{{ r.error }}</div>{% endif %}<div class="small text-secondary">{{ r.at | ago }}</div>{% else %}<span class="text-secondary">{{ _("never") }}</span>{% endif %}</td>
+    <td class="text-nowrap">
+      <form method="post" action="/admin/alerts/{{ c.id }}/test" class="d-inline">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-sm btn-outline-secondary" aria-label="{{ _('Send a test to {name}', name=c.name) }}">{{ _("Send test") }}</button>
+      </form>
+      <a class="btn btn-sm btn-outline-secondary" href="/admin/alerts/{{ c.id }}" aria-label="{{ _('Edit {name}', name=c.name) }}">{{ _("Edit") }}</a>
+      <form method="post" action="/admin/alerts/{{ c.id }}/delete" class="d-inline" data-confirm="{{ _('Delete alert {name}?', name=c.name) }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="btn btn-sm btn-outline-danger" aria-label="{{ _('Delete {name}', name=c.name) }}">{{ _("Delete") }}</button>
+      </form>
+    </td>
+  </tr>
+  {% else %}<tr><td colspan="8" class="text-secondary">{{ _("No alerts configured.") }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<h2 class="fs-4">{{ _("SMTP server") }}</h2>
+<p class="text-secondary">{{ _("Used by every e-mail alert.") }}</p>
+<div class="row g-4 mb-5">
+<form method="post" action="/admin/alerts/smtp" class="col-lg-6">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="row">
+    <div class="col-8 mb-3"><label class="form-label" for="smtp_host">{{ _("Host") }}</label>
+      <input class="form-control" id="smtp_host" name="host" value="{{ smtp.host }}" placeholder="smtp.example.com" autocomplete="off"></div>
+    <div class="col-4 mb-3"><label class="form-label" for="smtp_port">{{ _("Port") }}</label>
+      <input class="form-control" id="smtp_port" name="port" type="number" min="1" max="65535" value="{{ smtp.port }}"></div>
+  </div>
+  <div class="mb-3"><label class="form-label" for="smtp_security">{{ _("Connection security") }}</label>
+    <select class="form-select" id="smtp_security" name="security">
+      {% for s in securities %}<option value="{{ s }}"{% if s == smtp.security %} selected{% endif %}>{{ s }}</option>{% endfor %}
+    </select></div>
+  <div class="mb-3"><label class="form-label" for="smtp_username">{{ _("Username") }}</label>
+    <input class="form-control" id="smtp_username" name="username" value="{{ smtp.username }}" autocomplete="off"></div>
+  <div class="mb-3"><label class="form-label" for="smtp_password">{{ _("Password") }}</label>
+    <input class="form-control" id="smtp_password" name="password" type="password" autocomplete="new-password"
+           placeholder="{% if smtp.has_password %}{{ _('(unchanged)') }}{% endif %}">
+    <div class="form-text">{{ _("Encrypted in the database, never displayed again. Leave empty to keep the current one.") }}</div></div>
+  <div class="mb-3"><label class="form-label" for="smtp_sender">{{ _("Sender address") }}</label>
+    <input class="form-control" id="smtp_sender" name="sender" value="{{ smtp.sender }}" placeholder="periscope@example.com" autocomplete="off"></div>
+  <button class="btn btn-primary">{{ _("Save") }}</button>
+</form>
+<form method="post" action="/admin/alerts/smtp/test" class="col-lg-4">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="mb-3"><label class="form-label" for="smtp_to">{{ _("Send a test e-mail to") }}</label>
+    <input class="form-control" id="smtp_to" name="to" type="email" autocomplete="off" required></div>
+  <button class="btn btn-outline-secondary">{{ _("Send test e-mail") }}</button>
+</form>
+</div>
+
+<h2 class="fs-4">{{ _("Send log") }}</h2>
+<div class="table-responsive">
+<table class="table table-stack align-middle">
+  <thead><tr><th>{{ _("Date") }}</th><th>{{ _("Alert") }}</th><th>{{ _("Events") }}</th><th>{{ _("Instances") }}</th><th>{{ _("Result") }}</th></tr></thead>
+  <tbody>
+  {% for r in log %}
+  <tr>
+    <td data-label="{{ _('Date') }}">{{ r.at | dt }}</td>
+    <td data-label="{{ _('Alert') }}">{{ r.channel_name }}</td>
+    <td data-label="{{ _('Events') }}">{{ r.events }}</td>
+    <td data-label="{{ _('Instances') }}">{{ r.instances }}</td>
+    <td data-label="{{ _('Result') }}">{% if r.ok %}{{ chip('ok', _("Sent")) }}{% else %}{{ chip('crit', _("Failed")) }} <span class="small text-danger">{{ r.error }}</span>{% endif %}</td>
+  </tr>
+  {% else %}<tr><td colspan="5" class="text-secondary">{{ _("Nothing sent yet.") }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

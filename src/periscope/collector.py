@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+from periscope import alert_engine
 from periscope.bw_client import BWClient, BWError
 from periscope.clock import utcnow
 from periscope.config import get_settings
@@ -264,6 +265,7 @@ async def collect_all() -> None:
     ids = await asyncio.to_thread(_enabled_ids)
     await _gather_logged([_bounded(limit, collect_one(i)) for i in ids])
     await asyncio.to_thread(check_agents)
+    await alert_engine.run_status()
 
 
 async def probe_all() -> None:
@@ -271,6 +273,7 @@ async def probe_all() -> None:
     limit, handshakes = asyncio.Semaphore(cfg.max_parallel), asyncio.Semaphore(cfg.max_parallel_probes)
     ids = await asyncio.to_thread(_enabled_ids)
     await _gather_logged([_bounded(limit, probe_one(i, limit=handshakes)) for i in ids])
+    await alert_engine.run_certs()
 
 
 async def _every(fn, seconds: float, first_delay: float = 0) -> None:

@@ -1,0 +1,11 @@
+# External PostgreSQL: no volume.
+secretKey:
+  value: "8gg3eCd53d5BrVvT0asTJXyz_DbNKhkMymfAUFy8zYk="
+config:
+  origins: ["http://localhost:8000"]
+  rpId: localhost
+  cookieSecure: false
+database:
+  url: "postgresql://periscope:pw@db.example:5432/periscope"
+persistence:
+  enabled: false

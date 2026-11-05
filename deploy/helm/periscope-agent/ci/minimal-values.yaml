@@ -1,0 +1,6 @@
+# Smallest working agent; used by the chart tests, lint and the kind smoke test.
+enrollment:
+  bundle: psc1.dGVzdA
+bunkerweb:
+  url: http://bunkerweb-api:8888
+  password: bw-api-password

@@ -76,3 +76,50 @@ def test_check(repo):
 def test_cli(capsys):
     assert release.main(["current"]) == 0 and capsys.readouterr().out.strip() == release.current()
     assert release.main(["notes", "9.9.9"]) == 1 and "no notes" in capsys.readouterr().err
+
+
+# --- Helm charts follow the application version ------------------------------------------------
+
+def _chart_field(path, field):
+    import re
+    m = re.search(rf'^{field}: "?([^"\n]*)"?$', path.read_text(), re.MULTILINE)
+    return m.group(1) if m else None
+
+
+def test_chart_versions_match_the_application():
+    assert [p.parent.name for p in release.CHARTS] == ["periscope", "periscope-agent"]
+    for chart in release.CHARTS:
+        assert _chart_field(chart, "version") == release.current(), chart
+        assert _chart_field(chart, "appVersion") == release.current(), chart
+
+
+def test_chart_metadata():
+    for chart in release.CHARTS:
+        text = chart.read_text()
+        assert f"name: {chart.parent.name}\n" in text
+        for line in ("apiVersion: v2", "type: application", 'kubeVersion: ">=1.27.0-0"'):
+            assert line in text, (chart, line)
+        assert _chart_field(chart, "description")
+        assert (chart.parent / ".helmignore").exists()
+
+
+def test_bump_rewrites_chart_versions(repo, tmp_path):
+    init, log = repo
+    charts = []
+    for name in ("a", "b"):
+        c = tmp_path / name / "Chart.yaml"
+        c.parent.mkdir()
+        c.write_text(f'apiVersion: v2\nname: {name}\ndescription: keep me\nversion: 1.2.3\nappVersion: "1.2.3"\n')
+        charts.append(c)
+    assert release.bump("minor", init, log, charts=charts) == "1.3.0"
+    for c in charts:
+        assert c.read_text().endswith('description: keep me\nversion: 1.3.0\nappVersion: "1.3.0"\n')
+    assert release.chart_versions(charts) == [("1.3.0", "1.3.0"), ("1.3.0", "1.3.0")]
+
+
+def test_bump_without_charts_leaves_them_alone(repo, tmp_path):
+    init, log = repo
+    c = tmp_path / "Chart.yaml"
+    c.write_text('version: 1.2.3\nappVersion: "1.2.3"\n')
+    release.bump("patch", init, log)
+    assert c.read_text() == 'version: 1.2.3\nappVersion: "1.2.3"\n'

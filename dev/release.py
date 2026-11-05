@@ -15,6 +15,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 INIT = ROOT / "src" / "periscope" / "__init__.py"
 CHANGELOG = ROOT / "CHANGELOG.md"
+CHARTS = [ROOT / "deploy" / "helm" / "periscope" / "Chart.yaml",
+          ROOT / "deploy" / "helm" / "periscope-agent" / "Chart.yaml"]
+CHART_VERSION = re.compile(r"^version: .*$", re.MULTILINE)
+CHART_APP_VERSION = re.compile(r"^appVersion: .*$", re.MULTILINE)
 SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
 VERSION_LINE = re.compile(r'^__version__ = "([^"]*)"$', re.MULTILINE)
 HEADING = re.compile(r"^## \[([^\]]+)\][^\n]*$", re.MULTILINE)
@@ -64,8 +68,28 @@ def notes(version: str, changelog: Path = CHANGELOG) -> str:
     return body
 
 
-def bump(part: str, init: Path = INIT, changelog: Path = CHANGELOG) -> str:
-    """Set the new version and turn the '## [Unreleased]' section into its notes."""
+def set_chart_versions(version: str, charts=CHARTS) -> None:
+    """The Helm charts carry the application version (chart version = app version)."""
+    for chart in charts:
+        text = chart.read_text(encoding="utf-8")
+        text = CHART_VERSION.sub(f"version: {version}", text, count=1)
+        text = CHART_APP_VERSION.sub(f'appVersion: "{version}"', text, count=1)
+        chart.write_text(text, encoding="utf-8")
+
+
+def chart_versions(charts=CHARTS) -> list[tuple[str, str]]:
+    """(version, appVersion) of each chart."""
+    out = []
+    for chart in charts:
+        text = chart.read_text(encoding="utf-8")
+        v, a = CHART_VERSION.search(text), CHART_APP_VERSION.search(text)
+        out.append((v.group(0).split(": ", 1)[1].strip('"') if v else "", a.group(0).split(": ", 1)[1].strip('"') if a else ""))
+    return out
+
+
+def bump(part: str, init: Path = INIT, changelog: Path = CHANGELOG, charts=()) -> str:
+    """Set the new version and turn the '## [Unreleased]' section into its notes. `charts` (Chart.yaml
+    paths) get the same version; main() passes CHARTS, direct callers (tests) pass none."""
     old = current(init)
     new = bumped(old, part)
     text = changelog.read_text(encoding="utf-8")
@@ -75,6 +99,7 @@ def bump(part: str, init: Path = INIT, changelog: Path = CHANGELOG) -> str:
     text = re.sub(r"^## \[Unreleased\][^\n]*$", f"## [Unreleased]\n\n## [{new}]", text, count=1, flags=re.MULTILINE)
     changelog.write_text(text, encoding="utf-8")
     init.write_text(VERSION_LINE.sub(f'__version__ = "{new}"', init.read_text(encoding="utf-8")), encoding="utf-8")
+    set_chart_versions(new, charts)
     return new
 
 
@@ -108,7 +133,7 @@ def main(argv=None) -> int:
         if args.cmd == "current":
             print(current())
         elif args.cmd == "bump":
-            print(bump(args.part))
+            print(bump(args.part, charts=CHARTS))
         elif args.cmd == "notes":
             print(notes(args.version.removeprefix("v")))
         else:

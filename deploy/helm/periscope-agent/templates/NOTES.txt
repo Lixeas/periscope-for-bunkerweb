@@ -1,0 +1,8 @@
+Periscope agent {{ .Chart.AppVersion }} installed as "{{ include "periscope-agent.fullname" . }}".
+
+It enrolls itself on first start (init container "enroll"), then reports to the console about every 30 seconds.
+  kubectl --namespace {{ .Release.Namespace }} logs deploy/{{ include "periscope-agent.fullname" . }} -c enroll
+  kubectl --namespace {{ .Release.Namespace }} logs deploy/{{ include "periscope-agent.fullname" . }} -c agent
+
+If the pod stays in Init:Error, the bundle was already used or has expired: create a new one in the console and put it in the enrollment Secret and run helm upgrade with --set enrollment.force=true (it re-enrolls once per bundle, so it is safe to leave on).
+Keep the agent on the same version as the console.

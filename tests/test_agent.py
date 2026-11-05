@@ -393,6 +393,7 @@ async def test_end_to_end_mutual_tls(listener, tmp_path):
     await a.cycle()
     await a.console.aclose()
     assert probed == [("10.1.2.3", 443, "a.example")]
+    assert agent_mod.healthy(tmp_path)  # a report was accepted
     with session_scope() as s:
         inst = s.get(Instance, iid)
         assert (inst.status, inst.version, inst.agent_ip) == ("ok", "1.6.0", "127.0.0.1")
@@ -466,3 +467,60 @@ def test_agent_files_private(tmp_path):
     (d / "agent.key.tmp").chmod(0o666)
     agent_mod._write(d / "agent.key", b"secret", private=True)
     assert oct((d / "agent.key").stat().st_mode & 0o777) == "0o600" and (d / "agent.key").read_bytes() == b"secret"
+
+
+def test_health_requires_a_recent_accepted_report(tmp_path):
+    from periscope import cli
+    assert not agent_mod.healthy(tmp_path) and cli.main(["agent", "health", "--dir", str(tmp_path)]) == 1
+    agent_mod.write_health(tmp_path, 30)
+    assert agent_mod.healthy(tmp_path) and cli.main(["agent", "health", "--dir", str(tmp_path)]) == 0
+    now = __import__("time").time()
+    assert agent_mod.healthy(tmp_path, now + 3 * 30 + 29)
+    assert not agent_mod.healthy(tmp_path, now + 3 * 30 + 31)
+    (tmp_path / "health.json").write_text("garbage")
+    assert not agent_mod.healthy(tmp_path)
+
+
+
+def _expired_identity(tmp_path):
+    """Overwrite agent.key/agent.crt with a certificate signed by the console CA that expired yesterday."""
+    key = ec.generate_private_key(ec.SECP256R1())
+    now = utcnow()
+    with session_scope() as s:
+        ca, ca_key = pki.ensure_ca(s)
+    cert = (x509.CertificateBuilder()
+            .subject_name(x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME, "periscope-agent-old")]))
+            .issuer_name(ca.subject).public_key(key.public_key()).serial_number(x509.random_serial_number())
+            .not_valid_before(now - timedelta(days=100)).not_valid_after(now - timedelta(days=1))
+            .sign(ca_key, hashes.SHA256()))
+    (tmp_path / "agent.key").write_bytes(key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+    (tmp_path / "agent.crt").write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+
+
+async def test_enrolling_again_works_over_an_expired_identity(listener, tmp_path):
+    """The recovery path of an agent that stayed down past its certificate: a new bundle must be accepted
+    even though the old (expired) certificate is still on the volume."""
+    url = listener
+    iid, token = agent_instance()
+    with session_scope() as s:
+        fp = pki.ca_fingerprint(s)
+    await enroll(make_bundle(url, token, fp), tmp_path)
+    _expired_identity(tmp_path)
+    with session_scope() as s:
+        token2 = new_enroll_token(s.get(Instance, iid))
+    assert await enroll(make_bundle(url, token2, fp), tmp_path) == "remote"
+    assert agent_mod.cert_not_after(tmp_path) > utcnow()  # replaced by a fresh certificate
+
+
+async def test_a_refused_enrollment_leaves_the_existing_identity_untouched(listener, tmp_path):
+    url = listener
+    _iid, token = agent_instance()
+    with session_scope() as s:
+        fp = pki.ca_fingerprint(s)
+    await enroll(make_bundle(url, token, fp), tmp_path)
+    before = {n: (tmp_path / n).read_bytes() for n in ("ca.crt", "agent.crt", "agent.key", "console.json")}
+    with pytest.raises(AgentError, match="enrollment refused"):
+        await enroll(make_bundle(url, token, fp), tmp_path)  # the token is single-use
+    assert {n: (tmp_path / n).read_bytes() for n in before} == before
+    assert not (tmp_path / "ca.crt.new").exists()

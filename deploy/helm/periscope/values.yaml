@@ -1,0 +1,104 @@
+# Periscope console. One replica only (the collector, the agent listener, rate limits and lockouts are
+# in-process state), so there is no replica count. See docs/kubernetes.md.
+
+image:
+  repository: ghcr.io/lixeas/periscope-for-bunkerweb
+  tag: ""            # default: the chart's appVersion
+  digest: ""         # sha256:... ; wins over the tag
+  pullPolicy: IfNotPresent
+imagePullSecrets: []  # e.g. [{name: ghcr}] when the GHCR package is private
+
+nameOverride: ""
+fullnameOverride: ""
+
+# PERISCOPE_SECRET_KEY (Fernet key): encrypts the BunkerWeb credentials stored in the database.
+# Provide exactly one of the two. The chart never generates it: a lost or regenerated key makes every
+# stored credential unreadable. Generate one with:  openssl rand -base64 32 | tr '+/' '-_'
+secretKey:
+  existingSecret: ""            # recommended: a Secret you manage (External Secrets, Sealed Secrets, ...)
+  existingSecretKey: secret-key
+  value: ""                     # stored in a Secret created by the chart (kept on uninstall)
+
+config:
+  origins: []          # browser origins, e.g. ["https://periscope.example.com"]; derived from ingress.hosts when empty
+  rpId: ""             # WebAuthn domain; derived from the first ingress host when empty
+  cookieSecure: true   # false only for plain-HTTP trials
+  pollInterval: 30
+  probeInterval: 900
+  trustedProxies: "*"  # FORWARDED_ALLOW_IPS: who may set X-Forwarded-For. "*" because the ingress controller's
+                       # address is unknown here; prefer its CIDR (other pods could otherwise forge client IPs)
+  extra: {}            # any other PERISCOPE_* setting, e.g. {PERISCOPE_HTTP_TIMEOUT: "7"}
+extraEnv: []           # raw container env entries
+extraEnvFrom: []       # raw container envFrom entries
+
+# Empty url and existingSecret = SQLite on the volume below.
+database:
+  url: ""                         # e.g. postgresql://user:password@host:5432/periscope (stored in a Secret)
+  existingSecret: ""              # or a Secret holding the URL
+  existingSecretKey: database-url
+
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClass: ""
+  accessModes: [ReadWriteOnce]
+  existingClaim: ""
+
+service:
+  type: ClusterIP
+  port: 8000
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []            # [{host: periscope.example.com, paths: [{path: /, pathType: Prefix}]}]
+  tls: []              # [{secretName: periscope-tls, hosts: [periscope.example.com]}]
+
+# Mutual-TLS listener for Periscope agents in remote networks. Never put it behind an Ingress that
+# terminates TLS: expose it with a Service (LoadBalancer, NodePort) or a TCP / TLS-passthrough route.
+agentListener:
+  enabled: false
+  publicUrl: ""        # https://host:port the agents use; the host goes in the listener's certificate
+  service:
+    type: ClusterIP
+    port: 8443
+    annotations: {}
+    loadBalancerSourceRanges: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    memory: 512Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}
+podLabels: {}
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+terminationGracePeriodSeconds: 30

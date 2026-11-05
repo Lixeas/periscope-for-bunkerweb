@@ -1,0 +1,10 @@
+apiVersion: v2
+name: periscope
+description: Periscope for BunkerWeb console - read-only multi-instance supervision of BunkerWeb
+type: application
+kubeVersion: ">=1.27.0-0"
+version: 0.2.1
+appVersion: "0.2.1"
+home: https://github.com/Lixeas/periscope-for-bunkerweb
+sources:
+  - https://github.com/Lixeas/periscope-for-bunkerweb

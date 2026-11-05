@@ -9,7 +9,32 @@ the new version.
 
 ## [Unreleased]
 
+### Added
+- Kubernetes support: Helm charts `periscope` (console) and `periscope-agent` in `deploy/helm`. Non-root,
+  read-only filesystem, probes, one enforced console replica, secrets by reference, optional Ingress,
+  separate Service for the mutual-TLS agent listener, SQLite volume or external PostgreSQL, and an agent
+  that enrolls itself from a bundle Secret. CI lints and schema-checks them and runs the console on a
+  kind cluster; at release they are published to `oci://ghcr.io/<owner>/charts`. See `docs/kubernetes.md`.
+- `GET /readyz`: readiness probe that checks the database (503 when it is unreachable); `/healthz`
+  stays a pure liveness check.
+- Outgoing alerts: notify by e-mail (SMTP) or JSON webhook (optional HMAC signature) when an instance
+  turns `degraded` / `down`, when a certificate enters the orange / red / expired zone or its TLS probe
+  fails, and when BunkerWeb changes version. One message per confirmed change (2 cycles), "back to
+  normal" messages, 24 h reminders, grouped messages, per-alert tag and event filters and language
+  (English by default). Configured by admins on the new **Alerts** page (SMTP server, alerts, test
+  buttons, send log); secrets are encrypted and never displayed again. See `docs/alerts.md`.
+- Per-instance alert silence (1 h / 4 h / 24 h) on the instance's edit page.
+- PostgreSQL support in the image: `psycopg` is installed (optional extra `postgres` outside Docker),
+  `postgresql://` URLs are accepted as is, dead connections are detected (`pool_pre_ping`). CI runs
+  the migrations and an ORM round trip against PostgreSQL 16.
+- `periscope agent health`: exit code telling whether the console accepted a recent report; used as
+  the healthcheck of `docker-compose.agent.yml` (and usable as a Kubernetes liveness probe).
+- `GET /healthz` on the console: unauthenticated, returns `ok` and no data (liveness / readiness
+  probes). The image's healthcheck now uses it instead of `/login`.
+
 ### Changed
+- Documented the enrollment rate limit behind a TCP proxy or load balancer (`docs/agent.md`): the quota
+  is per IP, so agents behind one proxy share it.
 - `docker-compose.yml` runs the released image `ghcr.io/lixeas/periscope-for-bunkerweb` (pinned with
   `PERISCOPE_VERSION` in `.env`) by default; building from source is still available with
   `docker-compose.build.yml`. The README's getting started and upgrade steps cover both.

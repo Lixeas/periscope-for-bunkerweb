@@ -19,11 +19,58 @@ jobs:
       - run: ruff check src tests dev
       - run: python -m pytest -q
 
+  # Migrations and ORM against a real PostgreSQL (tests/test_postgres.py is skipped without the variable).
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: periscope
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PERISCOPE_TEST_POSTGRES_URL: postgresql://postgres:periscope@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,postgres]"
+      - run: python -m pytest -q tests/test_postgres.py -rs
+
+  # Helm charts (deploy/helm): rendered with several values sets, schema-checked with kubeconform,
+  # lint --strict, packaged. The pinned tools come from dev/k8s-tools.sh (checksum-verified downloads).
+  charts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: dev/k8s-tools.sh
+      - run: echo "$PWD/.tools/bin" >> "$GITHUB_PATH"
+      - run: python -m pytest -q tests/test_helm_console.py tests/test_helm_agent.py tests/test_helm_charts.py tests/test_release.py
+
+  # Real cluster: the charts are installed on kind, upgraded, and probed (dev/k8s-smoke.sh).
+  kind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: dev/k8s-tools.sh
+      - run: echo "$PWD/.tools/bin" >> "$GITHUB_PATH"
+      - run: docker build -t periscope:ci .
+      - run: dev/k8s-smoke.sh periscope:ci
+
   docker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - run: docker build -t periscope:ci .
+      - name: PostgreSQL driver is in the image
+        run: docker run --rm periscope:ci python -c "import psycopg"
       - name: Start the container and wait for it to answer
         run: |
           docker run -d --name periscope \
@@ -66,7 +113,7 @@ jobs:
   # CHANGELOG.md) and the container image ghcr.io/<owner>/<repo>:X.Y.Z.
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, docker]
+    needs: [test, postgres, charts, kind, docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -92,6 +139,12 @@ jobs:
           else
             echo "new=true" >> "$GITHUB_OUTPUT"
           fi
+      - name: Charts package cleanly (before anything is tagged)
+        if: steps.v.outputs.new == 'true'
+        run: |
+          dev/k8s-tools.sh
+          export PATH="$PWD/.tools/bin:$PATH"
+          for chart in periscope periscope-agent; do helm package "deploy/helm/${chart}" -d "${RUNNER_TEMP}/charts-check"; done
       - name: Tag and GitHub release
         if: steps.v.outputs.new == 'true'
         env:
@@ -118,3 +171,29 @@ jobs:
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             -t "${image}:${VERSION}" -t "${image}:${minor}" -t "${image}:latest" .
           docker push --all-tags "${image}"
+      # Not tied to "new": a re-run after a failed push publishes the missing charts. Only for the commit the
+      # version tag points at, and never a version that is already in the registry.
+      - name: Helm charts (OCI)
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+          REPO: ${{ github.repository }}
+          TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          if ! git ls-remote --tags origin "refs/tags/v${VERSION}" "refs/tags/v${VERSION}^{}" | cut -f1 | grep -qx "$GITHUB_SHA"; then
+            echo "v${VERSION} was not released from this commit: charts not published"
+            exit 0
+          fi
+          dev/k8s-tools.sh
+          export PATH="$PWD/.tools/bin:$PATH"
+          owner="${REPO%%/*}"
+          echo "$TOKEN" | helm registry login ghcr.io -u "$ACTOR" --password-stdin
+          for chart in periscope periscope-agent; do
+            ref="oci://ghcr.io/${owner,,}/charts/${chart}"
+            if helm pull "$ref" --version "$VERSION" -d "${RUNNER_TEMP}/pulled" >/dev/null 2>&1; then
+              echo "${chart} ${VERSION} is already published"
+              continue
+            fi
+            helm package "deploy/helm/${chart}" -d "${RUNNER_TEMP}/charts"
+            helm push "${RUNNER_TEMP}/charts/${chart}-${VERSION}.tgz" "oci://ghcr.io/${owner,,}/charts"
+          done

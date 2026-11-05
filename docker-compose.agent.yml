@@ -25,8 +25,12 @@ services:
     secrets: [bw_api_password]
     volumes:
       - agent-data:/data   # private key + certificates: keep it
-    healthcheck:
-      disable: true        # the image's healthcheck targets the web UI, absent here
+    healthcheck:           # healthy = the console accepted a report recently
+      test: ["CMD", "periscope", "agent", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
     read_only: true
     tmpfs:
       - /tmp

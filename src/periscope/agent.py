@@ -97,15 +97,31 @@ def _write(path: Path, data: bytes, private: bool = False) -> None:
 
 def _files(d: Path) -> dict[str, Path]:
     return {k: d / n for k, n in (("key", "agent.key"), ("cert", "agent.crt"), ("ca", "ca.crt"),
-                                  ("console", "console.json"))}
+                                  ("console", "console.json"), ("health", "health.json"))}
 
 
-def client_context(d: Path) -> ssl.SSLContext:
-    """TLS context to the console: only the pinned agent CA is trusted, our certificate is presented."""
+def write_health(d: Path, poll: int) -> None:
+    """Called after each report the console accepted: `periscope agent health` reads it."""
+    _write(_files(d)["health"], json.dumps({"t": time.time(), "poll": poll}).encode())
+
+
+def healthy(d: Path, now: float | None = None) -> bool:
+    """True if the console accepted a report within 3 poll intervals (+ 30 s)."""
+    try:
+        h = json.loads(_files(d)["health"].read_text())
+        return (now or time.time()) - float(h["t"]) <= 3 * int(h["poll"]) + 30
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def client_context(d: Path, identity: bool = True, ca: Path | None = None) -> ssl.SSLContext:
+    """TLS context to the console: only the pinned agent CA is trusted, our certificate is presented.
+    Enrollment passes identity=False (the token authenticates it, and an old or expired certificate left on
+    the volume must not break the handshake) and the CA it is still verifying (`ca`)."""
     f = _files(d)
-    ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=str(f["ca"]))
+    ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH, cafile=str(ca or f["ca"]))
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    if f["cert"].exists():
+    if identity and f["cert"].exists():
         ctx.load_cert_chain(str(f["cert"]), str(f["key"]))
     return ctx
 
@@ -136,17 +152,25 @@ async def enroll(bundle: str, d: Path, transport=None) -> str:
     from cryptography.hazmat.primitives.serialization import Encoding
     if not hmac.compare_digest(pki.fingerprint(ca.public_bytes(Encoding.DER)), fp):
         raise AgentError("CA fingerprint mismatch: wrong console URL or interception, enrollment aborted")
-    _write(f["ca"], r.content)
-    # 2. the private key is generated here and never leaves this machine
-    key, csr = pki.new_key_and_csr()
-    async with httpx.AsyncClient(base_url=url, verify=client_context(d), timeout=10, transport=transport) as c:
-        try:
-            r = await c.post("/v1/enroll", json={"token": token, "csr": csr.decode()})
-        except httpx.HTTPError as e:
-            raise AgentError(f"enrollment failed: {type(e).__name__}") from e
-    if r.status_code != 200:
-        raise AgentError(f"enrollment refused (HTTP {r.status_code}): {_error_of(r)}")
-    body = r.json()
+    # the verified CA waits next to the real one: an identity already on the volume (re-enrollment) stays
+    # intact until the console has accepted the new one
+    pending_ca = d / "ca.crt.new"
+    _write(pending_ca, r.content)
+    try:
+        # 2. the private key is generated here and never leaves this machine
+        key, csr = pki.new_key_and_csr()
+        async with httpx.AsyncClient(base_url=url, verify=client_context(d, identity=False, ca=pending_ca),
+                                     timeout=10, transport=transport) as c:
+            try:
+                r = await c.post("/v1/enroll", json={"token": token, "csr": csr.decode()})
+            except httpx.HTTPError as e:
+                raise AgentError(f"enrollment failed: {type(e).__name__}") from e
+        if r.status_code != 200:
+            raise AgentError(f"enrollment refused (HTTP {r.status_code}): {_error_of(r)}")
+        body = r.json()
+        os.replace(pending_ca, f["ca"])
+    finally:
+        pending_ca.unlink(missing_ok=True)
     _write(f["key"], key, private=True)
     _write(f["cert"], body["certificate"].encode())
     _write(f["console"], json.dumps({"url": url, "instance": body.get("instance", "")}).encode())
@@ -230,6 +254,7 @@ class Agent:
         body = r.json()
         self.poll = max(5, int(body.get("poll_interval") or self.poll))
         self.probe_every = max(60, int(body.get("probe_interval") or self.probe_every))
+        write_health(self.dir, self.poll)
         return body
 
     async def renew(self) -> None:

@@ -2,7 +2,7 @@
 import re
 
 from periscope.i18n import N_, LocalizedError
-from periscope.models import Instance, Tag, instance_tags
+from periscope.models import Instance, Tag, alert_channel_tags, instance_tags
 
 TAG_RE = re.compile(r"[\w][\w .-]{0,31}")
 MAX_TAGS = 10
@@ -25,8 +25,8 @@ def parse(raw: str) -> list[str]:
     return out
 
 
-def assign(db, inst: Instance, names: list[str]) -> None:
-    """Set the instance's tags, reusing existing tags whatever their case; then drop unused tags."""
+def resolve(db, names: list[str]) -> list[Tag]:
+    """Tags for these names, reusing existing ones whatever their case and creating the missing ones."""
     existing = {t.name.casefold(): t for t in db.query(Tag)}
     chosen = []
     for n in names:
@@ -35,14 +35,20 @@ def assign(db, inst: Instance, names: list[str]) -> None:
             tag = existing[n.casefold()] = Tag(name=n)
             db.add(tag)
         chosen.append(tag)
-    inst.tags = chosen
+    return chosen
+
+
+def assign(db, inst: Instance, names: list[str]) -> None:
+    """Set the instance's tags, reusing existing tags whatever their case; then drop unused tags."""
+    inst.tags = resolve(db, names)
     db.flush()
     prune(db)
 
 
 def prune(db) -> None:
-    used = db.query(instance_tags.c.tag_id)
-    db.query(Tag).filter(~Tag.id.in_(used)).delete(synchronize_session=False)
+    """Drop tags that no instance and no alert channel uses."""
+    db.query(Tag).filter(~Tag.id.in_(db.query(instance_tags.c.tag_id)),
+                         ~Tag.id.in_(db.query(alert_channel_tags.c.tag_id))).delete(synchronize_session=False)
 
 
 def names(db) -> list[str]:

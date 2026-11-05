@@ -1,0 +1,13 @@
+# Agent listener exposed by a LoadBalancer Service.
+secretKey:
+  value: "8gg3eCd53d5BrVvT0asTJXyz_DbNKhkMymfAUFy8zYk="
+config:
+  origins: ["http://localhost:8000"]
+  rpId: localhost
+  cookieSecure: false
+agentListener:
+  enabled: true
+  publicUrl: https://agents.example.com:8443
+  service:
+    type: LoadBalancer
+    loadBalancerSourceRanges: ["203.0.113.0/24"]

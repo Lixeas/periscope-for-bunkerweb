@@ -35,6 +35,7 @@
     {% if user.role == 'admin' %}
     <span class="menu-sep" aria-hidden="true"></span>
     <a href="/admin/instances{{ tq }}"{% if path.startswith('/admin/instances') %} aria-current="page"{% endif %}>{{ ico('instances') }}<span>{{ _("Instances") }}</span></a>
+    <a href="/admin/alerts"{% if path.startswith('/admin/alerts') %} aria-current="page"{% endif %}>{{ ico('bell') }}<span>{{ _("Alerts") }}</span></a>
     {% endif %}
   </nav>
   <div class="side-foot">

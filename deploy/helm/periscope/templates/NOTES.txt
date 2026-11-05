@@ -1,0 +1,11 @@
+Periscope console {{ .Chart.AppVersion }} installed as "{{ include "periscope.fullname" . }}".
+
+Try it without any Ingress:
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "periscope.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+  then open http://localhost:{{ .Values.service.port }}
+
+The first administrator is created inside the pod:
+  kubectl --namespace {{ .Release.Namespace }} exec -it deploy/{{ include "periscope.fullname" . }} -- periscope bootstrap-admin --username admin
+
+Back up the encryption key (secret "{{ default (include "periscope.fullname" .) .Values.secretKey.existingSecret }}") and the database: without the key, the stored BunkerWeb credentials cannot be decrypted.
+Only one replica of the console can run; this is intentional (see docs/kubernetes.md).
